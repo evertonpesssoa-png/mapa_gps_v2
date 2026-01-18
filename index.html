@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Mapa com GPS e POIs</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+html, body { height: 100%; margin: 0; }
+#map { height: 100%; width: 100%; }
+
+.gps-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: #1e1e2f;
+  color: white;
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  font-weight: bold;
+}
+
+.search-box {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+}
+
+.search-box input {
+  padding: 6px;
+  width: 200px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<div class="search-box">
+  <input id="address" placeholder="Digite um endereço">
+  <button onclick="searchAddress()">🔍</button>
+</div>
+
+<button class="gps-btn" onclick="centerOnUser()">📍 Centralizar</button>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/map.js"></script>
+
+</body>
+</html>

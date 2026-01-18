@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Unidade Mista De Saúde",
+    "lat": -7.369247,
+    "lon": -35.238544,
+    "category": "hospital"
+  },
+  {
+    "name": "Delegacia De Policia Civil",
+    "lat": -7.369748,
+    "lon": -35.238492,
+    "category": "police"
+  },
+  {
+    "name": "Destacamento De Policia Militar",
+    "lat": -7.371781,
+    "lon": -35.240715,
+    "category": "policeman"
+  },
+  {
+    "name": "Farmácia Veloso",
+    "lat": -7.374116,
+    "lon": -35.237992,
+    "category": "pharmacy"
+  },
+  {
+    "name": "Posto Petrobrás",
+    "lat": -7.379626,
+    "lon": -35.23356,
+    "category": "gas"
+  },
+  {
+    "name": "Mercadinho Marinho",
+    "lat": -7.370714,
+    "lon": -35.238752,
+    "category": "supermarket"
+  },
+  {
+    "name": "Minha casa",
+    "lat": -7.368987,
+    "lon": -35.237316,
+    "category": "home"
+  },
+  {
+    "name": "Mecânico",
+    "lat": -7.372704,
+    "lon": -35.238166,
+    "category": "mechanic"
+  },
+  {
+    "name": "Posto De Saúde",
+    "lat": -7.369428,
+    "lon": -35.23805,
+    "category": "medical"
+  }
+]
