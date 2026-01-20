@@ -1,6 +1,5 @@
-<script>
 function loadManualPOIs() {
-  fetch("data/manual_pois.json")
+  fetch("../data/manual_pois.json")
     .then(res => res.json())
     .then(pois => {
       pois.forEach(p => {
@@ -15,11 +14,11 @@ function loadManualPOIs() {
 
 function loadAutoPOIs(lat, lon, radius) {
   const query = `
-    [out:json][timeout:25];
-    (
-      node(around:${radius},${lat},${lon})[amenity];
-    );
-    out;
+  [out:json][timeout:25];
+  (
+    node(around:${radius},${lat},${lon})[amenity];
+  );
+  out;
   `;
 
   fetch("https://overpass-api.de/api/interpreter", {
@@ -37,4 +36,3 @@ function loadAutoPOIs(lat, lon, radius) {
     });
   });
 }
-</script>
