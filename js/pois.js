@@ -1,5 +1,5 @@
-function loadManualPOIs() {
-  fetch("../data/manual_pois.json")
+function loadManualPOIs(poiLayer) {
+  fetch("./data/manual_pois.json")
     .then(res => res.json())
     .then(pois => {
       pois.forEach(p => {
@@ -9,10 +9,13 @@ function loadManualPOIs() {
         .addTo(poiLayer)
         .bindPopup(p.name);
       });
+    })
+    .catch(err => {
+      console.warn("POIs manuais indisponíveis", err);
     });
 }
 
-function loadAutoPOIs(lat, lon, radius) {
+function loadAutoPOIs(lat, lon, radius, poiLayer) {
   const query = `
   [out:json][timeout:25];
   (
@@ -34,5 +37,8 @@ function loadAutoPOIs(lat, lon, radius) {
           .bindPopup(p.tags.name || p.tags.amenity);
       }
     });
+  })
+  .catch(() => {
+    console.warn("POIs automáticos indisponíveis (offline)");
   });
 }
