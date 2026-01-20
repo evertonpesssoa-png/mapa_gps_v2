@@ -23,34 +23,19 @@ html, body { height: 100%; margin: 0; }
   border: none;
   font-weight: bold;
 }
-
-.search-box {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
-}
-
-.search-box input {
-  padding: 6px;
-  width: 200px;
-}
 </style>
 </head>
 
 <body>
 
 <div id="map"></div>
-
-<div class="search-box">
-  <input id="address" placeholder="Digite um endereço">
-  <button onclick="searchAddress()">🔍</button>
-</div>
-
 <button class="gps-btn" onclick="centerOnUser()">📍 Centralizar</button>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="js/map.js"></script>
+
+<script src="js/icons.js"></script>
+<script src="js/pois.js"></script>
+<script src="js/mapa.js"></script>
 
 </body>
 </html>
