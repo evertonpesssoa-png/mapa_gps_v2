@@ -32,8 +32,8 @@ function startGPS() {
     }
 
     if (!poisLoaded) {
-      loadAutoPOIs(latitude, longitude, 1200);
-      loadManualPOIs();
+      //loadAutoPOIs(latitude, longitude, 1200);
+      //loadManualPOIs();
       poisLoaded = true;
     }
   });
