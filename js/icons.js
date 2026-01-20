@@ -1,18 +1,15 @@
-<script>
 function getIcon(category) {
   const icons = {
-    hospital: "assets/icons/hospital.png",
-    pharmacy: "assets/icons/pharmacy.png",
-
-    police: "assets/icons/police-station.png",
-    policeman: "assets/icons/policeman.png",
-
-    supermarket: "assets/icons/supermarket.png",
-    gas: "assets/icons/gas-pump.png",
-    mechanic: "assets/icons/mechanic.png",
-    home: "assets/icons/house.png",
-    medical: "assets/icons/medical-records.png",
-    warning: "assets/icons/warning.png"
+    hospital: "../assets/icons/hospital.png",
+    pharmacy: "../assets/icons/pharmacy.png",
+    police: "../assets/icons/police-station.png",
+    policeman: "../assets/icons/policeman.png",
+    supermarket: "../assets/icons/supermarket.png",
+    gas: "../assets/icons/gas-pump.png",
+    mechanic: "../assets/icons/mechanic.png",
+    home: "../assets/icons/house.png",
+    medical: "../assets/icons/medical-records.png",
+    warning: "../assets/icons/warning.png"
   };
 
   return L.icon({
@@ -22,4 +19,3 @@ function getIcon(category) {
     popupAnchor: [0, -28]
   });
 }
-</script>
