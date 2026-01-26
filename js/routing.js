@@ -1,11 +1,11 @@
 let routeLayer = null;
 
-function getOSRMProfile(mode) {
-  // 🔧 CORREÇÃO CRÍTICA: profiles reais do OSRM
-  if (mode === "foot") return "walking";
-  if (mode === "bike") return "cycling";
-  return "driving";
-}
+// Velocidades médias (km/h)
+const SPEEDS = {
+  foot: 5,
+  bike: 35, // moto
+  car: 50
+};
 
 function formatDistance(m) {
   return m < 1000
@@ -13,18 +13,22 @@ function formatDistance(m) {
     : `${(m / 1000).toFixed(2)} km`;
 }
 
-function formatTime(sec) {
-  const min = Math.round(sec / 60);
-  return min < 60
-    ? `${min} min`
-    : `${Math.floor(min / 60)}h ${min % 60}min`;
+function formatTimeFromDistance(distanceMeters, mode) {
+  const speed = SPEEDS[mode] || SPEEDS.car; // km/h
+  const distanceKm = distanceMeters / 1000;
+
+  const hours = distanceKm / speed;
+  const minutes = Math.round(hours * 60);
+
+  return minutes < 60
+    ? `${minutes} min`
+    : `${Math.floor(minutes / 60)}h ${minutes % 60}min`;
 }
 
 function traceRoute(from, to, mode) {
-  const profile = getOSRMProfile(mode);
-
+  // 🔴 OSRM público só funciona bem com driving
   const url =
-    `https://router.project-osrm.org/route/v1/${profile}/` +
+    `https://router.project-osrm.org/route/v1/driving/` +
     `${from.lng},${from.lat};${to.lng},${to.lat}` +
     `?overview=full&geometries=geojson`;
 
@@ -56,7 +60,8 @@ function traceRoute(from, to, mode) {
 
       if (info) {
         info.innerText =
-          `📏 ${formatDistance(route.distance)} | ⏱️ ${formatTime(route.duration)}`;
+          `📏 ${formatDistance(route.distance)} | ` +
+          `⏱️ ${formatTimeFromDistance(route.distance, mode)}`;
       }
     })
     .catch(() => {
@@ -80,6 +85,6 @@ function routeToPlace(lat, lon) {
   );
 }
 
-// 🌐 Exporta (inalterado)
+// 🌐 Exporta
 window.traceRoute = traceRoute;
 window.routeToPlace = routeToPlace;
