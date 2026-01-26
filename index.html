@@ -1,87 +1,207 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Mapa com GPS e POIs</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Mapa com GPS e POIs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
 
-<style>
-html, body { height: 100%; margin: 0; }
-#map { height: 100%; width: 100%; }
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
 
-/* Botão GPS (inalterado) */
-.gps-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
-  background: #1e1e2f;
-  color: white;
-  padding: 10px;
-  border-radius: 6px;
-  border: none;
-  font-weight: bold;
-}
+    #map {
+      height: 100%;
+      width: 100%;
+    }
 
-/* Caixa de busca – simples e neutra */
-#search-box {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
-  background: white;
-  padding: 6px;
-  border-radius: 6px;
-  display: flex;
-  gap: 4px;
-}
+    /* 📍 Botão GPS */
+    .gps-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: #1e1e2f;
+      color: white;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
 
-#search-box input {
-  border: 1px solid #ccc;
-  padding: 6px;
-  outline: none;
-}
+    /* 🔍 Caixa de busca */
+    #search-box {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 6px;
+      border-radius: 6px;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
 
-#search-box button {
-  border: none;
-  background: #eee;
-  cursor: pointer;
-}
-</style>
+    #poi-search-input {
+      border: 1px solid #ccc;
+      padding: 6px;
+      outline: none;
+      min-width: 160px;
+    }
+
+    #mode {
+      padding: 6px;
+    }
+
+    /* 📋 Resultados autocomplete */
+    #search-results {
+      position: absolute;
+      top: 52px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      border-radius: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+      min-width: 260px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.2);
+      display: none;
+    }
+
+    .result-item {
+      padding: 6px 10px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+    }
+
+    .result-item:hover {
+      background: #f0f0f0;
+    }
+
+    /* ℹ️ Info da rota */
+    #route-info {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 8px;
+      border-radius: 6px;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    }
+  </style>
 </head>
 
 <body>
 
-<!-- FASE 1: caixa de busca -->
-<div id="search-box">
-  <input
-    type="text"
-    id="poi-search-input"
-    placeholder="Procurar lugar no mapa"
-    autocomplete="off"
-  />
-  <button id="poi-search-btn">🔍</button>
-</div>
+  <!-- 🔍 Busca + modo -->
+  <div id="search-box">
+    <input
+      type="text"
+      id="poi-search-input"
+      placeholder="Procurar lugar no mapa"
+      autocomplete="off"
+    />
 
-<!-- Mapa (inalterado) -->
-<div id="map"></div>
+    <select id="mode">
+      <option value="foot">🚶 A pé</option>
+      <option value="car">🚗 Carro</option>
+      <option value="bike">🏍️ Moto</option>
+    </select>
+  </div>
 
-<!-- Botão GPS (inalterado) -->
-<button class="gps-btn" onclick="centerOnUser()">📍 Centralizar</button>
+  <!-- 📋 Resultados -->
+  <div id="search-results"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- 🗺️ Mapa -->
+  <div id="map"></div>
 
-<script src="js/icons.js"></script>
-<script src="js/pois.js"></script>
-<script src="js/mapa.js"></script>
+  <!-- 📍 Botão GPS -->
+  <button class="gps-btn" onclick="centerOnUser()">📍 Centralizar</button>
 
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js');
-}
-</script>
+  <!-- ℹ️ Info da rota -->
+  <div id="route-info"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- App JS -->
+  <script src="js/icons.js"></script>
+  <script src="js/pois.js"></script>
+  <script src="js/mapa.js"></script>
+  <script src="js/routing.js"></script>
+
+  <!-- 🔗 Autocomplete -->
+  <script>
+    const input = document.getElementById("poi-search-input");
+    const resultsBox = document.getElementById("search-results");
+
+    input.addEventListener("input", () => {
+      const text = input.value.trim();
+      resultsBox.innerHTML = "";
+
+      if (text.length < 2) {
+        resultsBox.style.display = "none";
+        return;
+      }
+
+      const result = findPlacesByName(text);
+
+      if (!result || !result.results?.length) {
+        resultsBox.style.display = "none";
+        return;
+      }
+
+      result.results.forEach(place => {
+        const item = document.createElement("div");
+        item.className = "result-item";
+        item.innerText = place.name;
+
+        item.addEventListener("click", () => {
+          resultsBox.style.display = "none";
+          input.value = place.name;
+
+          if (window.map) {
+            window.map.setView([place.lat, place.lon], 17);
+            place.marker?.openPopup();
+          }
+        });
+
+        resultsBox.appendChild(item);
+      });
+
+      resultsBox.style.display = "block";
+    });
+
+    // Fecha lista ao clicar fora
+    document.addEventListener("click", e => {
+      if (
+        !e.target.closest("#search-box") &&
+        !e.target.closest("#search-results")
+      ) {
+        resultsBox.style.display = "none";
+      }
+    });
+  </script>
+
+  <!-- 🔌 Service Worker -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js")
+        .then(() => console.log("Service Worker registrado"))
+        .catch(err => console.error("SW erro:", err));
+    }
+  </script>
 
 </body>
 </html>
