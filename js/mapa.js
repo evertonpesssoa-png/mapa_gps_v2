@@ -1,26 +1,39 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-  const map = L.map('map').setView([-23.55, -46.63], 14);
+  // 🌍 MAPA GLOBAL
+  const map = L.map("map").setView([-23.55, -46.63], 14);
+  window.map = map;
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap"
   }).addTo(map);
 
+  // 📍 ESTADO GLOBAL
   let userMarker = null;
   let userCircle = null;
+  let firstFix = true;
+  let gpsWatchId = null;
+
+  window.userMarker = null;
+
+  // 🧱 POIs
   const poiLayer = L.layerGroup().addTo(map);
   let poisLoaded = false;
 
-  // --------------------
-  // GPS
-  // --------------------
+  // 🔎 Índice GLOBAL ÚNICO
+  window.poiIndex = [];
+
+  // 📡 GPS
   function startGPS() {
-    if (!navigator.geolocation) {
-      showMessage("Seu navegador não suporta localização por GPS.");
+    if (!("geolocation" in navigator)) {
+      alert("GPS não suportado neste navegador");
       return;
     }
 
-    navigator.geolocation.watchPosition(
+    if (gpsWatchId) return;
+
+    gpsWatchId = navigator.geolocation.watchPosition(
       pos => {
         const { latitude, longitude, accuracy } = pos.coords;
 
@@ -28,14 +41,19 @@ document.addEventListener("DOMContentLoaded", () => {
           userMarker = L.marker([latitude, longitude]).addTo(map);
           userCircle = L.circle([latitude, longitude], {
             radius: accuracy,
-            color: '#0096ff',
             fillOpacity: 0.3
           }).addTo(map);
 
-          map.setView([latitude, longitude], 16);
+          window.userMarker = userMarker;
+
+          if (firstFix) {
+            map.setView([latitude, longitude], 16);
+            firstFix = false;
+          }
         } else {
           userMarker.setLatLng([latitude, longitude]);
           userCircle.setLatLng([latitude, longitude]);
+          userCircle.setRadius(accuracy);
         }
 
         if (!poisLoaded) {
@@ -49,73 +67,40 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       },
       err => {
-        showMessage("Não foi possível acessar sua localização.");
-        console.error(err);
+        console.error("Erro GPS:", err.message);
+        alert("Não foi possível obter sua localização.");
       },
-      { enableHighAccuracy: true }
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000
+      }
     );
   }
 
-  // --------------------
-  // Centralizar usuário
-  // --------------------
+  // 🎯 Centralizar usuário
   function centerOnUser() {
-    if (userMarker) {
-      map.setView(userMarker.getLatLng(), 16);
-    } else {
-      showMessage("Ainda não consegui encontrar sua localização.");
-    }
-  }
-
-  window.centerOnUser = centerOnUser;
-
-  // --------------------
-  // Busca de lugares (Fase 1)
-  // --------------------
-  function searchPlace() {
-    const input = document.getElementById("poi-search-input");
-    if (!input) return;
-
-    const text = input.value;
-    const result = findPlaceByName(text);
-
-    if (result.error) {
-      showMessage(result.error);
+    if (!userMarker) {
+      alert("Localização ainda não disponível");
       return;
     }
-
-    const { place } = result;
-
-    map.setView([place.lat, place.lon], 17);
-
-    if (place.marker) {
-      place.marker.openPopup();
-    }
+    map.setView(userMarker.getLatLng(), 16);
   }
 
-  // Botão 🔍
-  const searchBtn = document.getElementById("poi-search-btn");
-  if (searchBtn) {
-    searchBtn.addEventListener("click", searchPlace);
+  // 🔎 Busca direta (opcional)
+  function focusPOIByName(query) {
+    const text = query.toLowerCase().trim();
+    if (!text) return [];
+
+    return window.poiIndex.filter(p =>
+      p.name.toLowerCase().includes(text)
+    );
   }
 
-  // Enter no input
-  const searchInput = document.getElementById("poi-search-input");
-  if (searchInput) {
-    searchInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") {
-        searchPlace();
-      }
-    });
-  }
+  // 🌐 Exporta globais
+  window.centerOnUser = centerOnUser;
+  window.focusPOIByName = focusPOIByName;
 
-  // --------------------
-  // Mensagens amigáveis
-  // --------------------
-  function showMessage(text) {
-    alert(text);
-  }
-
-  // --------------------
+  // ▶️ Inicializa
   startGPS();
 });
