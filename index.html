@@ -22,7 +22,77 @@
       width: 100%;
     }
 
-    /* 📍 Botão GPS */
+    /* ==========================
+       UI SUPERIOR (SEARCH)
+    ========================== */
+
+    #search-box {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: white;
+      padding: 8px 10px;
+      border-radius: 12px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,.25);
+    }
+
+    #poi-search-input {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+      outline: none;
+      min-width: 180px;
+      border-radius: 6px;
+    }
+
+    #mode {
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* ==========================
+       AUTOCOMPLETE
+    ========================== */
+
+    #search-results {
+      position: absolute;
+      top: 118px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: white;
+      border-radius: 12px;
+      max-height: 260px;
+      overflow-y: auto;
+      min-width: 300px;
+      box-shadow: 0 4px 10px rgba(0,0,0,.25);
+      display: none;
+    }
+
+    .result-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+
+    .result-item:last-child {
+      border-bottom: none;
+    }
+
+    .result-item:hover {
+      background: #f2f2f2;
+    }
+
+    /* ==========================
+       BOTÃO GPS
+    ========================== */
+
     .gps-btn {
       position: absolute;
       top: 10px;
@@ -30,74 +100,38 @@
       z-index: 1000;
       background: #1e1e2f;
       color: white;
-      padding: 10px;
-      border-radius: 6px;
+      padding: 10px 12px;
+      border-radius: 10px;
       border: none;
       font-weight: bold;
       cursor: pointer;
+      box-shadow: 0 3px 8px rgba(0,0,0,.3);
     }
 
-    /* 🔍 Caixa de busca */
-    #search-box {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-      background: white;
-      padding: 6px;
-      border-radius: 6px;
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
+    /* ==========================
+       INFO DE ROTA
+    ========================== */
 
-    #poi-search-input {
-      border: 1px solid #ccc;
-      padding: 6px;
-      outline: none;
-      min-width: 160px;
-    }
-
-    #mode {
-      padding: 6px;
-    }
-
-    /* 📋 Resultados autocomplete */
-    #search-results {
-      position: absolute;
-      top: 52px;
-      left: 10px;
-      z-index: 1000;
-      background: white;
-      border-radius: 6px;
-      max-height: 220px;
-      overflow-y: auto;
-      min-width: 260px;
-      box-shadow: 0 2px 6px rgba(0,0,0,.2);
-      display: none;
-    }
-
-    .result-item {
-      padding: 6px 10px;
-      cursor: pointer;
-      border-bottom: 1px solid #eee;
-    }
-
-    .result-item:hover {
-      background: #f0f0f0;
-    }
-
-    /* ℹ️ Info da rota */
     #route-info {
       position: absolute;
-      bottom: 10px;
-      left: 10px;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 1000;
       background: white;
-      padding: 8px;
-      border-radius: 6px;
+      padding: 10px 14px;
+      border-radius: 14px;
       font-weight: bold;
-      box-shadow: 0 2px 6px rgba(0,0,0,.2);
+      box-shadow: 0 4px 10px rgba(0,0,0,.25);
+      font-size: 14px;
+    }
+
+    /* ==========================
+       AJUSTE LEAFLET
+    ========================== */
+
+    .leaflet-control-zoom {
+      margin-top: 60px;
     }
   </style>
 </head>
@@ -183,7 +217,6 @@
       resultsBox.style.display = "block";
     });
 
-    // Fecha lista ao clicar fora
     document.addEventListener("click", e => {
       if (
         !e.target.closest("#search-box") &&
@@ -197,9 +230,10 @@
   <!-- 🔌 Service Worker -->
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js")
+      navigator.serviceWorker
+        .register("./sw.js")
         .then(() => console.log("Service Worker registrado"))
-        .catch(err => console.error("SW erro:", err));
+        .catch(err => console.error("Erro no SW:", err));
     }
   </script>
 
