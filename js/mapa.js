@@ -1,106 +1,125 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-  // 🌍 MAPA GLOBAL
-  const map = L.map("map").setView([-23.55, -46.63], 14);
-  window.map = map;
+// 🌍 MAPA GLOBAL
+const map = L.map("map", {
+zoomControl: false   // ❌ Remove botões + -
+}).setView([-23.55, -46.63], 14);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap"
-  }).addTo(map);
+window.map = map;
 
-  // 📍 ESTADO GLOBAL
-  let userMarker = null;
-  let userCircle = null;
-  let firstFix = true;
-  let gpsWatchId = null;
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+maxZoom: 19,
+attribution: "© OpenStreetMap"
+}).addTo(map);
 
-  window.userMarker = null;
+// 📍 ESTADO GLOBAL
+let userMarker = null;
+let userCircle = null;
+let firstFix = true;
+let gpsWatchId = null;
 
-  // 🧱 POIs
-  const poiLayer = L.layerGroup().addTo(map);
-  let poisLoaded = false;
+window.userMarker = null;
 
-  // 🔎 Índice GLOBAL ÚNICO
-  window.poiIndex = [];
+// 🧱 POIs
+const poiLayer = L.layerGroup().addTo(map);
+let poisLoaded = false;
 
-  // 📡 GPS
-  function startGPS() {
-    if (!("geolocation" in navigator)) {
-      alert("GPS não suportado neste navegador");
-      return;
-    }
+// 🔎 Índice GLOBAL ÚNICO
+window.poiIndex = [];
 
-    if (gpsWatchId) return;
+// 📡 GPS
+function startGPS() {
+if (!("geolocation" in navigator)) {
+alert("GPS não suportado neste navegador");
+return;
+}
 
-    gpsWatchId = navigator.geolocation.watchPosition(
-      pos => {
-        const { latitude, longitude, accuracy } = pos.coords;
+```
+if (gpsWatchId) return;
 
-        if (!userMarker) {
-          userMarker = L.marker([latitude, longitude]).addTo(map);
-          userCircle = L.circle([latitude, longitude], {
-            radius: accuracy,
-            fillOpacity: 0.3
-          }).addTo(map);
+gpsWatchId = navigator.geolocation.watchPosition(
+  pos => {
+    const { latitude, longitude, accuracy } = pos.coords;
 
-          window.userMarker = userMarker;
-
-          if (firstFix) {
-            map.setView([latitude, longitude], 16);
-            firstFix = false;
-          }
-        } else {
-          userMarker.setLatLng([latitude, longitude]);
-          userCircle.setLatLng([latitude, longitude]);
-          userCircle.setRadius(accuracy);
-        }
-
-        if (!poisLoaded) {
-          loadManualPOIs(poiLayer);
-
-          if (navigator.onLine) {
-            loadAutoPOIs(latitude, longitude, 1200, poiLayer);
-          }
-
-          poisLoaded = true;
-        }
-      },
-      err => {
-        console.error("Erro GPS:", err.message);
-        alert("Não foi possível obter sua localização.");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 5000
-      }
-    );
-  }
-
-  // 🎯 Centralizar usuário
-  function centerOnUser() {
     if (!userMarker) {
-      alert("Localização ainda não disponível");
-      return;
+      userMarker = L.marker([latitude, longitude]).addTo(map);
+
+      userCircle = L.circle([latitude, longitude], {
+        radius: accuracy,
+        fillOpacity: 0.25,
+        weight: 0
+      }).addTo(map);
+
+      window.userMarker = userMarker;
+
+      if (firstFix) {
+        map.setView([latitude, longitude], 16);
+        firstFix = false;
+      }
+    } else {
+      userMarker.setLatLng([latitude, longitude]);
+      userCircle.setLatLng([latitude, longitude]);
+      userCircle.setRadius(accuracy);
     }
-    map.setView(userMarker.getLatLng(), 16);
+
+    // 📍 Carrega POIs apenas uma vez
+    if (!poisLoaded) {
+      loadManualPOIs(poiLayer);
+
+      if (navigator.onLine) {
+        loadAutoPOIs(latitude, longitude, 1200, poiLayer);
+      }
+
+      poisLoaded = true;
+    }
+  },
+  err => {
+    console.error("Erro GPS:", err.message);
+    alert("Não foi possível obter sua localização.");
+  },
+  {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 5000
   }
+);
+```
 
-  // 🔎 Busca direta (opcional)
-  function focusPOIByName(query) {
-    const text = query.toLowerCase().trim();
-    if (!text) return [];
+}
 
-    return window.poiIndex.filter(p =>
-      p.name.toLowerCase().includes(text)
-    );
-  }
+// 🎯 Centralizar usuário (usado pelo botão novo)
+function centerOnUser() {
+if (!userMarker) {
+alert("Localização ainda não disponível");
+return;
+}
 
-  // 🌐 Exporta globais
-  window.centerOnUser = centerOnUser;
-  window.focusPOIByName = focusPOIByName;
+```
+map.setView(userMarker.getLatLng(), 16, {
+  animate: true,
+  duration: 0.5
+});
+```
 
-  // ▶️ Inicializa
-  startGPS();
+}
+
+// 🔎 Busca direta (opcional)
+function focusPOIByName(query) {
+const text = query.toLowerCase().trim();
+if (!text) return [];
+
+```
+return window.poiIndex.filter(p =>
+  p.name.toLowerCase().includes(text)
+);
+```
+
+}
+
+// 🌐 Exporta globais
+window.centerOnUser = centerOnUser;
+window.focusPOIByName = focusPOIByName;
+
+// ▶️ Inicializa GPS automaticamente
+startGPS();
 });
