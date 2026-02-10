@@ -17,6 +17,7 @@
     html, body {
       height: 100%;
       margin: 0;
+      font-family: Arial, sans-serif;
     }
 
     #map {
@@ -25,9 +26,8 @@
     }
 
     /* ==========================
-       UI SUPERIOR (SEARCH)
+       SEARCH SUPERIOR
     ========================== */
-
     #search-box {
       position: absolute;
       top: 12px;
@@ -51,16 +51,9 @@
       border-radius: 6px;
     }
 
-    #mode {
-      padding: 6px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
     /* ==========================
-       AUTOCOMPLETE
+       RESULTADOS
     ========================== */
-
     #search-results {
       position: absolute;
       top: 70px;
@@ -83,18 +76,13 @@
       font-size: 14px;
     }
 
-    .result-item:last-child {
-      border-bottom: none;
-    }
-
     .result-item:hover {
       background: #f2f2f2;
     }
 
     /* ==========================
-       CONTROLES DIREITA (estilo Google)
+       CONTROLES DIREITA
     ========================== */
-
     .map-controls {
       position: absolute;
       right: 12px;
@@ -112,37 +100,83 @@
       border: none;
       background: white;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
       font-size: 18px;
       cursor: pointer;
     }
 
-    /* ponto azul pulsando */
-    .pulse {
-      width: 10px;
-      height: 10px;
-      background: #1a73e8;
-      border-radius: 50%;
-      animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      70% { transform: scale(2); opacity: 0; }
-      100% { opacity: 0; }
-    }
-
-    /* botão ativo (modo rotas) */
     .control-btn.active {
       background: #e8f0fe;
     }
 
     /* ==========================
-       INFO DE ROTA
+       PAINEL DE ROTAS (NOVO)
     ========================== */
+    #route-panel {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1100;
+      background: white;
+      padding: 12px;
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.3);
+      width: 90%;
+      max-width: 360px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
 
+    #route-panel input {
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+
+    .transport-modes {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 6px;
+    }
+
+    .mode-btn {
+      border: none;
+      background: #f2f2f2;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .mode-btn.active {
+      background: #e8f0fe;
+    }
+
+    .route-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+
+    .route-actions button {
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .btn-close {
+      background: #eee;
+    }
+
+    .btn-go {
+      background: #1a73e8;
+      color: white;
+    }
+
+    /* INFO */
     #route-info {
       position: absolute;
       bottom: 14px;
@@ -162,7 +196,7 @@
 
 <body>
 
-  <!-- 🔍 Busca + modo -->
+  <!-- Busca -->
 
   <div id="search-box">
     <input
@@ -171,52 +205,49 @@
       placeholder="Procurar lugar no mapa"
       autocomplete="off"
     />
-
-```
-<select id="mode">
-  <option value="foot">🚶 A pé</option>
-  <option value="car">🚗 Carro</option>
-  <option value="bike">🏍️ Moto</option>
-</select>
-```
-
   </div>
-
-  <!-- 📋 Resultados -->
 
   <div id="search-results"></div>
 
-  <!-- 🗺️ Mapa -->
+  <!-- Painel de Rotas -->
 
-  <div id="map"></div>
-
-  <!-- 🎮 Controles do mapa -->
-
-  <div class="map-controls">
+  <div id="route-panel">
+    <input id="route-origin" placeholder="Origem (Minha localização)" />
+    <input id="route-destination" placeholder="Destino" />
 
 ```
-<!-- Localização -->
-<button id="locateBtn" class="control-btn" onclick="centerOnUser()">
-  <div class="pulse"></div>
-</button>
+<div class="transport-modes">
+  <button class="mode-btn active" data-mode="foot">🚶</button>
+  <button class="mode-btn" data-mode="car">🚗</button>
+  <button class="mode-btn" data-mode="bike">🏍️</button>
+</div>
 
-<!-- Rotas -->
-<button id="routeToggleBtn" class="control-btn">
-  ➜
-</button>
+<div class="route-actions">
+  <button class="btn-close" id="closeRoutePanel">Fechar</button>
+  <button class="btn-go" id="createRouteBtn">Traçar rota</button>
+</div>
 ```
 
   </div>
 
-  <!-- ℹ️ Info da rota -->
+  <!-- Mapa -->
+
+  <div id="map"></div>
+
+  <!-- Controles -->
+
+  <div class="map-controls">
+    <button id="locateBtn" class="control-btn" onclick="centerOnUser()">📍</button>
+    <button id="routeToggleBtn" class="control-btn">➜</button>
+  </div>
 
   <div id="route-info"></div>
 
-  <!-- Leaflet JS -->
+  <!-- Leaflet -->
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- App JS -->
+  <!-- Seus scripts -->
 
   <script src="js/icons.js"></script>
 
@@ -226,90 +257,49 @@
 
   <script src="js/routing.js"></script>
 
-  <!-- 🔗 Autocomplete -->
-
-  <script>
-    const input = document.getElementById("poi-search-input");
-    const resultsBox = document.getElementById("search-results");
-
-    input.addEventListener("input", () => {
-      const text = input.value.trim();
-      resultsBox.innerHTML = "";
-
-      if (text.length < 2) {
-        resultsBox.style.display = "none";
-        return;
-      }
-
-      const result = findPlacesByName(text);
-
-      if (!result || !result.results?.length) {
-        resultsBox.style.display = "none";
-        return;
-      }
-
-      result.results.forEach(place => {
-        const item = document.createElement("div");
-        item.className = "result-item";
-        item.innerText = place.name;
-
-        item.addEventListener("click", () => {
-          resultsBox.style.display = "none";
-          input.value = place.name;
-
-          if (window.map) {
-            window.map.setView([place.lat, place.lon], 17);
-            place.marker?.openPopup();
-          }
-        });
-
-        resultsBox.appendChild(item);
-      });
-
-      resultsBox.style.display = "block";
-    });
-
-    document.addEventListener("click", e => {
-      if (
-        !e.target.closest("#search-box") &&
-        !e.target.closest("#search-results")
-      ) {
-        resultsBox.style.display = "none";
-      }
-    });
-  </script>
-
-  <!-- 🎯 Toggle do botão Rotas -->
+  <!-- ==========================
+       LÓGICA DO PAINEL DE ROTAS
+  ========================== -->
 
   <script>
     const routeBtn = document.getElementById("routeToggleBtn");
-    let routeMode = false;
+    const routePanel = document.getElementById("route-panel");
+    const closePanelBtn = document.getElementById("closeRoutePanel");
+    const createRouteBtn = document.getElementById("createRouteBtn");
+    const modeButtons = document.querySelectorAll(".mode-btn");
 
+    let selectedMode = "foot";
+
+    // abrir painel
     routeBtn.addEventListener("click", () => {
-      routeMode = !routeMode;
+      routePanel.style.display = "flex";
+      routeBtn.classList.add("active");
+    });
 
-      if (routeMode) {
-        routeBtn.classList.add("active");
-      } else {
-        routeBtn.classList.remove("active");
+    // fechar painel
+    closePanelBtn.addEventListener("click", () => {
+      routePanel.style.display = "none";
+      routeBtn.classList.remove("active");
+    });
 
-        // se existir função de limpar rota no seu routing.js
-        if (window.clearRoute) {
-          window.clearRoute();
-        }
+    // selecionar modo
+    modeButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        modeButtons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedMode = btn.dataset.mode;
+      });
+    });
+
+    // criar rota (chama routing.js)
+    createRouteBtn.addEventListener("click", () => {
+      const origin = document.getElementById("route-origin").value;
+      const destination = document.getElementById("route-destination").value;
+
+      if (window.createRoute) {
+        window.createRoute(origin, destination, selectedMode);
       }
     });
-  </script>
-
-  <!-- 🔌 Service Worker -->
-
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("./sw.js")
-        .then(() => console.log("Service Worker registrado"))
-        .catch(err => console.error("Erro no SW:", err));
-    }
   </script>
 
 </body>
