@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -6,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
+
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -28,7 +30,7 @@
 
     #search-box {
       position: absolute;
-      top: 60px;
+      top: 12px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
@@ -61,7 +63,7 @@
 
     #search-results {
       position: absolute;
-      top: 118px;
+      top: 70px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
@@ -90,22 +92,51 @@
     }
 
     /* ==========================
-       BOTÃO GPS
+       CONTROLES DIREITA (estilo Google)
     ========================== */
 
-    .gps-btn {
+    .map-controls {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      right: 12px;
+      bottom: 20px;
       z-index: 1000;
-      background: #1e1e2f;
-      color: white;
-      padding: 10px 12px;
-      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .control-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
       border: none;
-      font-weight: bold;
+      background: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
       cursor: pointer;
-      box-shadow: 0 3px 8px rgba(0,0,0,.3);
+    }
+
+    /* ponto azul pulsando */
+    .pulse {
+      width: 10px;
+      height: 10px;
+      background: #1a73e8;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      70% { transform: scale(2); opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    /* botão ativo (modo rotas) */
+    .control-btn.active {
+      background: #e8f0fe;
     }
 
     /* ==========================
@@ -125,20 +156,14 @@
       box-shadow: 0 4px 10px rgba(0,0,0,.25);
       font-size: 14px;
     }
-
-    /* ==========================
-       AJUSTE LEAFLET
-    ========================== */
-
-    .leaflet-control-zoom {
-      margin-top: 60px;
-    }
   </style>
+
 </head>
 
 <body>
 
   <!-- 🔍 Busca + modo -->
+
   <div id="search-box">
     <input
       type="text"
@@ -147,35 +172,62 @@
       autocomplete="off"
     />
 
-    <select id="mode">
-      <option value="foot">🚶 A pé</option>
-      <option value="car">🚗 Carro</option>
-      <option value="bike">🏍️ Moto</option>
-    </select>
+```
+<select id="mode">
+  <option value="foot">🚶 A pé</option>
+  <option value="car">🚗 Carro</option>
+  <option value="bike">🏍️ Moto</option>
+</select>
+```
+
   </div>
 
   <!-- 📋 Resultados -->
+
   <div id="search-results"></div>
 
   <!-- 🗺️ Mapa -->
+
   <div id="map"></div>
 
-  <!-- 📍 Botão GPS -->
-  <button class="gps-btn" onclick="centerOnUser()">📍 Centralizar</button>
+  <!-- 🎮 Controles do mapa -->
+
+  <div class="map-controls">
+
+```
+<!-- Localização -->
+<button id="locateBtn" class="control-btn" onclick="centerOnUser()">
+  <div class="pulse"></div>
+</button>
+
+<!-- Rotas -->
+<button id="routeToggleBtn" class="control-btn">
+  ➜
+</button>
+```
+
+  </div>
 
   <!-- ℹ️ Info da rota -->
+
   <div id="route-info"></div>
 
   <!-- Leaflet JS -->
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- App JS -->
+
   <script src="js/icons.js"></script>
+
   <script src="js/pois.js"></script>
+
   <script src="js/mapa.js"></script>
+
   <script src="js/routing.js"></script>
 
   <!-- 🔗 Autocomplete -->
+
   <script>
     const input = document.getElementById("poi-search-input");
     const resultsBox = document.getElementById("search-results");
@@ -227,7 +279,30 @@
     });
   </script>
 
+  <!-- 🎯 Toggle do botão Rotas -->
+
+  <script>
+    const routeBtn = document.getElementById("routeToggleBtn");
+    let routeMode = false;
+
+    routeBtn.addEventListener("click", () => {
+      routeMode = !routeMode;
+
+      if (routeMode) {
+        routeBtn.classList.add("active");
+      } else {
+        routeBtn.classList.remove("active");
+
+        // se existir função de limpar rota no seu routing.js
+        if (window.clearRoute) {
+          window.clearRoute();
+        }
+      }
+    });
+  </script>
+
   <!-- 🔌 Service Worker -->
+
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
