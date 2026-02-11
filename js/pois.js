@@ -1,117 +1,38 @@
-/**
- * Popup HTML com botão de rota
- */
-function buildPopupHTML(place) {
-  return `
-    <div style="min-width:180px">
-      <strong>${place.name}</strong><br><br>
-      <button
-        style="width:100%; padding:6px; cursor:pointer"
-        onclick="routeToPlace(${place.lat}, ${place.lon})"
-      >
-        🧭 Traçar rota até aqui
-      </button>
-    </div>
-  `;
-}
+// ==============================
+// ÍNDICE GLOBAL DE POIs
+// ==============================
+window.poiIndex = window.poiIndex || [];
 
-/**
- * Evita duplicação de POIs
- */
-function placeExists(lat, lon) {
-  return window.poiIndex.some(p => p.lat === lat && p.lon === lon);
-}
-
-/**
- * Carrega POIs manuais
- */
-function loadManualPOIs(poiLayer) {
-  fetch("./data/manual_pois.json")
-    .then(res => {
-      if (!res.ok) throw new Error("Erro ao carregar POIs manuais");
-      return res.json();
-    })
-    .then(pois => {
-      pois.forEach(p => {
-        if (placeExists(p.lat, p.lon)) return;
-
-        const place = {
-          name: p.name,
-          lat: p.lat,
-          lon: p.lon,
-          category: p.category || "generic",
-          marker: null
-        };
-
-        place.marker = L.marker([p.lat, p.lon], {
-          icon: getIcon(place.category)
-        })
-          .addTo(poiLayer)
-          .bindPopup(buildPopupHTML(place));
-
-        window.poiIndex.push(place);
-      });
-    })
-    .catch(err => {
-      console.warn("POIs manuais indisponíveis", err);
-    });
-}
-
-/**
- * Carrega POIs automáticos (Overpass)
- */
-function loadAutoPOIs(lat, lon, radius, poiLayer) {
-  const query = `
-    [out:json][timeout:25];
-    (
-      node(around:${radius},${lat},${lon})[amenity];
-    );
-    out;
-  `;
-
-  fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    body: query
-  })
-    .then(res => {
-      if (!res.ok) throw new Error("Erro Overpass");
-      return res.json();
-    })
-    .then(data => {
-      data.elements.forEach(p => {
-        if (!p.lat || !p.lon) return;
-        if (placeExists(p.lat, p.lon)) return;
-
-        const place = {
-          name: p.tags?.name || p.tags?.amenity || "Lugar sem nome",
-          lat: p.lat,
-          lon: p.lon,
-          category: p.tags?.amenity || "generic",
-          marker: null
-        };
-
-        place.marker = L.marker([p.lat, p.lon])
-          .addTo(poiLayer)
-          .bindPopup(buildPopupHTML(place));
-
-        window.poiIndex.push(place);
-      });
-    })
-    .catch(() => {
-      console.warn("POIs automáticos indisponíveis");
-    });
-}
-
-/**
- * Busca por nome (autocomplete)
- */
-function findPlacesByName(searchText) {
-  if (!window.poiIndex.length) {
-    return { results: [] };
+// ==============================
+// DADOS MANUAIS (EXEMPLO)
+// Substitua pelos seus POIs
+// ==============================
+const MANUAL_POIS = [
+  {
+    name: "Padaria Central",
+    lat: -23.551,
+    lon: -46.631,
+    category: "food"
+  },
+  {
+    name: "Farmácia Popular",
+    lat: -23.553,
+    lon: -46.628,
+    category: "health"
+  },
+  {
+    name: "Mercado Bom Preço",
+    lat: -23.549,
+    lon: -46.635,
+    category: "market"
   }
+];
 
-  const text = searchText.toLowerCase().trim();
-  if (!text) return { results: [] };
+// ==============================
+// BUSCA POR NOME (para routing)
+// ==============================
+function findPlacesByName(text) {
+  text = text.toLowerCase().trim();
 
   const results = window.poiIndex.filter(p =>
     p.name.toLowerCase().includes(text)
@@ -119,3 +40,79 @@ function findPlacesByName(searchText) {
 
   return { results };
 }
+
+window.findPlacesByName = findPlacesByName;
+
+// ==============================
+// CRIAR POPUP DO POI
+// ==============================
+function createPopupContent(poi) {
+  return `
+    <div style="min-width:150px">
+      <b>${poi.name}</b><br>
+      <button onclick="routeToPlace(${poi.lat}, ${poi.lon})">
+        Traçar rota até aqui
+      </button>
+    </div>
+  `;
+}
+
+// ==============================
+// AÇÃO AO CLICAR NO MARCADOR
+// ==============================
+function handlePOIClick(poi) {
+  const panel = document.getElementById("route-panel");
+  const destInput = document.getElementById("route-destination");
+  const toggleBtn = document.getElementById("routeToggleBtn");
+
+  if (destInput) destInput.value = poi.name;
+
+  if (panel) panel.style.display = "flex";
+
+  if (toggleBtn) toggleBtn.classList.add("active");
+}
+
+// ==============================
+// CARREGAR POIs MANUAIS
+// ==============================
+function loadManualPOIs(layer) {
+  if (!layer) return;
+
+  MANUAL_POIS.forEach(poi => {
+
+    // Adiciona ao índice global
+    window.poiIndex.push({
+      name: poi.name,
+      lat: poi.lat,
+      lon: poi.lon,
+      category: poi.category
+    });
+
+    // Cria marcador
+    const marker = L.marker([poi.lat, poi.lon]);
+
+    // Popup com botão de rota direta
+    marker.bindPopup(createPopupContent(poi));
+
+    // Clique no marcador abre painel de rota
+    marker.on("click", () => handlePOIClick(poi));
+
+    marker.addTo(layer);
+  });
+
+  console.log("POIs carregados:", window.poiIndex.length);
+}
+
+window.loadManualPOIs = loadManualPOIs;
+
+// ==============================
+// (Opcional) POIs automáticos
+// Se você já tiver, pode manter o seu.
+// Aqui deixo um placeholder seguro.
+// ==============================
+function loadAutoPOIs(lat, lon, radius, layer) {
+  // Placeholder — não faz nada por enquanto
+  // Evita erro caso mapa.js chame a função
+}
+
+window.loadAutoPOIs = loadAutoPOIs;
