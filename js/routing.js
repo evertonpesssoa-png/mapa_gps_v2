@@ -4,10 +4,9 @@ let routeLayer = null;
 // CONFIG
 // ==========================
 
-// Velocidades médias (km/h)
 const SPEEDS = {
   foot: 5,
-  bike: 35, // moto
+  bike: 35,
   car: 50
 };
 
@@ -49,12 +48,18 @@ function clearRoute() {
 window.clearRoute = clearRoute;
 
 // ==========================
-// OSRM ROUTE
+// OSRM ROUTE (CORRIGIDO)
 // ==========================
 
 function traceRoute(from, to, mode) {
+
+  // Perfis corretos do OSRM
+  let profile = "driving";
+  if (mode === "foot") profile = "walking";
+  if (mode === "bike") profile = "cycling";
+
   const url =
-    `https://router.project-osrm.org/route/v1/driving/` +
+    `https://router.project-osrm.org/route/v1/${profile}/` +
     `${from.lng},${from.lat};${to.lng},${to.lat}` +
     `?overview=full&geometries=geojson`;
 
@@ -104,7 +109,7 @@ function resolveTextToCoords(text) {
 
   text = text.trim().toLowerCase();
 
-  // 1) Coordenadas digitadas
+  // Coordenadas digitadas
   if (text.includes(",")) {
     const parts = text.split(",");
     const lat = parseFloat(parts[0]);
@@ -114,12 +119,13 @@ function resolveTextToCoords(text) {
     }
   }
 
-  // 2) Buscar nos POIs existentes
-  if (window.findPlacesByName) {
-    const result = window.findPlacesByName(text);
-    if (result?.results?.length) {
-      const place = result.results[0];
-      return { lat: place.lat, lng: place.lon };
+  // Buscar nos POIs indexados
+  if (window.poiIndex && window.poiIndex.length) {
+    const found = window.poiIndex.find(p =>
+      p.name.toLowerCase() === text
+    );
+    if (found) {
+      return { lat: found.lat, lng: found.lon };
     }
   }
 
@@ -127,7 +133,7 @@ function resolveTextToCoords(text) {
 }
 
 // ==========================
-// FUNÇÃO PRINCIPAL DO PAINEL
+// FUNÇÃO PRINCIPAL
 // ==========================
 
 function createRoute(originText, destinationText, mode) {
@@ -136,7 +142,7 @@ function createRoute(originText, destinationText, mode) {
   let fromCoords = null;
   let toCoords = null;
 
-  // ORIGEM
+  // Origem
   if (!originText || originText.toLowerCase().includes("minha")) {
     if (!window.userMarker) {
       alert("Localização do usuário ainda não disponível");
@@ -148,7 +154,7 @@ function createRoute(originText, destinationText, mode) {
     fromCoords = resolveTextToCoords(originText);
   }
 
-  // DESTINO
+  // Destino
   toCoords = resolveTextToCoords(destinationText);
 
   if (!fromCoords) {
@@ -187,9 +193,9 @@ function routeToPlace(lat, lon) {
 
 window.routeToPlace = routeToPlace;
 
-// =====================================================
-// EVENTOS DO PAINEL (CORREÇÃO PRINCIPAL)
-// =====================================================
+// ==========================
+// EVENTOS DO PAINEL
+// ==========================
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -203,9 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let selectedMode = "foot";
 
-  // ==========================
-  // FECHAR PAINEL
-  // ==========================
   if (closeBtn) {
     closeBtn.addEventListener("click", () => {
       panel.style.display = "none";
@@ -214,9 +217,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ==========================
-  // SELEÇÃO DE TRANSPORTE
-  // ==========================
   modeButtons.forEach(btn => {
     btn.addEventListener("click", () => {
       modeButtons.forEach(b => b.classList.remove("active"));
@@ -225,9 +225,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ==========================
-  // CRIAR ROTA
-  // ==========================
   if (createBtn) {
     createBtn.addEventListener("click", () => {
       const origin = originInput ? originInput.value : "";
