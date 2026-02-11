@@ -16,27 +16,82 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const poiLayer = L.layerGroup().addTo(map);
   let poisLoaded = false;
+
+  // ==========================
+  // ÍNDICE DE POIs
+  // ==========================
+
   window.poiIndex = [];
+
+  function normalize(text) {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  }
+
+  // Função chamada pelo pois.js
+  window.registerPOI = function (poi) {
+    window.poiIndex.push({
+      ...poi,
+      searchName: normalize(poi.name),
+      searchCategory: normalize(poi.category || "")
+    });
+  };
+
+  // Busca usada pelo routing.js
+  function findPlacesByName(query) {
+    const text = normalize(query);
+    if (!text) return { results: [] };
+
+    const results = window.poiIndex.filter(p =>
+      p.searchName.includes(text) ||
+      p.searchCategory.includes(text)
+    );
+
+    return { results };
+  }
+
+  window.findPlacesByName = findPlacesByName;
+
+  // ==========================
+  // GPS
+  // ==========================
 
   function handlePosition(pos) {
     const { latitude, longitude, accuracy } = pos.coords;
 
     if (!userMarker) {
-      // Mantém seu ícone azul pulsante
       userMarker = L.marker([latitude, longitude]).addTo(map);
-      userCircle = L.circle([latitude, longitude], { radius: accuracy, fillOpacity: 0.25, weight: 0 }).addTo(map);
+      userCircle = L.circle([latitude, longitude], {
+        radius: accuracy,
+        fillOpacity: 0.25,
+        weight: 0
+      }).addTo(map);
+
       window.userMarker = userMarker;
 
-      if (firstFix) { map.setView([latitude, longitude], 16); firstFix = false; }
+      if (firstFix) {
+        map.setView([latitude, longitude], 16);
+        firstFix = false;
+      }
     } else {
       userMarker.setLatLng([latitude, longitude]);
       userCircle.setLatLng([latitude, longitude]);
       userCircle.setRadius(accuracy);
     }
 
+    // Carregar POIs uma vez
     if (!poisLoaded) {
-      if (typeof loadManualPOIs === "function") loadManualPOIs(poiLayer);
-      if (navigator.onLine && typeof loadAutoPOIs === "function") loadAutoPOIs(latitude, longitude, 1200, poiLayer);
+      if (typeof loadManualPOIs === "function") {
+        loadManualPOIs(poiLayer);
+      }
+
+      if (navigator.onLine && typeof loadAutoPOIs === "function") {
+        loadAutoPOIs(latitude, longitude, 1200, poiLayer);
+      }
+
       poisLoaded = true;
     }
   }
@@ -50,34 +105,67 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function startGPS() {
-    if (!("geolocation" in navigator)) { alert("GPS não suportado neste navegador"); return; }
+    if (!("geolocation" in navigator)) {
+      alert("GPS não suportado neste navegador");
+      return;
+    }
+
     if (gpsWatchId) return;
 
-    navigator.geolocation.getCurrentPosition(handlePosition, handleError, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
-    gpsWatchId = navigator.geolocation.watchPosition(handlePosition, handleError, { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 });
+    navigator.geolocation.getCurrentPosition(
+      handlePosition,
+      handleError,
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+
+    gpsWatchId = navigator.geolocation.watchPosition(
+      handlePosition,
+      handleError,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
   }
 
+  // ==========================
+  // CONTROLES
+  // ==========================
+
   function centerOnUser() {
-    if (!userMarker) { alert("Localização ainda não disponível"); return; }
-    map.setView(userMarker.getLatLng(), 16, { animate: true, duration: 0.5 });
+    if (!userMarker) {
+      alert("Localização ainda não disponível");
+      return;
+    }
+
+    map.setView(userMarker.getLatLng(), 16, {
+      animate: true,
+      duration: 0.5
+    });
   }
 
   window.centerOnUser = centerOnUser;
 
-  function focusPOIByName(query) {
-    const text = query.toLowerCase().trim();
-    if (!text) return [];
-    return window.poiIndex.filter(p => p.name.toLowerCase().includes(text));
-  }
-  window.focusPOIByName = focusPOIByName;
+  // ==========================
+  // PAINEL DE ROTA
+  // ==========================
 
   const routeBtn = document.getElementById("routeToggleBtn");
   const panel = document.getElementById("route-panel");
+
   if (routeBtn && panel) {
     routeBtn.addEventListener("click", () => {
-      const isOpen = panel.style.display === "block";
-      if (isOpen) { panel.style.display = "none"; routeBtn.classList.remove("active"); }
-      else { panel.style.display = "flex"; routeBtn.classList.add("active"); const originInput = document.getElementById("route-origin"); if (originInput && window.userMarker) originInput.value = "Minha localização"; }
+      const isOpen = panel.style.display === "block" || panel.style.display === "flex";
+
+      if (isOpen) {
+        panel.style.display = "none";
+        routeBtn.classList.remove("active");
+      } else {
+        panel.style.display = "flex";
+        routeBtn.classList.add("active");
+
+        const originInput = document.getElementById("route-origin");
+        if (originInput && window.userMarker) {
+          originInput.value = "Minha localização";
+        }
+      }
     });
   }
 
