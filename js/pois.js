@@ -1,37 +1,14 @@
-// ==============================
-// ÍNDICE GLOBAL DE POIs
-// ==============================
+// ======================================
+// GARANTE ÍNDICE GLOBAL
+// ======================================
 window.poiIndex = window.poiIndex || [];
 
-// ==============================
-// DADOS MANUAIS (EXEMPLO)
-// Substitua pelos seus POIs
-// ==============================
-const MANUAL_POIS = [
-  {
-    name: "Padaria Central",
-    lat: -23.551,
-    lon: -46.631,
-    category: "food"
-  },
-  {
-    name: "Farmácia Popular",
-    lat: -23.553,
-    lon: -46.628,
-    category: "health"
-  },
-  {
-    name: "Mercado Bom Preço",
-    lat: -23.549,
-    lon: -46.635,
-    category: "market"
-  }
-];
-
-// ==============================
-// BUSCA POR NOME (para routing)
-// ==============================
+// ======================================
+// BUSCA POR NOME (usado pelo routing.js)
+// ======================================
 function findPlacesByName(text) {
+  if (!text) return { results: [] };
+
   text = text.toLowerCase().trim();
 
   const results = window.poiIndex.filter(p =>
@@ -43,23 +20,23 @@ function findPlacesByName(text) {
 
 window.findPlacesByName = findPlacesByName;
 
-// ==============================
-// CRIAR POPUP DO POI
-// ==============================
+// ======================================
+// POPUP DO POI
+// ======================================
 function createPopupContent(poi) {
   return `
-    <div style="min-width:150px">
-      <b>${poi.name}</b><br>
+    <div style="min-width:160px">
+      <b>${poi.name}</b><br><br>
       <button onclick="routeToPlace(${poi.lat}, ${poi.lon})">
-        Traçar rota até aqui
+        ➜ Rota direta
       </button>
     </div>
   `;
 }
 
-// ==============================
+// ======================================
 // AÇÃO AO CLICAR NO MARCADOR
-// ==============================
+// ======================================
 function handlePOIClick(poi) {
   const panel = document.getElementById("route-panel");
   const destInput = document.getElementById("route-destination");
@@ -72,47 +49,65 @@ function handlePOIClick(poi) {
   if (toggleBtn) toggleBtn.classList.add("active");
 }
 
-// ==============================
+// ======================================
 // CARREGAR POIs MANUAIS
-// ==============================
+// LÊ window.manualPOIs (manual-pois.js)
+// ======================================
 function loadManualPOIs(layer) {
   if (!layer) return;
 
-  MANUAL_POIS.forEach(poi => {
+  if (!window.manualPOIs || window.manualPOIs.length === 0) {
+    console.warn("manual-pois.js não encontrado ou vazio");
+    return;
+  }
 
-    // Adiciona ao índice global
-    window.poiIndex.push({
-      name: poi.name,
-      lat: poi.lat,
-      lon: poi.lon,
-      category: poi.category
-    });
+  window.manualPOIs.forEach(poi => {
 
-    // Cria marcador
-    const marker = L.marker([poi.lat, poi.lon]);
+    // ==========================
+    // REGISTRA NO ÍNDICE GLOBAL
+    // ==========================
+    if (typeof window.registerPOI === "function") {
+      window.registerPOI(poi); // usa o índice do mapa.js
+    } else {
+      window.poiIndex.push(poi);
+    }
 
-    // Popup com botão de rota direta
+    // ==========================
+    // ÍCONE (se existir icons.js)
+    // ==========================
+    let marker;
+
+    if (typeof getIcon === "function") {
+      marker = L.marker([poi.lat, poi.lon], {
+        icon: getIcon(poi.category)
+      });
+    } else {
+      marker = L.marker([poi.lat, poi.lon]);
+    }
+
+    // ==========================
+    // POPUP
+    // ==========================
     marker.bindPopup(createPopupContent(poi));
 
-    // Clique no marcador abre painel de rota
+    // ==========================
+    // CLICK NO POI
+    // ==========================
     marker.on("click", () => handlePOIClick(poi));
 
     marker.addTo(layer);
   });
 
-  console.log("POIs carregados:", window.poiIndex.length);
+  console.log("POIs manuais carregados:", window.manualPOIs.length);
 }
 
 window.loadManualPOIs = loadManualPOIs;
 
-// ==============================
-// (Opcional) POIs automáticos
-// Se você já tiver, pode manter o seu.
-// Aqui deixo um placeholder seguro.
-// ==============================
+// ======================================
+// POIs AUTOMÁTICOS (placeholder seguro)
+// ======================================
 function loadAutoPOIs(lat, lon, radius, layer) {
-  // Placeholder — não faz nada por enquanto
-  // Evita erro caso mapa.js chame a função
+  // Mantido vazio para não quebrar o mapa.js
 }
 
 window.loadAutoPOIs = loadAutoPOIs;
