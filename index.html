@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -6,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
@@ -126,12 +128,14 @@
 <body>
 
   <!-- Busca -->
+
   <div id="search-box">
     <input type="text" id="poi-search-input" placeholder="Procurar lugar no mapa" autocomplete="off" />
   </div>
   <div id="search-results"></div>
 
   <!-- Painel de Rotas -->
+
   <div id="route-panel">
     <input id="route-origin" placeholder="Origem (Minha localização)" />
     <input id="route-destination" placeholder="Destino" />
@@ -147,9 +151,11 @@
   </div>
 
   <!-- Mapa -->
+
   <div id="map"></div>
 
   <!-- Controles -->
+
   <div class="map-controls">
     <button id="locateBtn" class="control-btn" onclick="centerOnUser()">📍</button>
     <button id="routeToggleBtn" class="control-btn">➜</button>
@@ -158,13 +164,73 @@
   <div id="route-info"></div>
 
   <!-- Leaflet -->
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Seus scripts -->
+
   <script src="js/icons.js"></script>
+
   <script src="js/pois.js"></script>
+
   <script src="js/mapa.js"></script>
+
   <script src="js/routing.js"></script>
+
+  <!-- CONTROLE DO PAINEL DE ROTAS -->
+
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+
+    const panel = document.getElementById("route-panel");
+    const closeBtn = document.getElementById("closeRoutePanel");
+    const goBtn = document.getElementById("createRouteBtn");
+    const originInput = document.getElementById("route-origin");
+    const destInput = document.getElementById("route-destination");
+
+    // ======================
+    // FECHAR PAINEL
+    // ======================
+    closeBtn.addEventListener("click", () => {
+      panel.style.display = "none";
+      const toggle = document.getElementById("routeToggleBtn");
+      if (toggle) toggle.classList.remove("active");
+      if (window.clearRoute) window.clearRoute();
+    });
+
+    // ======================
+    // MODOS DE TRANSPORTE
+    // ======================
+    let selectedMode = "foot";
+    const modeButtons = document.querySelectorAll(".mode-btn");
+
+    modeButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        modeButtons.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedMode = btn.dataset.mode;
+      });
+    });
+
+    // ======================
+    // TRAÇAR ROTA
+    // ======================
+    goBtn.addEventListener("click", () => {
+      const origin = originInput.value;
+      const destination = destInput.value;
+
+      if (!destination) {
+        alert("Digite um destino");
+        return;
+      }
+
+      if (window.createRoute) {
+        window.createRoute(origin, destination, selectedMode);
+      }
+    });
+
+  });
+  </script>
 
 </body>
 </html>
