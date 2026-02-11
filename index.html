@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -7,27 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: Arial, sans-serif;
-    }
+    html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
+    #map { height: 100%; width: 100%; }
 
-    #map {
-      height: 100%;
-      width: 100%;
-    }
-
-    /* ==========================
-       SEARCH SUPERIOR
-    ========================== */
+    /* SEARCH SUPERIOR */
     #search-box {
       position: absolute;
       top: 12px;
@@ -42,7 +27,6 @@
       align-items: center;
       box-shadow: 0 4px 10px rgba(0,0,0,.25);
     }
-
     #poi-search-input {
       border: 1px solid #ccc;
       padding: 6px 8px;
@@ -51,9 +35,7 @@
       border-radius: 6px;
     }
 
-    /* ==========================
-       RESULTADOS
-    ========================== */
+    /* RESULTADOS */
     #search-results {
       position: absolute;
       top: 70px;
@@ -68,21 +50,10 @@
       box-shadow: 0 4px 10px rgba(0,0,0,.25);
       display: none;
     }
+    .result-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 14px; }
+    .result-item:hover { background: #f2f2f2; }
 
-    .result-item {
-      padding: 10px 12px;
-      cursor: pointer;
-      border-bottom: 1px solid #eee;
-      font-size: 14px;
-    }
-
-    .result-item:hover {
-      background: #f2f2f2;
-    }
-
-    /* ==========================
-       CONTROLES DIREITA
-    ========================== */
+    /* CONTROLES DIREITA */
     .map-controls {
       position: absolute;
       right: 12px;
@@ -92,7 +63,6 @@
       flex-direction: column;
       gap: 10px;
     }
-
     .control-btn {
       width: 46px;
       height: 46px;
@@ -103,14 +73,9 @@
       font-size: 18px;
       cursor: pointer;
     }
+    .control-btn.active { background: #e8f0fe; }
 
-    .control-btn.active {
-      background: #e8f0fe;
-    }
-
-    /* ==========================
-       PAINEL DE ROTAS (NOVO)
-    ========================== */
+    /* PAINEL DE ROTAS */
     #route-panel {
       position: absolute;
       top: 80px;
@@ -127,54 +92,19 @@
       flex-direction: column;
       gap: 8px;
     }
-
     #route-panel input {
       padding: 8px;
       border-radius: 8px;
       border: 1px solid #ccc;
       outline: none;
     }
-
-    .transport-modes {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 6px;
-    }
-
-    .mode-btn {
-      border: none;
-      background: #f2f2f2;
-      padding: 8px 12px;
-      border-radius: 10px;
-      font-size: 18px;
-      cursor: pointer;
-    }
-
-    .mode-btn.active {
-      background: #e8f0fe;
-    }
-
-    .route-actions {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 6px;
-    }
-
-    .route-actions button {
-      border: none;
-      padding: 8px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    .btn-close {
-      background: #eee;
-    }
-
-    .btn-go {
-      background: #1a73e8;
-      color: white;
-    }
+    .transport-modes { display: flex; justify-content: space-around; margin-top: 6px; }
+    .mode-btn { border: none; background: #f2f2f2; padding: 8px 12px; border-radius: 10px; font-size: 18px; cursor: pointer; }
+    .mode-btn.active { background: #e8f0fe; }
+    .route-actions { display: flex; justify-content: space-between; margin-top: 6px; }
+    .route-actions button { border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+    .btn-close { background: #eee; }
+    .btn-go { background: #1a73e8; color: white; }
 
     /* INFO */
     #route-info {
@@ -193,49 +123,33 @@
   </style>
 
 </head>
-
 <body>
 
   <!-- Busca -->
-
   <div id="search-box">
-    <input
-      type="text"
-      id="poi-search-input"
-      placeholder="Procurar lugar no mapa"
-      autocomplete="off"
-    />
+    <input type="text" id="poi-search-input" placeholder="Procurar lugar no mapa" autocomplete="off" />
   </div>
-
   <div id="search-results"></div>
 
   <!-- Painel de Rotas -->
-
   <div id="route-panel">
     <input id="route-origin" placeholder="Origem (Minha localização)" />
     <input id="route-destination" placeholder="Destino" />
-
-```
-<div class="transport-modes">
-  <button class="mode-btn active" data-mode="foot">🚶</button>
-  <button class="mode-btn" data-mode="car">🚗</button>
-  <button class="mode-btn" data-mode="bike">🏍️</button>
-</div>
-
-<div class="route-actions">
-  <button class="btn-close" id="closeRoutePanel">Fechar</button>
-  <button class="btn-go" id="createRouteBtn">Traçar rota</button>
-</div>
-```
-
+    <div class="transport-modes">
+      <button class="mode-btn active" data-mode="foot">🚶</button>
+      <button class="mode-btn" data-mode="car">🚗</button>
+      <button class="mode-btn" data-mode="bike">🏍️</button>
+    </div>
+    <div class="route-actions">
+      <button class="btn-close" id="closeRoutePanel">Fechar</button>
+      <button class="btn-go" id="createRouteBtn">Traçar rota</button>
+    </div>
   </div>
 
   <!-- Mapa -->
-
   <div id="map"></div>
 
   <!-- Controles -->
-
   <div class="map-controls">
     <button id="locateBtn" class="control-btn" onclick="centerOnUser()">📍</button>
     <button id="routeToggleBtn" class="control-btn">➜</button>
@@ -244,63 +158,13 @@
   <div id="route-info"></div>
 
   <!-- Leaflet -->
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Seus scripts -->
-
   <script src="js/icons.js"></script>
-
   <script src="js/pois.js"></script>
-
   <script src="js/mapa.js"></script>
-
   <script src="js/routing.js"></script>
-
-  <!-- ==========================
-       LÓGICA DO PAINEL DE ROTAS
-  ========================== -->
-
-  <script>
-    const routeBtn = document.getElementById("routeToggleBtn");
-    const routePanel = document.getElementById("route-panel");
-    const closePanelBtn = document.getElementById("closeRoutePanel");
-    const createRouteBtn = document.getElementById("createRouteBtn");
-    const modeButtons = document.querySelectorAll(".mode-btn");
-
-    let selectedMode = "foot";
-
-    // abrir painel
-    routeBtn.addEventListener("click", () => {
-      routePanel.style.display = "flex";
-      routeBtn.classList.add("active");
-    });
-
-    // fechar painel
-    closePanelBtn.addEventListener("click", () => {
-      routePanel.style.display = "none";
-      routeBtn.classList.remove("active");
-    });
-
-    // selecionar modo
-    modeButtons.forEach(btn => {
-      btn.addEventListener("click", () => {
-        modeButtons.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedMode = btn.dataset.mode;
-      });
-    });
-
-    // criar rota (chama routing.js)
-    createRouteBtn.addEventListener("click", () => {
-      const origin = document.getElementById("route-origin").value;
-      const destination = document.getElementById("route-destination").value;
-
-      if (window.createRoute) {
-        window.createRoute(origin, destination, selectedMode);
-      }
-    });
-  </script>
 
 </body>
 </html>
