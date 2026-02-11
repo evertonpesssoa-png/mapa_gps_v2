@@ -1,4 +1,9 @@
-function getIcon(category) {
+// ==============================
+// ICONS GLOBAIS
+// ==============================
+
+window.getIcon = function (category) {
+
   const icons = {
     hospital: "assets/icons/hospital.png",
     pharmacy: "assets/icons/pharmacy.png",
@@ -10,17 +15,22 @@ function getIcon(category) {
     home: "assets/icons/house.png",
     medical: "assets/icons/medical-records.png",
 
-    // 🔹 padrão
+    // padrão
     generic: "assets/icons/marker.png",
 
-    // ⚠️ fallback final
+    // fallback final
     warning: "assets/icons/warning.png"
   };
 
+  const iconUrl =
+    icons[category] ||
+    icons.generic ||
+    icons.warning;
+
   return L.icon({
-    iconUrl: icons[category] || icons.generic || icons.warning,
+    iconUrl: iconUrl,
     iconSize: [28, 28],
     iconAnchor: [14, 28],
     popupAnchor: [0, -28]
   });
-}
+};
