@@ -14,12 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let gpsWatchId = null;
   window.userMarker = null;
 
-  // ✅ CAMADAS SEPARADAS (ESSENCIAL)
-  const poiLayer = L.layerGroup().addTo(map);
-  const routeLayer = L.layerGroup().addTo(map);
+  // ==========================
+  // CAMADAS SEPARADAS (CORRIGIDO)
+  // ==========================
 
-  window.poiLayer = poiLayer;
-  window.routeLayer = routeLayer;
+  window.poiLayer = L.layerGroup().addTo(map);
+  window.routeLayer = L.layerGroup().addTo(map);
 
   let poisLoaded = false;
 
@@ -68,6 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!userMarker) {
       userMarker = L.marker([latitude, longitude]).addTo(map);
+
       userCircle = L.circle([latitude, longitude], {
         radius: accuracy,
         fillOpacity: 0.25,
@@ -86,13 +87,18 @@ document.addEventListener("DOMContentLoaded", () => {
       userCircle.setRadius(accuracy);
     }
 
+    // ==========================
+    // CARREGAR POIs
+    // ==========================
+
     if (!poisLoaded) {
+
       if (typeof loadManualPOIs === "function") {
-        loadManualPOIs(poiLayer);
+        loadManualPOIs(window.poiLayer);
       }
 
       if (navigator.onLine && typeof loadAutoPOIs === "function") {
-        loadAutoPOIs(latitude, longitude, 1200, poiLayer);
+        loadAutoPOIs(latitude, longitude, 1200, window.poiLayer);
       }
 
       poisLoaded = true;
@@ -112,9 +118,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (gpsWatchId) return;
 
-    navigator.geolocation.getCurrentPosition(handlePosition, handleError, {
-      enableHighAccuracy: true
-    });
+    navigator.geolocation.getCurrentPosition(
+      handlePosition,
+      handleError,
+      { enableHighAccuracy: true }
+    );
 
     gpsWatchId = navigator.geolocation.watchPosition(
       handlePosition,
@@ -147,17 +155,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (routeBtn && panel) {
     routeBtn.addEventListener("click", () => {
+
       const isOpen = panel.style.display === "flex";
 
       panel.style.display = isOpen ? "none" : "flex";
       routeBtn.classList.toggle("active");
 
       const originInput = document.getElementById("route-origin");
+
       if (!isOpen && originInput && window.userMarker) {
         originInput.value = "Minha localização";
       }
     });
   }
 
+  // ==========================
+  // START
+  // ==========================
+
   startGPS();
+
 });
