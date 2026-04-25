@@ -1,261 +1,241 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<title>Mapa com GPS e POIs</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <title>Mapa com GPS e POIs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
 
-<style>
-html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
-#map { height: 100%; width: 100%; }
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
 
-/* SEARCH SUPERIOR */
-#search-box {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  background: white;
-  padding: 8px 10px;
-  border-radius: 12px;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  box-shadow: 0 4px 10px rgba(0,0,0,.25);
-}
+    #map {
+      height: 100%;
+      width: 100%;
+    }
 
-#poi-search-input {
-  border: 1px solid #ccc;
-  padding: 6px 8px;
-  outline: none;
-  min-width: 180px;
-  border-radius: 6px;
-}
+    /* ==========================
+       UI SUPERIOR (SEARCH)
+    ========================== */
 
-/* PAINEL DE ROTAS */
-#route-panel {
-  position: absolute;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1100;
-  background: white;
-  padding: 12px;
-  border-radius: 14px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.3);
-  width: 90%;
-  max-width: 360px;
-  display: none;
-  flex-direction: column;
-  gap: 8px;
-}
+    #search-box {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: white;
+      padding: 8px 10px;
+      border-radius: 12px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,.25);
+    }
 
-.route-input-group {
-  position: relative;
-}
+    #poi-search-input {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+      outline: none;
+      min-width: 180px;
+      border-radius: 6px;
+    }
 
-#route-panel input {
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  outline: none;
-}
+    #mode {
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
 
-/* AUTOCOMPLETE */
-.suggestions {
-  position: absolute;
-  top: 38px;
-  left: 0;
-  right: 0;
-  background: white;
-  border-radius: 8px;
-  max-height: 140px;
-  overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
-  z-index: 1200;
-}
+    /* ==========================
+       AUTOCOMPLETE
+    ========================== */
 
-.suggestion-item {
-  padding: 6px 8px;
-  cursor: pointer;
-}
+    #search-results {
+      position: absolute;
+      top: 118px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: white;
+      border-radius: 12px;
+      max-height: 260px;
+      overflow-y: auto;
+      min-width: 300px;
+      box-shadow: 0 4px 10px rgba(0,0,0,.25);
+      display: none;
+    }
 
-.suggestion-item:hover {
-  background: #f2f2f2;
-}
+    .result-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
 
-/* MODOS */
-.transport-modes {
-  display: flex;
-  justify-content: space-around;
-  margin-top: 6px;
-}
+    .result-item:last-child {
+      border-bottom: none;
+    }
 
-.mode-btn {
-  border: none;
-  background: #f2f2f2;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 18px;
-  cursor: pointer;
-}
+    .result-item:hover {
+      background: #f2f2f2;
+    }
 
-.mode-btn.active { background: #e8f0fe; }
+    /* ==========================
+       BOTÃO GPS
+    ========================== */
 
-.route-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
-}
+    .gps-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: #1e1e2f;
+      color: white;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(0,0,0,.3);
+    }
 
-.route-actions button {
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-}
+    /* ==========================
+       INFO DE ROTA
+    ========================== */
 
-.btn-close { background: #eee; }
-.btn-go { background: #1a73e8; color: white; }
+    #route-info {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: white;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(0,0,0,.25);
+      font-size: 14px;
+    }
 
-/* CONTROLES */
-.map-controls {
-  position: absolute;
-  right: 12px;
-  bottom: 20px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+    /* ==========================
+       AJUSTE LEAFLET
+    ========================== */
 
-.control-btn {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: none;
-  background: white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.control-btn.active { background: #e8f0fe; }
-
-/* INFO */
-#route-info {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  background: white;
-  padding: 10px 14px;
-  border-radius: 14px;
-  font-weight: bold;
-  box-shadow: 0 4px 10px rgba(0,0,0,.25);
-  font-size: 14px;
-}
-</style>
+    .leaflet-control-zoom {
+      margin-top: 60px;
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- Painel de Rotas -->
-<div id="route-panel">
+  <!-- 🔍 Busca + modo -->
+  <div id="search-box">
+    <input
+      type="text"
+      id="poi-search-input"
+      placeholder="Procurar lugar no mapa"
+      autocomplete="off"
+    />
 
-  <div class="route-input-group">
-    <input id="route-origin" placeholder="Origem (Minha localização)" />
-    <div id="origin-suggestions" class="suggestions"></div>
+    <select id="mode">
+      <option value="foot">🚶 A pé</option>
+      <option value="car">🚗 Carro</option>
+      <option value="bike">🏍️ Moto</option>
+    </select>
   </div>
 
-  <div class="route-input-group">
-    <input id="route-destination" placeholder="Destino" />
-    <div id="dest-suggestions" class="suggestions"></div>
-  </div>
+  <!-- 📋 Resultados -->
+  <div id="search-results"></div>
 
-  <div class="transport-modes">
-    <button class="mode-btn active" data-mode="foot">🚶</button>
-    <button class="mode-btn" data-mode="car">🚗</button>
-    <button class="mode-btn" data-mode="bike">🏍️</button>
-  </div>
+  <!-- 🗺️ Mapa -->
+  <div id="map"></div>
 
-  <div class="route-actions">
-    <button class="btn-close" id="closeRoutePanel">Fechar</button>
-    <button class="btn-go" id="createRouteBtn">Traçar rota</button>
-  </div>
+  <!-- 📍 Botão GPS -->
+  <button class="gps-btn" onclick="centerOnUser()">📍 Centralizar</button>
 
-</div>
+  <!-- ℹ️ Info da rota -->
+  <div id="route-info"></div>
 
-<div id="map"></div>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<div class="map-controls">
-  <button class="control-btn" onclick="centerOnUser()">📍</button>
-  <button id="routeToggleBtn" class="control-btn">➜</button>
-</div>
+  <!-- App JS -->
+  <script src="js/icons.js"></script>
+  <script src="js/pois.js"></script>
+  <script src="js/mapa.js"></script>
+  <script src="js/routing.js"></script>
 
-<div id="route-info"></div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script src="assets/icons.js"></script>
-<script src="js/pois.js"></script>
-<script src="data/manual_pois.js"></script>
-<script src="js/routing.js"></script>
-<script src="js/mapa.js"></script>
-
-
-
-<!-- AUTOCOMPLETE -->
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-
-  function setupAutocomplete(inputId, boxId) {
-    const input = document.getElementById(inputId);
-    const box = document.getElementById(boxId);
-
-    if (!input || !box) return;
+  <!-- 🔗 Autocomplete -->
+  <script>
+    const input = document.getElementById("poi-search-input");
+    const resultsBox = document.getElementById("search-results");
 
     input.addEventListener("input", () => {
-      const text = input.value.toLowerCase();
-      box.innerHTML = "";
+      const text = input.value.trim();
+      resultsBox.innerHTML = "";
 
-      if (!text || !window.poiIndex) return;
+      if (text.length < 2) {
+        resultsBox.style.display = "none";
+        return;
+      }
 
-      const results = window.poiIndex
-        .filter(p => p.name.toLowerCase().includes(text))
-        .slice(0, 5);
+      const result = findPlacesByName(text);
 
-      results.forEach(p => {
-        const div = document.createElement("div");
-        div.className = "suggestion-item";
-        div.textContent = p.name;
+      if (!result || !result.results?.length) {
+        resultsBox.style.display = "none";
+        return;
+      }
 
-        div.onclick = () => {
-          input.value = p.name;
-          box.innerHTML = "";
-        };
+      result.results.forEach(place => {
+        const item = document.createElement("div");
+        item.className = "result-item";
+        item.innerText = place.name;
 
-        box.appendChild(div);
+        item.addEventListener("click", () => {
+          resultsBox.style.display = "none";
+          input.value = place.name;
+
+          if (window.map) {
+            window.map.setView([place.lat, place.lon], 17);
+            place.marker?.openPopup();
+          }
+        });
+
+        resultsBox.appendChild(item);
       });
+
+      resultsBox.style.display = "block";
     });
 
-    // Fecha sugestões ao clicar fora
-    document.addEventListener("click", (e) => {
-      if (!box.contains(e.target) && e.target !== input) {
-        box.innerHTML = "";
+    document.addEventListener("click", e => {
+      if (
+        !e.target.closest("#search-box") &&
+        !e.target.closest("#search-results")
+      ) {
+        resultsBox.style.display = "none";
       }
     });
-  }
+  </script>
 
-  setupAutocomplete("route-origin", "origin-suggestions");
-  setupAutocomplete("route-destination", "dest-suggestions");
-
-});
-</script>
+  <!-- 🔌 Service Worker -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("./sw.js")
+        .then(() => console.log("Service Worker registrado"))
+        .catch(err => console.error("Erro no SW:", err));
+    }
+  </script>
 
 </body>
 </html>
