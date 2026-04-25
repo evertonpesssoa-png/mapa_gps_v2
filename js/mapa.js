@@ -1,6 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-  const map = L.map("map", { zoomControl: false }).setView([-23.55, -46.63], 14);
+  const map = L.map("map", { zoomControl: false })
+    .setView([-23.55, -46.63], 14);
+
   window.map = map;
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -12,14 +14,18 @@ document.addEventListener("DOMContentLoaded", () => {
   let userCircle = null;
   let firstFix = true;
   let gpsWatchId = null;
+
   window.userMarker = null;
 
   // ==========================
-  // CAMADAS SEPARADAS (CORRIGIDO)
+  // ✅ CAMADAS (CORRETO)
   // ==========================
 
-  window.poiLayer = L.layerGroup().addTo(map);
-  window.routeLayer = L.layerGroup().addTo(map);
+  const poiLayer = L.layerGroup().addTo(map);
+  const routeLayer = L.layerGroup().addTo(map);
+
+  window.poiLayer = poiLayer;
+  window.routeLayer = routeLayer;
 
   let poisLoaded = false;
 
@@ -45,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  function findPlacesByName(query) {
+  window.findPlacesByName = function (query) {
     const text = normalize(query);
     if (!text) return { results: [] };
 
@@ -55,9 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     return { results };
-  }
-
-  window.findPlacesByName = findPlacesByName;
+  };
 
   // ==========================
   // GPS
@@ -93,8 +97,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!poisLoaded) {
 
+      console.log("Carregando POIs...");
+
       if (typeof loadManualPOIs === "function") {
         loadManualPOIs(window.poiLayer);
+      } else {
+        console.error("loadManualPOIs não encontrada");
       }
 
       if (navigator.onLine && typeof loadAutoPOIs === "function") {
