@@ -14,7 +14,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let gpsWatchId = null;
   window.userMarker = null;
 
+  // ✅ CAMADAS SEPARADAS (ESSENCIAL)
   const poiLayer = L.layerGroup().addTo(map);
+  const routeLayer = L.layerGroup().addTo(map);
+
+  window.poiLayer = poiLayer;
+  window.routeLayer = routeLayer;
+
   let poisLoaded = false;
 
   // ==========================
@@ -31,7 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
       .trim();
   }
 
-  // Função chamada pelo pois.js
   window.registerPOI = function (poi) {
     window.poiIndex.push({
       ...poi,
@@ -40,7 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Busca usada pelo routing.js
   function findPlacesByName(query) {
     const text = normalize(query);
     if (!text) return { results: [] };
@@ -82,7 +86,6 @@ document.addEventListener("DOMContentLoaded", () => {
       userCircle.setRadius(accuracy);
     }
 
-    // Carregar POIs uma vez
     if (!poisLoaded) {
       if (typeof loadManualPOIs === "function") {
         loadManualPOIs(poiLayer);
@@ -98,30 +101,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleError(err) {
     console.error("Erro GPS:", err);
-    if (err.code === 1) alert("Permissão de localização negada.");
-    else if (err.code === 2) alert("Localização indisponível.");
-    else if (err.code === 3) alert("Tempo de localização esgotado.");
-    else alert("Não foi possível obter sua localização.");
+    alert("Erro ao obter localização.");
   }
 
   function startGPS() {
     if (!("geolocation" in navigator)) {
-      alert("GPS não suportado neste navegador");
+      alert("GPS não suportado");
       return;
     }
 
     if (gpsWatchId) return;
 
-    navigator.geolocation.getCurrentPosition(
-      handlePosition,
-      handleError,
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-    );
+    navigator.geolocation.getCurrentPosition(handlePosition, handleError, {
+      enableHighAccuracy: true
+    });
 
     gpsWatchId = navigator.geolocation.watchPosition(
       handlePosition,
       handleError,
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+      { enableHighAccuracy: true }
     );
   }
 
@@ -131,14 +129,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function centerOnUser() {
     if (!userMarker) {
-      alert("Localização ainda não disponível");
+      alert("Localização não disponível");
       return;
     }
 
-    map.setView(userMarker.getLatLng(), 16, {
-      animate: true,
-      duration: 0.5
-    });
+    map.setView(userMarker.getLatLng(), 16);
   }
 
   window.centerOnUser = centerOnUser;
@@ -152,19 +147,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (routeBtn && panel) {
     routeBtn.addEventListener("click", () => {
-      const isOpen = panel.style.display === "block" || panel.style.display === "flex";
+      const isOpen = panel.style.display === "flex";
 
-      if (isOpen) {
-        panel.style.display = "none";
-        routeBtn.classList.remove("active");
-      } else {
-        panel.style.display = "flex";
-        routeBtn.classList.add("active");
+      panel.style.display = isOpen ? "none" : "flex";
+      routeBtn.classList.toggle("active");
 
-        const originInput = document.getElementById("route-origin");
-        if (originInput && window.userMarker) {
-          originInput.value = "Minha localização";
-        }
+      const originInput = document.getElementById("route-origin");
+      if (!isOpen && originInput && window.userMarker) {
+        originInput.value = "Minha localização";
       }
     });
   }
