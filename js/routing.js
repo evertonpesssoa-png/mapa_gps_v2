@@ -9,10 +9,10 @@ const SPEEDS = {
 };
 
 // ==========================
-// LAYERS GLOBAIS
+// LAYER GLOBAL (SAFE)
 // ==========================
 
-window.routeLayer = L.layerGroup().addTo(window.map);
+window.routeLayer = null;
 
 // ==========================
 // UTIL
@@ -49,12 +49,29 @@ function clearRoute() {
 window.clearRoute = clearRoute;
 
 // ==========================
+// GARANTE LAYER
+// ==========================
+
+function ensureRouteLayer() {
+  if (!window.map) return null;
+
+  if (!window.routeLayer) {
+    window.routeLayer = L.layerGroup().addTo(window.map);
+  }
+
+  return window.routeLayer;
+}
+
+// ==========================
 // ROTA
 // ==========================
 
 function traceRoute(from, to, mode) {
 
-  if (!window.map) return;
+  if (!window.map) {
+    console.error("Mapa não inicializado");
+    return;
+  }
 
   let profile = "driving";
   if (mode === "foot") profile = "walking";
@@ -82,20 +99,23 @@ function traceRoute(from, to, mode) {
 
       const route = data.routes[0];
 
+      const layer = ensureRouteLayer();
+      if (!layer) return;
+
       clearRoute();
 
       const geo = L.geoJSON(route.geometry, {
         style: { weight: 5, opacity: 0.9 }
       });
 
-      geo.addTo(window.routeLayer);
+      geo.addTo(layer);
 
       window.map.fitBounds(geo.getBounds(), {
         padding: [50, 50]
       });
 
-      // manter POIs por cima
-      if (window.poiLayer) {
+      // mantém POIs na frente (se existir)
+      if (window.poiLayer && typeof window.poiLayer.bringToFront === "function") {
         window.poiLayer.bringToFront();
       }
 
@@ -133,8 +153,8 @@ function resolveTextToCoords(text) {
     }
   }
 
-  // busca no índice
-  if (window.poiIndex) {
+  // busca em POIs
+  if (window.poiIndex && window.poiIndex.length) {
     const found = window.poiIndex.find(p =>
       p.name.toLowerCase() === text
     );
@@ -152,6 +172,11 @@ function resolveTextToCoords(text) {
 // ==========================
 
 function createRoute(originText, destinationText, mode) {
+
+  if (!window.map) {
+    alert("Mapa ainda não carregado");
+    return;
+  }
 
   let fromCoords = null;
   let toCoords = null;
@@ -205,7 +230,7 @@ function routeToPlace(lat, lon) {
 window.routeToPlace = routeToPlace;
 
 // ==========================
-// BOTÃO FECHAR (CORRIGIDO)
+// BOTÃO FECHAR (ROBUSTO)
 // ==========================
 
 document.addEventListener("click", (e) => {
