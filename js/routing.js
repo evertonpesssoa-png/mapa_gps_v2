@@ -9,6 +9,12 @@ const SPEEDS = {
 };
 
 // ==========================
+// LAYERS GLOBAIS
+// ==========================
+
+window.routeLayer = L.layerGroup().addTo(window.map);
+
+// ==========================
 // UTIL
 // ==========================
 
@@ -33,7 +39,7 @@ function formatTimeFromDistance(distanceMeters, mode) {
 
 function clearRoute() {
   if (window.routeLayer) {
-    window.routeLayer.clearLayers(); // ✅ não remove o mapa inteiro
+    window.routeLayer.clearLayers();
   }
 
   const info = document.getElementById("route-info");
@@ -48,6 +54,8 @@ window.clearRoute = clearRoute;
 
 function traceRoute(from, to, mode) {
 
+  if (!window.map) return;
+
   let profile = "driving";
   if (mode === "foot") profile = "walking";
   if (mode === "bike") profile = "cycling";
@@ -61,7 +69,10 @@ function traceRoute(from, to, mode) {
   if (info) info.innerText = "🧭 Calculando rota...";
 
   fetch(url)
-    .then(res => res.json())
+    .then(res => {
+      if (!res.ok) throw new Error("Erro na API");
+      return res.json();
+    })
     .then(data => {
 
       if (!data.routes || !data.routes.length) {
@@ -75,13 +86,15 @@ function traceRoute(from, to, mode) {
 
       const geo = L.geoJSON(route.geometry, {
         style: { weight: 5, opacity: 0.9 }
-      }).addTo(window.routeLayer); // ✅ usa layer separada
+      });
+
+      geo.addTo(window.routeLayer);
 
       window.map.fitBounds(geo.getBounds(), {
         padding: [50, 50]
       });
 
-      // ✅ GARANTE POIs NA FRENTE
+      // manter POIs por cima
       if (window.poiLayer) {
         window.poiLayer.bringToFront();
       }
@@ -92,7 +105,8 @@ function traceRoute(from, to, mode) {
           `⏱️ ${formatTimeFromDistance(route.distance, mode)}`;
       }
     })
-    .catch(() => {
+    .catch(err => {
+      console.error(err);
       alert("Erro ao calcular rota");
     });
 }
@@ -108,19 +122,29 @@ function resolveTextToCoords(text) {
 
   text = text.trim().toLowerCase();
 
+  // coordenadas diretas
   if (text.includes(",")) {
     const parts = text.split(",");
-    return {
-      lat: parseFloat(parts[0]),
-      lng: parseFloat(parts[1])
-    };
+    const lat = parseFloat(parts[0]);
+    const lng = parseFloat(parts[1]);
+
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return { lat, lng };
+    }
   }
 
-  const found = window.poiIndex.find(p =>
-    p.name.toLowerCase() === text
-  );
+  // busca no índice
+  if (window.poiIndex) {
+    const found = window.poiIndex.find(p =>
+      p.name.toLowerCase() === text
+    );
 
-  return found ? { lat: found.lat, lng: found.lon } : null;
+    if (found) {
+      return { lat: found.lat, lng: found.lon };
+    }
+  }
+
+  return null;
 }
 
 // ==========================
@@ -132,13 +156,20 @@ function createRoute(originText, destinationText, mode) {
   let fromCoords = null;
   let toCoords = null;
 
-  if (!originText || originText.includes("minha")) {
+  // origem
+  if (!originText || originText.toLowerCase().includes("minha")) {
+    if (!window.userMarker) {
+      alert("Localização ainda não disponível");
+      return;
+    }
+
     const pos = window.userMarker.getLatLng();
     fromCoords = { lat: pos.lat, lng: pos.lng };
   } else {
     fromCoords = resolveTextToCoords(originText);
   }
 
+  // destino
   toCoords = resolveTextToCoords(destinationText);
 
   if (!fromCoords || !toCoords) {
@@ -156,6 +187,12 @@ window.createRoute = createRoute;
 // ==========================
 
 function routeToPlace(lat, lon) {
+
+  if (!window.userMarker) {
+    alert("Localização ainda não disponível");
+    return;
+  }
+
   const pos = window.userMarker.getLatLng();
 
   traceRoute(
@@ -166,3 +203,22 @@ function routeToPlace(lat, lon) {
 }
 
 window.routeToPlace = routeToPlace;
+
+// ==========================
+// BOTÃO FECHAR (CORRIGIDO)
+// ==========================
+
+document.addEventListener("click", (e) => {
+
+  if (e.target && e.target.id === "closeRoutePanel") {
+
+    const panel = document.getElementById("route-panel");
+    const toggleBtn = document.getElementById("routeToggleBtn");
+
+    if (panel) panel.style.display = "none";
+    if (toggleBtn) toggleBtn.classList.remove("active");
+
+    clearRoute();
+  }
+
+});
