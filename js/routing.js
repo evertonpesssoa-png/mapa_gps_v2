@@ -9,12 +9,6 @@ const SPEEDS = {
 };
 
 // ==========================
-// LAYER GLOBAL (SAFE)
-// ==========================
-
-window.routeLayer = null;
-
-// ==========================
 // UTIL
 // ==========================
 
@@ -53,9 +47,13 @@ window.clearRoute = clearRoute;
 // ==========================
 
 function ensureRouteLayer() {
-  if (!window.map) return null;
+  if (!window.map) {
+    console.error("Mapa não existe ainda");
+    return null;
+  }
 
   if (!window.routeLayer) {
+    console.warn("Criando routeLayer automaticamente");
     window.routeLayer = L.layerGroup().addTo(window.map);
   }
 
@@ -68,10 +66,7 @@ function ensureRouteLayer() {
 
 function traceRoute(from, to, mode) {
 
-  if (!window.map) {
-    console.error("Mapa não inicializado");
-    return;
-  }
+  console.log("TRACE ROUTE:", from, to, mode);
 
   let profile = "driving";
   if (mode === "foot") profile = "walking";
@@ -87,10 +82,12 @@ function traceRoute(from, to, mode) {
 
   fetch(url)
     .then(res => {
-      if (!res.ok) throw new Error("Erro na API");
+      if (!res.ok) throw new Error("Erro na API OSRM");
       return res.json();
     })
     .then(data => {
+
+      console.log("Resposta OSRM:", data);
 
       if (!data.routes || !data.routes.length) {
         alert("Rota não encontrada");
@@ -114,8 +111,8 @@ function traceRoute(from, to, mode) {
         padding: [50, 50]
       });
 
-      // mantém POIs na frente (se existir)
-      if (window.poiLayer && typeof window.poiLayer.bringToFront === "function") {
+      // Mantém POIs por cima
+      if (window.poiLayer && window.poiLayer.bringToFront) {
         window.poiLayer.bringToFront();
       }
 
@@ -126,7 +123,7 @@ function traceRoute(from, to, mode) {
       }
     })
     .catch(err => {
-      console.error(err);
+      console.error("Erro rota:", err);
       alert("Erro ao calcular rota");
     });
 }
@@ -153,7 +150,7 @@ function resolveTextToCoords(text) {
     }
   }
 
-  // busca em POIs
+  // busca POIs
   if (window.poiIndex && window.poiIndex.length) {
     const found = window.poiIndex.find(p =>
       p.name.toLowerCase() === text
@@ -173,8 +170,10 @@ function resolveTextToCoords(text) {
 
 function createRoute(originText, destinationText, mode) {
 
+  console.log("CREATE ROUTE:", originText, destinationText, mode);
+
   if (!window.map) {
-    alert("Mapa ainda não carregado");
+    alert("Mapa não carregado");
     return;
   }
 
@@ -197,8 +196,13 @@ function createRoute(originText, destinationText, mode) {
   // destino
   toCoords = resolveTextToCoords(destinationText);
 
-  if (!fromCoords || !toCoords) {
-    alert("Origem ou destino inválido");
+  if (!fromCoords) {
+    alert("Origem inválida");
+    return;
+  }
+
+  if (!toCoords) {
+    alert("Destino inválido");
     return;
   }
 
@@ -230,20 +234,44 @@ function routeToPlace(lat, lon) {
 window.routeToPlace = routeToPlace;
 
 // ==========================
-// BOTÃO FECHAR (ROBUSTO)
+// EVENTOS DO PAINEL
 // ==========================
 
-document.addEventListener("click", (e) => {
+document.addEventListener("DOMContentLoaded", () => {
 
-  if (e.target && e.target.id === "closeRoutePanel") {
+  const createBtn = document.getElementById("createRouteBtn");
+  const originInput = document.getElementById("route-origin");
+  const destinationInput = document.getElementById("route-destination");
+  const modeButtons = document.querySelectorAll(".mode-btn");
 
-    const panel = document.getElementById("route-panel");
-    const toggleBtn = document.getElementById("routeToggleBtn");
+  let selectedMode = "foot";
 
-    if (panel) panel.style.display = "none";
-    if (toggleBtn) toggleBtn.classList.remove("active");
+  // 👇 CORREÇÃO DO BUG DO MODO
+  modeButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      modeButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
 
-    clearRoute();
+      selectedMode = btn.dataset.mode;
+
+      console.log("Modo selecionado:", selectedMode);
+    });
+  });
+
+  // 👇 CORREÇÃO DO BOTÃO DE ROTA
+  if (createBtn) {
+    createBtn.addEventListener("click", () => {
+
+      const origin = originInput ? originInput.value : "";
+      const destination = destinationInput ? destinationInput.value : "";
+
+      if (!destination) {
+        alert("Digite um destino");
+        return;
+      }
+
+      createRoute(origin, destination, selectedMode);
+    });
   }
 
 });
