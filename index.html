@@ -11,37 +11,13 @@
 html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 #map { height: 100%; width: 100%; }
 
-/* SEARCH SUPERIOR */
-#search-box {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  background: white;
-  padding: 8px 10px;
-  border-radius: 12px;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  box-shadow: 0 4px 10px rgba(0,0,0,.25);
-}
-
-#poi-search-input {
-  border: 1px solid #ccc;
-  padding: 6px 8px;
-  outline: none;
-  min-width: 180px;
-  border-radius: 6px;
-}
-
-/* 🔎 SEARCH PANEL (NOVO - INTEGRADO) */
+/* SEARCH PANEL */
 #search-panel {
   display: none;
   position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 9999;
+  z-index: 99999;
   background: #fff;
   padding: 10px;
   border-radius: 10px;
@@ -63,7 +39,7 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   overflow-y: auto;
 }
 
-/* ⚡ ACTION PANEL (NOVO - INTEGRADO) */
+/* ACTION PANEL */
 #action-panel {
   display: none;
   position: absolute;
@@ -77,7 +53,7 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   box-shadow: 0 4px 12px rgba(0,0,0,.25);
 }
 
-/* PAINEL DE ROTAS */
+/* ROUTE PANEL */
 #route-panel {
   position: absolute;
   top: 80px;
@@ -94,75 +70,6 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   flex-direction: column;
   gap: 8px;
 }
-
-.route-input-group {
-  position: relative;
-}
-
-#route-panel input {
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  outline: none;
-}
-
-/* AUTOCOMPLETE */
-.suggestions {
-  position: absolute;
-  top: 38px;
-  left: 0;
-  right: 0;
-  background: white;
-  border-radius: 8px;
-  max-height: 140px;
-  overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
-  z-index: 1200;
-}
-
-.suggestion-item {
-  padding: 6px 8px;
-  cursor: pointer;
-}
-
-.suggestion-item:hover {
-  background: #f2f2f2;
-}
-
-/* MODOS */
-.transport-modes {
-  display: flex;
-  justify-content: space-around;
-  margin-top: 6px;
-}
-
-.mode-btn {
-  border: none;
-  background: #f2f2f2;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.mode-btn.active { background: #e8f0fe; }
-
-.route-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
-}
-
-.route-actions button {
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.btn-close { background: #eee; }
-.btn-go { background: #1a73e8; color: white; }
 
 /* CONTROLES */
 .map-controls {
@@ -186,9 +93,6 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   cursor: pointer;
 }
 
-.control-btn.active { background: #e8f0fe; }
-
-/* INFO */
 #route-info {
   position: absolute;
   bottom: 14px;
@@ -200,51 +104,30 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   border-radius: 14px;
   font-weight: bold;
   box-shadow: 0 4px 10px rgba(0,0,0,.25);
-  font-size: 14px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- 🔎 SEARCH PANEL (INTEGRADO) -->
+<!-- 🔎 SEARCH PANEL -->
 <div id="search-panel">
   <input id="search-input" placeholder="Buscar local..." />
   <div id="search-results"></div>
 </div>
 
-<!-- ⚡ ACTION PANEL (INTEGRADO) -->
+<!-- ⚡ ACTION PANEL -->
 <div id="action-panel"></div>
 
-<!-- PAINEL DE ROTAS -->
-<div id="route-panel">
-
-  <div class="route-input-group">
-    <input id="route-origin" placeholder="Origem (Minha localização)" />
-    <div id="origin-suggestions" class="suggestions"></div>
-  </div>
-
-  <div class="route-input-group">
-    <input id="route-destination" placeholder="Destino" />
-    <div id="dest-suggestions" class="suggestions"></div>
-  </div>
-
-  <div class="transport-modes">
-    <button class="mode-btn active" data-mode="foot">🚶</button>
-    <button class="mode-btn" data-mode="car">🚗</button>
-    <button class="mode-btn" data-mode="bike">🏍️</button>
-  </div>
-
-  <div class="route-actions">
-    <button class="btn-close" id="closeRoutePanel">Fechar</button>
-    <button class="btn-go" id="createRouteBtn">Traçar rota</button>
-  </div>
-
-</div>
-
+<!-- MAPA -->
 <div id="map"></div>
 
+<!-- CONTROLES -->
 <div class="map-controls">
+
+  <!-- BOTÃO SEARCH (NOVO) -->
+  <button class="control-btn" onclick="openSearchPanel()">🔎</button>
+
   <button class="control-btn" onclick="centerOnUser()">📍</button>
   <button id="routeToggleBtn" class="control-btn">➜</button>
 </div>
@@ -254,17 +137,11 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script src="js/icons.js"></script>
-
 <script src="js/geocoding.js"></script>
-
 <script src="js/pois.js"></script>
 <script src="data/manual_pois.js"></script>
-
 <script src="js/routing.js"></script>
-
 <script src="js/mapa.js"></script>
-
-<!-- 🔥 SEARCH SEMPRE POR ÚLTIMO -->
 <script src="js/search.js"></script>
 
 <!-- AUTOCOMPLETE -->
