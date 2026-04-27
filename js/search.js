@@ -31,22 +31,19 @@ function setSearchState(state) {
 // ==========================
 
 function toggleSearch() {
-  setSearchState(!searchOpen);
+  const search = document.getElementById("search-panel");
+  const route = document.getElementById("route-panel");
+
+  if (!search) return;
+
+  const isOpen = search.style.display === "block";
+
+  search.style.display = isOpen ? "none" : "block";
+
+  if (route) route.style.display = "none";
 }
 
-function openSearchPanel() {
-  setSearchState(true);
-}
-
-function closeSearchPanel() {
-  setSearchState(false);
-}
-
-// expõe global
 window.toggleSearch = toggleSearch;
-window.openSearchPanel = openSearchPanel;
-window.closeSearchPanel = closeSearchPanel;
-
 // ==========================
 // LIMPAR SEARCH
 // ==========================
