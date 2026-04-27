@@ -5,48 +5,56 @@
 let searchOpen = false;
 
 // ==========================
-// UI CONTROL
+// UTIL: garantir sync real com DOM
 // ==========================
 
-function openSearchPanel() {
+function setSearchState(state) {
   const panel = document.getElementById("search-panel");
   const routePanel = document.getElementById("route-panel");
 
   if (!panel) return;
 
-  searchOpen = !searchOpen;
+  searchOpen = state;
+  panel.style.display = state ? "block" : "none";
 
-  panel.style.display = searchOpen ? "block" : "none";
-
-  // fecha rota se abrir search
-  if (searchOpen && routePanel) {
+  if (state && routePanel) {
     routePanel.style.display = "none";
   }
 
-  // limpa busca ao fechar
-  if (!searchOpen) {
+  if (!state) {
     clearSearch();
   }
 }
 
-function closeSearchPanel() {
-  const panel = document.getElementById("search-panel");
-  if (!panel) return;
+// ==========================
+// TOGGLE (BOTÃO 🔎)
+// ==========================
 
-  panel.style.display = "none";
-  searchOpen = false;
-
-  clearSearch();
+function toggleSearch() {
+  setSearchState(!searchOpen);
 }
+
+function openSearchPanel() {
+  setSearchState(true);
+}
+
+function closeSearchPanel() {
+  setSearchState(false);
+}
+
+// expõe global
+window.toggleSearch = toggleSearch;
+window.openSearchPanel = openSearchPanel;
+window.closeSearchPanel = closeSearchPanel;
+
+// ==========================
+// LIMPAR SEARCH
+// ==========================
 
 function clearSearch() {
   const container = document.getElementById("search-results");
   if (container) container.innerHTML = "";
 }
-
-// expõe global
-window.openSearchPanel = openSearchPanel;
-window.closeSearchPanel = closeSearchPanel;
 
 // ==========================
 // ACTION PANEL
@@ -88,15 +96,13 @@ function viewOnMap(lat, lon) {
 
 function setDestination(name) {
   const input = document.getElementById("route-destination");
-  const routePanel = document.getElementById("route-panel");
-  const searchPanel = document.getElementById("search-panel");
 
   if (input) input.value = name;
 
+  const routePanel = document.getElementById("route-panel");
   if (routePanel) routePanel.style.display = "flex";
-  if (searchPanel) searchPanel.style.display = "none";
 
-  searchOpen = false;
+  setSearchState(false);
   clearSearch();
 }
 
@@ -104,7 +110,7 @@ window.viewOnMap = viewOnMap;
 window.setDestination = setDestination;
 
 // ==========================
-// BUSCA PRINCIPAL (POI + GEO)
+// BUSCA PRINCIPAL
 // ==========================
 
 async function searchPlace(query) {
@@ -115,7 +121,7 @@ async function searchPlace(query) {
 
   query = query.trim();
 
-  // 1. POIs locais primeiro
+  // 1. POIs locais
   const local = window.findPlacesByName
     ? window.findPlacesByName(query)
     : { results: [] };
@@ -125,7 +131,7 @@ async function searchPlace(query) {
     return;
   }
 
-  // 2. fallback geocoding
+  // 2. geocoding fallback
   if (window.geocode) {
     try {
       const geo = await window.geocode(query);
@@ -149,7 +155,7 @@ async function searchPlace(query) {
 window.searchPlace = searchPlace;
 
 // ==========================
-// RENDER RESULTADOS
+// RENDER
 // ==========================
 
 function renderResults(results) {
@@ -181,34 +187,29 @@ function renderResults(results) {
 }
 
 // ==========================
-// INPUT EVENTS (FIX BUG DUPLO)
+// INPUT (BUG FIX REAL)
 // ==========================
 
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("search-input");
   const panel = document.getElementById("search-panel");
 
-  if (!input) return;
+  if (!input || !panel) return;
 
-  // remove listener antigo (evita bug de duplicação)
-  const newInput = input.cloneNode(true);
-  input.parentNode.replaceChild(newInput, input);
-
-  newInput.addEventListener("input", (e) => {
+  input.addEventListener("input", (e) => {
     searchPlace(e.target.value);
   });
 
-  // ENTER para buscar (corrige teu bug)
-  newInput.addEventListener("keydown", (e) => {
+  // ENTER FUNCIONANDO DE VERDADE
+  input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
-      searchPlace(newInput.value);
+      e.preventDefault();
+      searchPlace(input.value);
     }
   });
 
-  // clique fora fecha painel
+  // clique fora fecha
   document.addEventListener("click", (e) => {
-    if (!panel) return;
-
     const clickedInside =
       panel.contains(e.target) ||
       e.target.id === "search-input";
