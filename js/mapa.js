@@ -105,20 +105,25 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================
 
   function toggleRoute() {
-    const route = document.getElementById("route-panel");
-    const search = document.getElementById("search-panel");
+  const route = document.getElementById("route-panel");
+  const search = document.getElementById("search-panel");
 
-    if (!route) return;
+  if (!route) return;
 
-    const isOpen = route.style.display === "flex";
+  const isOpen = route.classList.contains("open");
 
-    route.style.display = isOpen ? "none" : "flex";
-
-    if (search) search.style.display = "none";
+  if (isOpen) {
+    route.classList.remove("open");
+    route.style.display = "none";
+  } else {
+    route.classList.add("open");
+    route.style.display = "flex";
   }
 
-  window.toggleRoute = toggleRoute;
+  if (search) search.style.display = "none";
+}
 
+window.toggleRoute = toggleRoute;
   // ==========================
   // GPS
   // ==========================
