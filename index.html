@@ -11,9 +11,7 @@
 html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 #map { height: 100%; width: 100%; }
 
-/* =========================
-   SEARCH PANEL
-========================= */
+/* SEARCH PANEL */
 #search-panel {
   display: none;
   position: absolute;
@@ -41,9 +39,7 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   overflow-y: auto;
 }
 
-/* =========================
-   ACTION PANEL
-========================= */
+/* ACTION PANEL */
 #action-panel {
   display: none;
   position: absolute;
@@ -57,9 +53,7 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   box-shadow: 0 4px 12px rgba(0,0,0,.25);
 }
 
-/* =========================
-   ROUTE PANEL
-========================= */
+/* ROUTE PANEL */
 #route-panel {
   position: absolute;
   top: 80px;
@@ -77,9 +71,7 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   gap: 8px;
 }
 
-/* =========================
-   CONTROLES
-========================= */
+/* CONTROLES */
 .map-controls {
   position: absolute;
   right: 12px;
@@ -135,7 +127,7 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 
   <button class="control-btn" onclick="toggleSearch()">🔎</button>
   <button class="control-btn" onclick="centerOnUser()">📍</button>
-  <button id="routeToggleBtn" class="control-btn">➜</button>
+  <button class="control-btn" onclick="toggleRoute()">➜</button>
 
 </div>
 
@@ -148,13 +140,11 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 <script src="js/pois.js"></script>
 <script src="data/manual_pois.js"></script>
 <script src="js/routing.js"></script>
-
-<!-- 🔥 SEARCH TEM QUE VIR ANTES DO MAPA -->
 <script src="js/search.js"></script>
 <script src="js/mapa.js"></script>
 
 <!-- =========================
-     AUTOCOMPLETE (FIXADO)
+     AUTOCOMPLETE
 ========================= -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
@@ -177,7 +167,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       results.forEach(p => {
         const div = document.createElement("div");
-        div.className = "suggestion-item";
         div.textContent = p.name;
 
         div.onclick = () => {
