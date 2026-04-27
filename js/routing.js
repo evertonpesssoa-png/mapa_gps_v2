@@ -28,6 +28,20 @@ function formatTimeFromDistance(distanceMeters, mode) {
 }
 
 // ==========================
+// LAYER CHECK
+// ==========================
+
+function ensureRouteLayer() {
+  if (!window.map) return null;
+
+  if (!window.routeLayer) {
+    window.routeLayer = L.layerGroup().addTo(window.map);
+  }
+
+  return window.routeLayer;
+}
+
+// ==========================
 // LIMPAR ROTA
 // ==========================
 
@@ -43,30 +57,10 @@ function clearRoute() {
 window.clearRoute = clearRoute;
 
 // ==========================
-// GARANTE LAYER
-// ==========================
-
-function ensureRouteLayer() {
-  if (!window.map) {
-    console.error("Mapa não existe ainda");
-    return null;
-  }
-
-  if (!window.routeLayer) {
-    console.warn("Criando routeLayer automaticamente");
-    window.routeLayer = L.layerGroup().addTo(window.map);
-  }
-
-  return window.routeLayer;
-}
-
-// ==========================
-// ROTA
+// ROTA OSRM
 // ==========================
 
 function traceRoute(from, to, mode) {
-
-  console.log("TRACE ROUTE:", from, to, mode);
 
   let profile = "driving";
   if (mode === "foot") profile = "walking";
@@ -82,7 +76,7 @@ function traceRoute(from, to, mode) {
 
   fetch(url)
     .then(res => {
-      if (!res.ok) throw new Error("Erro na API OSRM");
+      if (!res.ok) throw new Error("OSRM error");
       return res.json();
     })
     .then(data => {
@@ -100,7 +94,10 @@ function traceRoute(from, to, mode) {
       clearRoute();
 
       const geo = L.geoJSON(route.geometry, {
-        style: { weight: 5, opacity: 0.9 }
+        style: {
+          weight: 5,
+          opacity: 0.9
+        }
       });
 
       geo.addTo(layer);
@@ -120,19 +117,19 @@ function traceRoute(from, to, mode) {
       }
     })
     .catch(err => {
-      console.error("Erro rota:", err);
+      console.error(err);
       alert("Erro ao calcular rota");
     });
 }
 
 // ==========================
-// RESOLVER TEXTO (NOVO + GEOCODING)
+// RESOLVER TEXTO → COORDS
 // ==========================
 
 async function resolveTextToCoords(text) {
   if (!text) return null;
 
-  text = text.trim().toLowerCase();
+  text = text.trim();
 
   // coordenadas diretas
   if (text.includes(",")) {
@@ -146,9 +143,9 @@ async function resolveTextToCoords(text) {
   }
 
   // POIs locais
-  if (window.poiIndex && window.poiIndex.length) {
+  if (window.poiIndex) {
     const found = window.poiIndex.find(p =>
-      p.name.toLowerCase() === text
+      p.name.toLowerCase() === text.toLowerCase()
     );
 
     if (found) {
@@ -156,13 +153,13 @@ async function resolveTextToCoords(text) {
     }
   }
 
-  // 🌍 GEOCODING (NOVO)
+  // 🌍 GEOCODING GLOBAL
   if (window.geocode) {
     try {
       const geo = await window.geocode(text);
       if (geo) return geo;
     } catch (e) {
-      console.warn("Erro geocoding:", e);
+      console.warn("geocode error:", e);
     }
   }
 
@@ -170,30 +167,29 @@ async function resolveTextToCoords(text) {
 }
 
 // ==========================
-// CRIAR ROTA (AGORA ASYNC)
+// CREATE ROUTE
 // ==========================
 
 async function createRoute(originText, destinationText, mode) {
-
-  console.log("CREATE ROUTE:", originText, destinationText, mode);
 
   if (!window.map) {
     alert("Mapa não carregado");
     return;
   }
 
-  let fromCoords = null;
-  let toCoords = null;
+  let fromCoords;
+  let toCoords;
 
   // origem
   if (!originText || originText.toLowerCase().includes("minha")) {
     if (!window.userMarker) {
-      alert("Localização ainda não disponível");
+      alert("GPS ainda não disponível");
       return;
     }
 
     const pos = window.userMarker.getLatLng();
     fromCoords = { lat: pos.lat, lng: pos.lng };
+
   } else {
     fromCoords = await resolveTextToCoords(originText);
   }
@@ -223,7 +219,7 @@ window.createRoute = createRoute;
 function routeToPlace(lat, lon) {
 
   if (!window.userMarker) {
-    alert("Localização ainda não disponível");
+    alert("GPS ainda não disponível");
     return;
   }
 
@@ -239,7 +235,26 @@ function routeToPlace(lat, lon) {
 window.routeToPlace = routeToPlace;
 
 // ==========================
-// EVENTOS DO PAINEL
+// TOGGLE ROUTE (CORRIGIDO)
+// ==========================
+
+function toggleRoute() {
+  const route = document.getElementById("route-panel");
+  const search = document.getElementById("search-panel");
+
+  if (!route) return;
+
+  const isOpen = route.style.display === "flex";
+
+  route.style.display = isOpen ? "none" : "flex";
+
+  if (search) search.style.display = "none";
+}
+
+window.toggleRoute = toggleRoute;
+
+// ==========================
+// UI EVENTS
 // ==========================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -253,20 +268,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   modeButtons.forEach(btn => {
     btn.addEventListener("click", () => {
+
       modeButtons.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
 
       selectedMode = btn.dataset.mode;
-
-      console.log("Modo selecionado:", selectedMode);
     });
   });
 
   if (createBtn) {
     createBtn.addEventListener("click", async () => {
 
-      const origin = originInput ? originInput.value : "";
-      const destination = destinationInput ? destinationInput.value : "";
+      const origin = originInput?.value || "";
+      const destination = destinationInput?.value || "";
 
       if (!destination) {
         alert("Digite um destino");
