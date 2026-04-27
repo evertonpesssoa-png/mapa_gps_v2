@@ -1,56 +1,55 @@
 // ==========================
-// ESTADO GLOBAL DO SEARCH
+// ESTADO
 // ==========================
 
 let searchOpen = false;
 
 // ==========================
-// UTIL: garantir sync real com DOM
+// OPEN / CLOSE SEARCH
 // ==========================
 
-function setSearchState(state) {
+function openSearchPanel() {
   const panel = document.getElementById("search-panel");
-  const routePanel = document.getElementById("route-panel");
+  const route = document.getElementById("route-panel");
 
   if (!panel) return;
 
-  searchOpen = state;
-  panel.style.display = state ? "block" : "none";
+  searchOpen = true;
 
-  if (state && routePanel) {
-    routePanel.style.display = "none";
-  }
+  panel.style.display = "block";
 
-  if (!state) {
-    clearSearch();
-  }
-}
-
-// ==========================
-// TOGGLE (BOTÃO 🔎)
-// ==========================
-
-function toggleSearch() {
-  const search = document.getElementById("search-panel");
-  const route = document.getElementById("route-panel");
-
-  if (!search) return;
-
-  const isOpen = search.style.display === "block";
-
-  search.style.display = isOpen ? "none" : "block";
-
+  // fecha rota
   if (route) route.style.display = "none";
 }
 
-window.toggleSearch = toggleSearch;
-// ==========================
-// LIMPAR SEARCH
-// ==========================
+function closeSearchPanel() {
+  const panel = document.getElementById("search-panel");
 
-function clearSearch() {
+  if (!panel) return;
+
+  searchOpen = false;
+  panel.style.display = "none";
+
   const container = document.getElementById("search-results");
   if (container) container.innerHTML = "";
+}
+
+// toggle REAL (corrigido)
+function toggleSearch() {
+  const panel = document.getElementById("search-panel");
+  const route = document.getElementById("route-panel");
+
+  if (!panel) return;
+
+  const isOpen = panel.style.display === "block";
+
+  if (isOpen) {
+    closeSearchPanel();
+  } else {
+    openSearchPanel();
+  }
+
+  if (route) route.style.display = "none";
 }
 
 // ==========================
@@ -64,61 +63,29 @@ function showActionPanel(poi) {
   panel.innerHTML = `
     <b>${poi.name}</b><br><br>
 
-    <button onclick="viewOnMap(${poi.lat},${poi.lon})">
-      📍 Ver no mapa
-    </button><br><br>
+    <button onclick="viewOnMap(${poi.lat},${poi.lon})">📍 Ver no mapa</button><br><br>
 
-    <button onclick="routeToPlace(${poi.lat},${poi.lon})">
-      🧭 Traçar rota
-    </button><br><br>
+    <button onclick="routeToPlace(${poi.lat},${poi.lon})">🧭 Traçar rota</button><br><br>
 
-    <button onclick="setDestination('${poi.name.replace(/'/g, "")}')">
-      🎯 Definir destino
-    </button>
+    <button onclick="setDestination('${poi.name.replace(/'/g, "")}')">🎯 Definir destino</button>
   `;
 
   panel.style.display = "block";
 }
 
-window.showActionPanel = showActionPanel;
-
 // ==========================
-// MAP ACTIONS
-// ==========================
-
-function viewOnMap(lat, lon) {
-  if (!window.map) return;
-  window.map.setView([lat, lon], 17);
-}
-
-function setDestination(name) {
-  const input = document.getElementById("route-destination");
-
-  if (input) input.value = name;
-
-  const routePanel = document.getElementById("route-panel");
-  if (routePanel) routePanel.style.display = "flex";
-
-  setSearchState(false);
-  clearSearch();
-}
-
-window.viewOnMap = viewOnMap;
-window.setDestination = setDestination;
-
-// ==========================
-// BUSCA PRINCIPAL
+// SEARCH PRINCIPAL
 // ==========================
 
 async function searchPlace(query) {
+  const container = document.getElementById("search-results");
+  if (!container) return;
+
   if (!query || query.trim().length < 2) {
-    clearSearch();
+    container.innerHTML = "";
     return;
   }
 
-  query = query.trim();
-
-  // 1. POIs locais
   const local = window.findPlacesByName
     ? window.findPlacesByName(query)
     : { results: [] };
@@ -128,7 +95,6 @@ async function searchPlace(query) {
     return;
   }
 
-  // 2. geocoding fallback
   if (window.geocode) {
     try {
       const geo = await window.geocode(query);
@@ -139,21 +105,12 @@ async function searchPlace(query) {
           lat: geo.lat,
           lon: geo.lng
         }]);
-        return;
       }
-    } catch (err) {
-      console.warn("geocode erro:", err);
+    } catch (e) {
+      console.warn(e);
     }
   }
-
-  clearSearch();
 }
-
-window.searchPlace = searchPlace;
-
-// ==========================
-// RENDER
-// ==========================
 
 function renderResults(results) {
   const container = document.getElementById("search-results");
@@ -171,10 +128,7 @@ function renderResults(results) {
     div.textContent = poi.name;
 
     div.onclick = () => {
-      if (window.map) {
-        window.map.setView([poi.lat, poi.lon], 16);
-      }
-
+      window.map?.setView([poi.lat, poi.lon], 16);
       showActionPanel(poi);
       closeSearchPanel();
     };
@@ -184,35 +138,31 @@ function renderResults(results) {
 }
 
 // ==========================
-// INPUT (BUG FIX REAL)
+// INPUT FIX (ENTER + BUG FIX)
 // ==========================
 
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("search-input");
-  const panel = document.getElementById("search-panel");
 
-  if (!input || !panel) return;
+  if (!input) return;
 
   input.addEventListener("input", (e) => {
     searchPlace(e.target.value);
   });
 
-  // ENTER FUNCIONANDO DE VERDADE
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
-      e.preventDefault();
       searchPlace(input.value);
     }
   });
-
-  // clique fora fecha
-  document.addEventListener("click", (e) => {
-    const clickedInside =
-      panel.contains(e.target) ||
-      e.target.id === "search-input";
-
-    if (!clickedInside && searchOpen) {
-      closeSearchPanel();
-    }
-  });
 });
+
+// ==========================
+// EXPORT GLOBAL (ESSENCIAL)
+// ==========================
+
+window.openSearchPanel = openSearchPanel;
+window.closeSearchPanel = closeSearchPanel;
+window.toggleSearch = toggleSearch;
+window.searchPlace = searchPlace;
+window.showActionPanel = showActionPanel;
