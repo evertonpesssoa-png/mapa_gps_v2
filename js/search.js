@@ -1,8 +1,38 @@
+//
 // ==========================
 // ESTADO
 // ==========================
 
 let searchOpen = false;
+
+// ==========================
+// VIEW ON MAP
+// ==========================
+
+function viewOnMap(lat, lon) {
+  if (!window.map) return;
+  window.map.setView([lat, lon], 17);
+}
+
+// ==========================
+// SET DESTINATION
+// ==========================
+
+function setDestination(name) {
+  const input = document.getElementById("route-destination");
+  const routePanel = document.getElementById("route-panel");
+
+  if (input) input.value = name;
+
+  // mantém compatível com versões antigas
+  const searchPanel = document.getElementById("search-panel");
+  searchPanel?.classList?.remove("open");
+
+  if (routePanel) {
+    routePanel.classList.add("open");
+    routePanel.style.display = "flex";
+  }
+}
 
 // ==========================
 // OPEN / CLOSE SEARCH
@@ -18,7 +48,6 @@ function openSearchPanel() {
 
   panel.style.display = "block";
 
-  // fecha rota
   if (route) route.style.display = "none";
 }
 
@@ -26,14 +55,16 @@ function closeSearchPanel() {
   const panel = document.getElementById("search-panel");
   if (panel) panel.style.display = "none";
 
-  // garante que rota não fica bloqueada visualmente
   const route = document.getElementById("route-panel");
   if (route && route.classList.contains("open")) {
     route.style.zIndex = "9999";
   }
 }
 
-// toggle REAL (corrigido)
+// ==========================
+// TOGGLE SEARCH
+// ==========================
+
 function toggleSearch() {
   const panel = document.getElementById("search-panel");
   const route = document.getElementById("route-panel");
@@ -62,11 +93,17 @@ function showActionPanel(poi) {
   panel.innerHTML = `
     <b>${poi.name}</b><br><br>
 
-    <button onclick="viewOnMap(${poi.lat},${poi.lon})">📍 Ver no mapa</button><br><br>
+    <button onclick="viewOnMap(${poi.lat}, ${poi.lon})">
+      📍 Ver no mapa
+    </button><br><br>
 
-    <button onclick="routeToPlace(${poi.lat},${poi.lon})">🧭 Traçar rota</button><br><br>
+    <button onclick="routeToPlace(${poi.lat}, ${poi.lon})">
+      🧭 Traçar rota
+    </button><br><br>
 
-    <button onclick="setDestination('${poi.name.replace(/'/g, "")}')">🎯 Definir destino</button>
+    <button onclick="setDestination('${poi.name.replace(/'/g, "")}')">
+      🎯 Definir destino
+    </button>
   `;
 
   panel.style.display = "block";
@@ -111,6 +148,10 @@ async function searchPlace(query) {
   }
 }
 
+// ==========================
+// RENDER RESULTS
+// ==========================
+
 function renderResults(results) {
   const container = document.getElementById("search-results");
   if (!container) return;
@@ -137,7 +178,7 @@ function renderResults(results) {
 }
 
 // ==========================
-// INPUT FIX (ENTER + BUG FIX)
+// INPUT FIX
 // ==========================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -157,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================
-// EXPORT GLOBAL (ESSENCIAL)
+// EXPORT GLOBAL
 // ==========================
 
 window.openSearchPanel = openSearchPanel;
@@ -165,3 +206,5 @@ window.closeSearchPanel = closeSearchPanel;
 window.toggleSearch = toggleSearch;
 window.searchPlace = searchPlace;
 window.showActionPanel = showActionPanel;
+window.viewOnMap = viewOnMap;
+window.setDestination = setDestination;
