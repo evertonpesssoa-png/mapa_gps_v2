@@ -8,10 +8,20 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
-html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
-#map { height: 100%; width: 100%; }
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
 
-/* SEARCH PANEL */
+#map {
+  height: 100%;
+  width: 100%;
+}
+
+/* =========================
+   SEARCH PANEL
+========================= */
 #search-panel {
   display: none;
   position: absolute;
@@ -39,13 +49,15 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   overflow-y: auto;
 }
 
-/* ACTION PANEL */
+/* =========================
+   ACTION PANEL
+========================= */
 #action-panel {
   display: none;
   position: absolute;
   bottom: 20px;
   left: 10px;
-  z-index: 9999;
+  z-index: 10000;
   background: #fff;
   padding: 10px;
   border-radius: 10px;
@@ -53,7 +65,9 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   box-shadow: 0 4px 12px rgba(0,0,0,.25);
 }
 
-/* ROUTE PANEL */
+/* =========================
+   ROUTE PANEL
+========================= */
 #route-panel {
   position: absolute;
   top: 80px;
@@ -71,7 +85,9 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   gap: 8px;
 }
 
-/* CONTROLES */
+/* =========================
+   CONTROLES
+========================= */
 .map-controls {
   position: absolute;
   right: 12px;
@@ -93,6 +109,9 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   cursor: pointer;
 }
 
+/* =========================
+   ROUTE INFO
+========================= */
 #route-info {
   position: absolute;
   bottom: 14px;
@@ -104,6 +123,19 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
   border-radius: 14px;
   font-weight: bold;
   box-shadow: 0 4px 10px rgba(0,0,0,.25);
+}
+
+/* ajustes extras de z-index (removido bloco quebrado) */
+#search-panel {
+  z-index: 99999;
+}
+
+#action-panel {
+  z-index: 10000;
+}
+
+#route-panel {
+  z-index: 1100;
 }
 </style>
 </head>
@@ -124,11 +156,9 @@ html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
 
 <!-- CONTROLES -->
 <div class="map-controls">
-
   <button class="control-btn" onclick="toggleSearch()">🔎</button>
   <button class="control-btn" onclick="centerOnUser()">📍</button>
   <button class="control-btn" onclick="toggleRoute()">➜</button>
-
 </div>
 
 <div id="route-info"></div>
