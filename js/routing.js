@@ -87,8 +87,6 @@ function traceRoute(from, to, mode) {
     })
     .then(data => {
 
-      console.log("Resposta OSRM:", data);
-
       if (!data.routes || !data.routes.length) {
         alert("Rota não encontrada");
         return;
@@ -111,8 +109,7 @@ function traceRoute(from, to, mode) {
         padding: [50, 50]
       });
 
-      // Mantém POIs por cima
-      if (window.poiLayer && window.poiLayer.bringToFront) {
+      if (window.poiLayer?.bringToFront) {
         window.poiLayer.bringToFront();
       }
 
@@ -128,13 +125,11 @@ function traceRoute(from, to, mode) {
     });
 }
 
-window.traceRoute = traceRoute;
-
 // ==========================
-// RESOLVER TEXTO
+// RESOLVER TEXTO (NOVO + GEOCODING)
 // ==========================
 
-function resolveTextToCoords(text) {
+async function resolveTextToCoords(text) {
   if (!text) return null;
 
   text = text.trim().toLowerCase();
@@ -150,7 +145,7 @@ function resolveTextToCoords(text) {
     }
   }
 
-  // busca POIs
+  // POIs locais
   if (window.poiIndex && window.poiIndex.length) {
     const found = window.poiIndex.find(p =>
       p.name.toLowerCase() === text
@@ -161,14 +156,24 @@ function resolveTextToCoords(text) {
     }
   }
 
+  // 🌍 GEOCODING (NOVO)
+  if (window.geocode) {
+    try {
+      const geo = await window.geocode(text);
+      if (geo) return geo;
+    } catch (e) {
+      console.warn("Erro geocoding:", e);
+    }
+  }
+
   return null;
 }
 
 // ==========================
-// CRIAR ROTA
+// CRIAR ROTA (AGORA ASYNC)
 // ==========================
 
-function createRoute(originText, destinationText, mode) {
+async function createRoute(originText, destinationText, mode) {
 
   console.log("CREATE ROUTE:", originText, destinationText, mode);
 
@@ -190,11 +195,11 @@ function createRoute(originText, destinationText, mode) {
     const pos = window.userMarker.getLatLng();
     fromCoords = { lat: pos.lat, lng: pos.lng };
   } else {
-    fromCoords = resolveTextToCoords(originText);
+    fromCoords = await resolveTextToCoords(originText);
   }
 
   // destino
-  toCoords = resolveTextToCoords(destinationText);
+  toCoords = await resolveTextToCoords(destinationText);
 
   if (!fromCoords) {
     alert("Origem inválida");
@@ -246,7 +251,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let selectedMode = "foot";
 
-  // 👇 CORREÇÃO DO BUG DO MODO
   modeButtons.forEach(btn => {
     btn.addEventListener("click", () => {
       modeButtons.forEach(b => b.classList.remove("active"));
@@ -258,9 +262,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // 👇 CORREÇÃO DO BOTÃO DE ROTA
   if (createBtn) {
-    createBtn.addEventListener("click", () => {
+    createBtn.addEventListener("click", async () => {
 
       const origin = originInput ? originInput.value : "";
       const destination = destinationInput ? destinationInput.value : "";
@@ -270,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      createRoute(origin, destination, selectedMode);
+      await createRoute(origin, destination, selectedMode);
     });
   }
 
