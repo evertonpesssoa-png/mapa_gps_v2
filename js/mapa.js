@@ -55,41 +55,65 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = normalize(query);
     if (!text) return { results: [] };
 
-    const results = window.poiIndex.filter(p =>
-      p.searchName.includes(text) ||
-      p.searchCategory.includes(text)
-    );
-
-    return { results };
+    return {
+      results: window.poiIndex.filter(p =>
+        p.searchName.includes(text) ||
+        p.searchCategory.includes(text)
+      )
+    };
   };
 
   // ==========================
-  // 🔎 SEARCH PANEL CONTROL (NOVO)
+  // 🔎 SEARCH UX CONTROL (ROBUSTO)
   // ==========================
 
   function openSearchPanel() {
-    const panel = document.getElementById("search-panel");
 
-    if (!panel) {
-      console.warn("search-panel não encontrado no HTML");
-      return;
-    }
+    const panel = document.getElementById("search-panel");
+    const routePanel = document.getElementById("route-panel");
+
+    if (!panel) return;
 
     panel.style.display = "block";
 
-    // fecha rota se estiver aberta
-    const routePanel = document.getElementById("route-panel");
+    // fecha rota
     if (routePanel) routePanel.style.display = "none";
+
+    // foco no input (UX melhor)
+    setTimeout(() => {
+      document.getElementById("search-input")?.focus();
+    }, 50);
+  }
+
+  function closeSearchPanel() {
+    const panel = document.getElementById("search-panel");
+    if (panel) panel.style.display = "none";
+  }
+
+  function toggleSearchPanel() {
+    const panel = document.getElementById("search-panel");
+
+    if (!panel) return;
+
+    const isOpen = panel.style.display === "block";
+
+    if (isOpen) closeSearchPanel();
+    else openSearchPanel();
   }
 
   window.openSearchPanel = openSearchPanel;
+  window.closeSearchPanel = closeSearchPanel;
+  window.toggleSearchPanel = toggleSearchPanel;
 
   // ==========================
-  // GPS
+  // GPS (CORRIGIDO ESTADO)
   // ==========================
 
   function handlePosition(pos) {
     const { latitude, longitude, accuracy } = pos.coords;
+
+    // 🔥 sempre atualiza referência global
+    window.lastGPS = { lat: latitude, lng: longitude };
 
     if (!userMarker) {
       userMarker = L.marker([latitude, longitude]).addTo(map);
@@ -106,13 +130,16 @@ document.addEventListener("DOMContentLoaded", () => {
         map.setView([latitude, longitude], 16);
         firstFix = false;
       }
+
     } else {
       userMarker.setLatLng([latitude, longitude]);
       userCircle.setLatLng([latitude, longitude]);
       userCircle.setRadius(accuracy);
     }
 
-    // CARREGAR POIs
+    // ==========================
+    // POIs (UMA VEZ)
+    // ==========================
     if (!poisLoaded) {
 
       console.log("Carregando POIs...");
@@ -131,17 +158,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleError(err) {
     console.error("Erro GPS:", err);
-    alert("Erro ao obter localização.");
   }
 
   function startGPS() {
-    if (!("geolocation" in navigator)) return;
+
+    if (!navigator.geolocation) return;
 
     if (gpsWatchId) return;
 
-    navigator.geolocation.getCurrentPosition(handlePosition, handleError, {
-      enableHighAccuracy: true
-    });
+    navigator.geolocation.getCurrentPosition(
+      handlePosition,
+      handleError,
+      { enableHighAccuracy: true }
+    );
 
     gpsWatchId = navigator.geolocation.watchPosition(
       handlePosition,
@@ -155,37 +184,37 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================
 
   function centerOnUser() {
-    if (!userMarker) return;
+    if (!window.userMarker) return;
 
-    map.setView(userMarker.getLatLng(), 16);
+    map.setView(window.userMarker.getLatLng(), 16);
   }
 
   window.centerOnUser = centerOnUser;
 
   // ==========================
-  // ROTA PANEL
+  // ROTA PANEL UX FIX
   // ==========================
 
   const routeBtn = document.getElementById("routeToggleBtn");
-  const panel = document.getElementById("route-panel");
+  const routePanel = document.getElementById("route-panel");
 
-  if (routeBtn && panel) {
+  if (routeBtn && routePanel) {
+
     routeBtn.addEventListener("click", () => {
 
-      const isOpen = panel.style.display === "flex";
+      const isOpen = routePanel.style.display === "flex";
 
-      panel.style.display = isOpen ? "none" : "flex";
+      routePanel.style.display = isOpen ? "none" : "flex";
       routeBtn.classList.toggle("active");
 
-      const originInput = document.getElementById("route-origin");
+      // fecha search automaticamente
+      closeSearchPanel();
 
-      if (!isOpen && originInput && window.userMarker) {
-        originInput.value = "Minha localização";
+      // preenche origem sempre atualizada
+      if (!isOpen && window.userMarker) {
+        const originInput = document.getElementById("route-origin");
+        if (originInput) originInput.value = "Minha localização";
       }
-
-      // fecha search ao abrir rota
-      const searchPanel = document.getElementById("search-panel");
-      if (searchPanel) searchPanel.style.display = "none";
     });
   }
 
