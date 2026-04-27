@@ -1,7 +1,3 @@
-// ==========================
-// GEOCODING INTELIGENTE (Nominatim OSM)
-// ==========================
-
 async function geocode(query) {
 
   if (!query) return null;
@@ -9,30 +5,17 @@ async function geocode(query) {
   query = query.trim();
 
   // ==========================
-  // 🔥 CONTEXTO DO USUÁRIO (GPS BIAS)
+  // 🔥 NÃO RESTRINGE MAIS (IMPORTANTE)
   // ==========================
-  let bias = "";
 
-  if (window.userMarker) {
-    const pos = window.userMarker.getLatLng();
-
-    // cria área de prioridade (evita cidade errada)
-    bias =
-      `&viewbox=${pos.lng - 0.5},${pos.lat + 0.5},${pos.lng + 0.5},${pos.lat - 0.5}` +
-      `&bounded=1`;
-  }
-
-  // ==========================
-  // 🔥 NORMALIZAÇÃO (reduz ambiguidade)
-  // ==========================
+  // só adiciona país se for muito genérico
   const finalQuery = query.includes(",")
     ? query
     : `${query}, Brasil`;
 
   const url =
     `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=` +
-    encodeURIComponent(finalQuery) +
-    bias;
+    encodeURIComponent(finalQuery);
 
   try {
     const res = await fetch(url, {
