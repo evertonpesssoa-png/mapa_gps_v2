@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================
-  // SEARCH CONTROL
+  // SEARCH PANEL
   // ==========================
 
   function openSearchPanel() {
@@ -74,7 +74,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!panel) return;
 
     panel.style.display = "block";
-
     if (routePanel) routePanel.style.display = "none";
 
     setTimeout(() => {
@@ -102,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.toggleSearchPanel = toggleSearchPanel;
 
   // ==========================
-  // ROUTE TOGGLE (AQUI O QUE VOCÊ QUERIA)
+  // ROUTE PANEL
   // ==========================
 
   function toggleRoute() {
@@ -171,7 +170,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function startGPS() {
     if (!navigator.geolocation) return;
-
     if (gpsWatchId) return;
 
     navigator.geolocation.getCurrentPosition(handlePosition, handleError, {
@@ -195,16 +193,30 @@ document.addEventListener("DOMContentLoaded", () => {
   window.centerOnUser = centerOnUser;
 
   // ==========================
-  // ROUTE BUTTON LINK
+  // ROUTE BUTTON
   // ==========================
 
   const routeBtn = document.getElementById("routeToggleBtn");
 
   if (routeBtn) {
-    routeBtn.addEventListener("click", () => {
-      toggleRoute();
-    });
+    routeBtn.addEventListener("click", toggleRoute);
   }
+
+  // ==========================
+  // CLOSE ALL PANELS
+  // ==========================
+
+  function closeAllPanels() {
+    const search = document.getElementById("search-panel");
+    const route = document.getElementById("route-panel");
+    const action = document.getElementById("action-panel");
+
+    if (search) search.style.display = "none";
+    if (route) route.style.display = "none";
+    if (action) action.style.display = "none";
+  }
+
+  window.closeAllPanels = closeAllPanels;
 
   // ==========================
   // START
