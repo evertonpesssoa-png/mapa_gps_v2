@@ -35,7 +35,7 @@ function createPopupContent(poi) {
 }
 
 // ======================================
-// AÇÃO AO CLICAR NO MARCADOR
+// AÇÃO AO CLICAR NO POI
 // ======================================
 function handlePOIClick(poi) {
   const panel = document.getElementById("route-panel");
@@ -43,15 +43,23 @@ function handlePOIClick(poi) {
   const toggleBtn = document.getElementById("routeToggleBtn");
 
   if (destInput) destInput.value = poi.name;
-
   if (panel) panel.style.display = "flex";
-
   if (toggleBtn) toggleBtn.classList.add("active");
 }
 
 // ======================================
+// REGISTRO UNIFICADO DE POI
+// ======================================
+function registerPOI(poi) {
+  if (!poi || !poi.name) return;
+
+  window.poiIndex.push(poi);
+}
+
+window.registerPOI = registerPOI;
+
+// ======================================
 // CARREGAR POIs MANUAIS
-// LÊ window.manualPOIs (manual-pois.js)
 // ======================================
 function loadManualPOIs(layer) {
   if (!layer) return;
@@ -63,18 +71,8 @@ function loadManualPOIs(layer) {
 
   window.manualPOIs.forEach(poi => {
 
-    // ==========================
-    // REGISTRA NO ÍNDICE GLOBAL
-    // ==========================
-    if (typeof window.registerPOI === "function") {
-      window.registerPOI(poi); // usa o índice do mapa.js
-    } else {
-      window.poiIndex.push(poi);
-    }
+    registerPOI(poi);
 
-    // ==========================
-    // ÍCONE (se existir icons.js)
-    // ==========================
     let marker;
 
     if (typeof getIcon === "function") {
@@ -85,14 +83,7 @@ function loadManualPOIs(layer) {
       marker = L.marker([poi.lat, poi.lon]);
     }
 
-    // ==========================
-    // POPUP
-    // ==========================
     marker.bindPopup(createPopupContent(poi));
-
-    // ==========================
-    // CLICK NO POI
-    // ==========================
     marker.on("click", () => handlePOIClick(poi));
 
     marker.addTo(layer);
@@ -104,10 +95,51 @@ function loadManualPOIs(layer) {
 window.loadManualPOIs = loadManualPOIs;
 
 // ======================================
-// POIs AUTOMÁTICOS (placeholder seguro)
+// POIs AUTOMÁTICOS (OVERPASS API)
 // ======================================
-function loadAutoPOIs(lat, lon, radius, layer) {
-  // Mantido vazio para não quebrar o mapa.js
+async function loadAutoPOIs(lat, lon, radius, layer) {
+
+  const query = `
+    [out:json];
+    node
+      (around:${radius},${lat},${lon})
+      ["amenity"];
+    out;
+  `;
+
+  const url = "https://overpass-api.de/api/interpreter";
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      body: query
+    });
+
+    const data = await res.json();
+
+    data.elements.forEach(el => {
+
+      const poi = {
+        name: el.tags?.name || "POI",
+        lat: el.lat,
+        lon: el.lon,
+        category: el.tags?.amenity || "auto"
+      };
+
+      registerPOI(poi);
+
+      const marker = L.marker([poi.lat, poi.lon])
+        .bindPopup(createPopupContent(poi))
+        .on("click", () => handlePOIClick(poi));
+
+      marker.addTo(layer);
+    });
+
+    console.log("POIs dinâmicos carregados:", data.elements.length);
+
+  } catch (e) {
+    console.error("Erro Overpass:", e);
+  }
 }
 
 window.loadAutoPOIs = loadAutoPOIs;
