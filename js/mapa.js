@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.userMarker = null;
 
   // ==========================
-  // ✅ CAMADAS (CORRETO)
+  // CAMADAS
   // ==========================
 
   const poiLayer = L.layerGroup().addTo(map);
@@ -64,6 +64,27 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================
+  // 🔎 SEARCH PANEL CONTROL (NOVO)
+  // ==========================
+
+  function openSearchPanel() {
+    const panel = document.getElementById("search-panel");
+
+    if (!panel) {
+      console.warn("search-panel não encontrado no HTML");
+      return;
+    }
+
+    panel.style.display = "block";
+
+    // fecha rota se estiver aberta
+    const routePanel = document.getElementById("route-panel");
+    if (routePanel) routePanel.style.display = "none";
+  }
+
+  window.openSearchPanel = openSearchPanel;
+
+  // ==========================
   // GPS
   // ==========================
 
@@ -91,18 +112,13 @@ document.addEventListener("DOMContentLoaded", () => {
       userCircle.setRadius(accuracy);
     }
 
-    // ==========================
     // CARREGAR POIs
-    // ==========================
-
     if (!poisLoaded) {
 
       console.log("Carregando POIs...");
 
       if (typeof loadManualPOIs === "function") {
         loadManualPOIs(window.poiLayer);
-      } else {
-        console.error("loadManualPOIs não encontrada");
       }
 
       if (navigator.onLine && typeof loadAutoPOIs === "function") {
@@ -119,18 +135,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function startGPS() {
-    if (!("geolocation" in navigator)) {
-      alert("GPS não suportado");
-      return;
-    }
+    if (!("geolocation" in navigator)) return;
 
     if (gpsWatchId) return;
 
-    navigator.geolocation.getCurrentPosition(
-      handlePosition,
-      handleError,
-      { enableHighAccuracy: true }
-    );
+    navigator.geolocation.getCurrentPosition(handlePosition, handleError, {
+      enableHighAccuracy: true
+    });
 
     gpsWatchId = navigator.geolocation.watchPosition(
       handlePosition,
@@ -144,10 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================
 
   function centerOnUser() {
-    if (!userMarker) {
-      alert("Localização não disponível");
-      return;
-    }
+    if (!userMarker) return;
 
     map.setView(userMarker.getLatLng(), 16);
   }
@@ -155,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.centerOnUser = centerOnUser;
 
   // ==========================
-  // PAINEL DE ROTA
+  // ROTA PANEL
   // ==========================
 
   const routeBtn = document.getElementById("routeToggleBtn");
@@ -174,6 +182,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isOpen && originInput && window.userMarker) {
         originInput.value = "Minha localização";
       }
+
+      // fecha search ao abrir rota
+      const searchPanel = document.getElementById("search-panel");
+      if (searchPanel) searchPanel.style.display = "none";
     });
   }
 
