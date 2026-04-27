@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let poisLoaded = false;
 
   // ==========================
-  // ÍNDICE DE POIs
+  // POIs INDEX
   // ==========================
 
   window.poiIndex = [];
@@ -64,11 +64,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================
-  // 🔎 SEARCH UX CONTROL (ROBUSTO)
+  // SEARCH CONTROL
   // ==========================
 
   function openSearchPanel() {
-
     const panel = document.getElementById("search-panel");
     const routePanel = document.getElementById("route-panel");
 
@@ -76,10 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     panel.style.display = "block";
 
-    // fecha rota
     if (routePanel) routePanel.style.display = "none";
 
-    // foco no input (UX melhor)
     setTimeout(() => {
       document.getElementById("search-input")?.focus();
     }, 50);
@@ -92,7 +89,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function toggleSearchPanel() {
     const panel = document.getElementById("search-panel");
-
     if (!panel) return;
 
     const isOpen = panel.style.display === "block";
@@ -106,13 +102,31 @@ document.addEventListener("DOMContentLoaded", () => {
   window.toggleSearchPanel = toggleSearchPanel;
 
   // ==========================
-  // GPS (CORRIGIDO ESTADO)
+  // ROUTE TOGGLE (AQUI O QUE VOCÊ QUERIA)
+  // ==========================
+
+  function toggleRoute() {
+    const route = document.getElementById("route-panel");
+    const search = document.getElementById("search-panel");
+
+    if (!route) return;
+
+    const isOpen = route.style.display === "flex";
+
+    route.style.display = isOpen ? "none" : "flex";
+
+    if (search) search.style.display = "none";
+  }
+
+  window.toggleRoute = toggleRoute;
+
+  // ==========================
+  // GPS
   // ==========================
 
   function handlePosition(pos) {
     const { latitude, longitude, accuracy } = pos.coords;
 
-    // 🔥 sempre atualiza referência global
     window.lastGPS = { lat: latitude, lng: longitude };
 
     if (!userMarker) {
@@ -137,12 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
       userCircle.setRadius(accuracy);
     }
 
-    // ==========================
-    // POIs (UMA VEZ)
-    // ==========================
     if (!poisLoaded) {
-
-      console.log("Carregando POIs...");
 
       if (typeof loadManualPOIs === "function") {
         loadManualPOIs(window.poiLayer);
@@ -157,64 +166,43 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handleError(err) {
-    console.error("Erro GPS:", err);
+    console.error("GPS error:", err);
   }
 
   function startGPS() {
-
     if (!navigator.geolocation) return;
 
     if (gpsWatchId) return;
 
-    navigator.geolocation.getCurrentPosition(
-      handlePosition,
-      handleError,
-      { enableHighAccuracy: true }
-    );
+    navigator.geolocation.getCurrentPosition(handlePosition, handleError, {
+      enableHighAccuracy: true
+    });
 
-    gpsWatchId = navigator.geolocation.watchPosition(
-      handlePosition,
-      handleError,
-      { enableHighAccuracy: true }
-    );
+    gpsWatchId = navigator.geolocation.watchPosition(handlePosition, handleError, {
+      enableHighAccuracy: true
+    });
   }
 
   // ==========================
-  // CONTROLES
+  // CENTER USER
   // ==========================
 
   function centerOnUser() {
     if (!window.userMarker) return;
-
     map.setView(window.userMarker.getLatLng(), 16);
   }
 
   window.centerOnUser = centerOnUser;
 
   // ==========================
-  // ROTA PANEL UX FIX
+  // ROUTE BUTTON LINK
   // ==========================
 
   const routeBtn = document.getElementById("routeToggleBtn");
-  const routePanel = document.getElementById("route-panel");
 
-  if (routeBtn && routePanel) {
-
+  if (routeBtn) {
     routeBtn.addEventListener("click", () => {
-
-      const isOpen = routePanel.style.display === "flex";
-
-      routePanel.style.display = isOpen ? "none" : "flex";
-      routeBtn.classList.toggle("active");
-
-      // fecha search automaticamente
-      closeSearchPanel();
-
-      // preenche origem sempre atualizada
-      if (!isOpen && window.userMarker) {
-        const originInput = document.getElementById("route-origin");
-        if (originInput) originInput.value = "Minha localização";
-      }
+      toggleRoute();
     });
   }
 
@@ -223,5 +211,4 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================
 
   startGPS();
-
 });
