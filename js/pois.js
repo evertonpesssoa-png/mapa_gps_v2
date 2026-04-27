@@ -4,7 +4,7 @@
 window.poiIndex = window.poiIndex || [];
 
 // ======================================
-// BUSCA POR NOME (usado pelo routing.js)
+// BUSCA POR NOME (routing support)
 // ======================================
 function findPlacesByName(text) {
   if (!text) return { results: [] };
@@ -35,7 +35,7 @@ function createPopupContent(poi) {
 }
 
 // ======================================
-// AÇÃO AO CLICAR NO POI
+// CLICK POI
 // ======================================
 function handlePOIClick(poi) {
   const panel = document.getElementById("route-panel");
@@ -59,7 +59,7 @@ function registerPOI(poi) {
 window.registerPOI = registerPOI;
 
 // ======================================
-// CARREGAR POIs MANUAIS
+// POIs MANUAIS
 // ======================================
 function loadManualPOIs(layer) {
   if (!layer) return;
@@ -95,15 +95,19 @@ function loadManualPOIs(layer) {
 window.loadManualPOIs = loadManualPOIs;
 
 // ======================================
-// POIs AUTOMÁTICOS (OVERPASS API)
+// POIs AUTOMÁTICOS (OVERPASS API MELHORADA)
 // ======================================
 async function loadAutoPOIs(lat, lon, radius, layer) {
 
   const query = `
     [out:json];
-    node
-      (around:${radius},${lat},${lon})
-      ["amenity"];
+    (
+      node["amenity"="hospital"](around:${radius},${lat},${lon});
+      node["amenity"="pharmacy"](around:${radius},${lat},${lon});
+      node["amenity"="police"](around:${radius},${lat},${lon});
+      node["shop"="supermarket"](around:${radius},${lat},${lon});
+      node["amenity"="fuel"](around:${radius},${lat},${lon});
+    );
     out;
   `;
 
@@ -119,26 +123,41 @@ async function loadAutoPOIs(lat, lon, radius, layer) {
 
     data.elements.forEach(el => {
 
+      const name = el.tags?.name || "Local";
+
+      let category = "generic";
+
+      if (el.tags?.amenity === "hospital") category = "hospital";
+      if (el.tags?.amenity === "pharmacy") category = "pharmacy";
+      if (el.tags?.amenity === "police") category = "police";
+      if (el.tags?.shop === "supermarket") category = "supermarket";
+      if (el.tags?.amenity === "fuel") category = "gas";
+
       const poi = {
-        name: el.tags?.name || "POI",
+        name,
         lat: el.lat,
         lon: el.lon,
-        category: el.tags?.amenity || "auto"
+        category
       };
 
       registerPOI(poi);
 
-      const marker = L.marker([poi.lat, poi.lon])
-        .bindPopup(createPopupContent(poi))
-        .on("click", () => handlePOIClick(poi));
+      const marker = L.marker([poi.lat, poi.lon], {
+        icon: typeof getIcon === "function"
+          ? getIcon(poi.category)
+          : undefined
+      });
+
+      marker.bindPopup(createPopupContent(poi));
+      marker.on("click", () => handlePOIClick(poi));
 
       marker.addTo(layer);
     });
 
     console.log("POIs dinâmicos carregados:", data.elements.length);
 
-  } catch (e) {
-    console.error("Erro Overpass:", e);
+  } catch (err) {
+    console.error("Erro Overpass:", err);
   }
 }
 
