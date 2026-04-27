@@ -24,14 +24,13 @@ function openSearchPanel() {
 
 function closeSearchPanel() {
   const panel = document.getElementById("search-panel");
+  if (panel) panel.style.display = "none";
 
-  if (!panel) return;
-
-  searchOpen = false;
-  panel.style.display = "none";
-
-  const container = document.getElementById("search-results");
-  if (container) container.innerHTML = "";
+  // garante que rota não fica bloqueada visualmente
+  const route = document.getElementById("route-panel");
+  if (route && route.classList.contains("open")) {
+    route.style.zIndex = "9999";
+  }
 }
 
 // toggle REAL (corrigido)
