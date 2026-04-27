@@ -212,16 +212,13 @@ window.toggleRoute = toggleRoute;
   // ==========================
 
   function closeAllPanels() {
-    const search = document.getElementById("search-panel");
-    const route = document.getElementById("route-panel");
-    const action = document.getElementById("action-panel");
+  document.getElementById("search-panel")?.style.display = "none";
+  document.getElementById("route-panel")?.classList.remove("open");
+  document.getElementById("route-panel")?.style.display = "none";
+  document.getElementById("action-panel")?.style.display = "none";
+}
 
-    if (search) search.style.display = "none";
-    if (route) route.style.display = "none";
-    if (action) action.style.display = "none";
-  }
-
-  window.closeAllPanels = closeAllPanels;
+window.closeAllPanels = closeAllPanels;
 
   // ==========================
   // START
