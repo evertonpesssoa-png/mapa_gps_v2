@@ -1,264 +1,86 @@
-window.poiIndex = window.poiIndex || [];
+async function geocode(query) {
 
-document.addEventListener("DOMContentLoaded", () => {
+  if (!query) return null;
 
-  // =====================================
-  // MAPA
-  // =====================================
+  query = query.trim();
 
-  const map = L.map("map", {
-    zoomControl: false
-  }).setView([-23.55052, -46.633308], 13);
+  const url =
+    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=` +
+    encodeURIComponent(query);
 
-  window.map = map;
+  try {
 
-  // =====================================
-  // MAPA PADRÃO (OSM)
-  // =====================================
+    const res = await fetch(url);
 
-  const lightLayer = L.tileLayer(
-    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    {
-      attribution:
-        "&copy; OpenStreetMap contributors",
-      maxZoom: 19
+    if (!res.ok) {
+
+      console.error(
+        "Erro Nominatim:",
+        res.status
+      );
+
+      return null;
     }
-  );
 
-  // =====================================
-  // SATÉLITE
-  // =====================================
-
-  const satelliteLayer = L.tileLayer(
-    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    {
-      attribution:
-        "Tiles © Esri",
-      maxZoom: 18
-    }
-  );
-
-  // =====================================
-  // MAPA INICIAL
-  // =====================================
-
-  lightLayer.addTo(map);
-
-  // =====================================
-  // CONTROLE DE CAMADAS
-  // =====================================
-
-  L.control.layers(
-    {
-      "🌎 Mapa": lightLayer,
-      "🛰 Satélite": satelliteLayer
-    },
-    {},
-    {
-      position: "topright"
-    }
-  ).addTo(map);
-
-  // =====================================
-  // CAMADAS
-  // =====================================
-
-  window.poiLayer =
-    L.layerGroup().addTo(map);
-
-  window.routeLayer =
-    L.layerGroup().addTo(map);
-
-  // =====================================
-  // USER
-  // =====================================
-
-  let userMarker = null;
-  let userCircle = null;
-
-  let firstFix = true;
-
-  let autoPOIsLoaded = false;
-
-  // =====================================
-  // POIs MANUAIS
-  // =====================================
-
-  if (
-    typeof loadManualPOIs ===
-    "function"
-  ) {
-
-    loadManualPOIs(
-      window.poiLayer
-    );
+    const data = await res.json();
 
     console.log(
-      "POIs manuais carregados"
+      "Geocode:",
+      data
     );
-  }
-
-  // =====================================
-  // GPS
-  // =====================================
-
-  function handlePosition(pos) {
-
-    const lat =
-      pos.coords.latitude;
-
-    const lng =
-      pos.coords.longitude;
-
-    const accuracy =
-      pos.coords.accuracy;
-
-    window.lastGPS = {
-      lat,
-      lng
-    };
-
-    // =====================================
-    // PRIMEIRA POSIÇÃO
-    // =====================================
-
-    if (!userMarker) {
-
-      // marcador usuário
-      userMarker = L.marker(
-        [lat, lng]
-      ).addTo(map);
-
-      // círculo precisão
-      userCircle = L.circle(
-        [lat, lng],
-        {
-          radius: accuracy,
-          fillOpacity: 0.18,
-          weight: 0
-        }
-      ).addTo(map);
-
-      window.userMarker =
-        userMarker;
-
-      if (firstFix) {
-
-        map.setView(
-          [lat, lng],
-          16
-        );
-
-        firstFix = false;
-      }
-
-    } else {
-
-      // atualiza posição
-      userMarker.setLatLng(
-        [lat, lng]
-      );
-
-      userCircle.setLatLng(
-        [lat, lng]
-      );
-
-      userCircle.setRadius(
-        accuracy
-      );
-    }
-
-    // =====================================
-    // POIs DINÂMICOS
-    // =====================================
 
     if (
-      !autoPOIsLoaded &&
-      typeof loadAutoPOIs ===
-        "function"
+      !Array.isArray(data) ||
+      data.length === 0
     ) {
 
-      autoPOIsLoaded = true;
-
-      loadAutoPOIs(
-        lat,
-        lng,
-        1200,
-        window.poiLayer
-      );
-
-      console.log(
-        "POIs dinâmicos carregados"
-      );
+      return null;
     }
-  }
 
-  // =====================================
-  // GPS ERROR
-  // =====================================
+    // prioriza cidades/estados
+    const preferred =
+      data.find(place => {
 
-  function handleError(err) {
+        const type =
+          place.type || "";
 
-    console.error(
-      "GPS error:",
-      err
-    );
-  }
+        return [
 
-  // =====================================
-  // START GPS
-  // =====================================
+          "city",
+          "state",
+          "administrative",
+          "town",
+          "municipality"
 
-  if (navigator.geolocation) {
+        ].includes(type);
 
-    navigator.geolocation.getCurrentPosition(
-      handlePosition,
-      handleError,
-      {
-        enableHighAccuracy: true
-      }
-    );
+      }) || data[0];
 
-    navigator.geolocation.watchPosition(
-      handlePosition,
-      handleError,
-      {
-        enableHighAccuracy: true
-      }
-    );
+    return {
 
-  } else {
+      lat:
+        parseFloat(
+          preferred.lat
+        ),
 
-    console.warn(
-      "Geolocalização não suportada"
-    );
-  }
+      lng:
+        parseFloat(
+          preferred.lon
+        ),
 
-  // =====================================
-  // CENTRALIZAR USUÁRIO
-  // =====================================
-
-  window.centerOnUser =
-    function () {
-
-      if (
-        !window.userMarker
-      ) return;
-
-      map.setView(
-        window.userMarker.getLatLng(),
-        16
-      );
+      name:
+        preferred.display_name
     };
 
-  // =====================================
-  // FIX RENDER
-  // =====================================
+  } catch (err) {
 
-  setTimeout(() => {
+    console.error(
+      "Geocoding error:",
+      err
+    );
 
-    map.invalidateSize();
+    return null;
+  }
+}
 
-  }, 500);
-
-});
+window.geocode = geocode;
