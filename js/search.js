@@ -1,10 +1,17 @@
 let searchOpen = false;
 
 // ======================================
-// CONTROLE DE BUSCAS ASSÍNCRONAS
+// CONTROLE ASSÍNCRONO
 // ======================================
 
 let currentSearchId = 0;
+
+// ======================================
+// CACHE GLOBAL
+// ======================================
+
+window.searchCache =
+  window.searchCache || {};
 
 // ======================================
 // NORMALIZAR TEXTO
@@ -13,6 +20,7 @@ let currentSearchId = 0;
 function normalizeText(text) {
 
   return (text || "")
+    .toString()
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -110,10 +118,7 @@ function smartZoomToPlace(poi) {
       poi.name
     );
 
-  // ======================================
-  // ESTADOS
-  // ======================================
-
+  // estados
   const states = [
 
     "acre",
@@ -160,10 +165,7 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // ======================================
-  // CIDADES
-  // ======================================
-
+  // cidades
   const cities = [
 
     "goiana",
@@ -177,7 +179,8 @@ function smartZoomToPlace(poi) {
     "manaus",
     "belem",
     "brasilia",
-    "sao paulo"
+    "sao paulo",
+    "joao pessoa"
 
   ];
 
@@ -196,10 +199,7 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // ======================================
-  // PADRÃO
-  // ======================================
-
+  // padrão
   window.map.setView(
     [poi.lat, lng],
     16
@@ -284,7 +284,6 @@ function showActionPanel(
   const lng =
     poi.lng ?? poi.lon;
 
-  // mantém search aberto
   closePanels(
     "search-panel"
   );
@@ -381,10 +380,6 @@ async function searchPlace(
     return;
   }
 
-  // ======================================
-  // CONTROLE ASSÍNCRONO
-  // ======================================
-
   const searchId =
     ++currentSearchId;
 
@@ -423,7 +418,34 @@ async function searchPlace(
     );
   }
 
-  // renderiza local imediatamente
+  // ======================================
+  // CACHE
+  // ======================================
+
+  if (
+    window.searchCache[
+      normalizedQuery
+    ]
+  ) {
+
+    const cached =
+      window.searchCache[
+        normalizedQuery
+      ];
+
+    const exists =
+      results.some(
+        r =>
+          normalizeText(r.name) ===
+          normalizeText(cached.name)
+      );
+
+    if (!exists) {
+      results.push(cached);
+    }
+  }
+
+  // render imediato
   renderResults(results);
 
   // ======================================
@@ -442,10 +464,7 @@ async function searchPlace(
           query
         );
 
-      // ======================================
-      // IGNORA BUSCA ANTIGA
-      // ======================================
-
+      // ignora busca velha
       if (
         searchId !==
         currentSearchId
@@ -455,6 +474,11 @@ async function searchPlace(
       }
 
       if (geo) {
+
+        // salva cache
+        window.searchCache[
+          normalizedQuery
+        ] = geo;
 
         const exists =
           results.some(
@@ -486,7 +510,6 @@ async function searchPlace(
         }
       }
 
-      // renderiza final
       renderResults(results);
 
     } catch (err) {
@@ -519,10 +542,6 @@ function renderResults(
 
   container.innerHTML = "";
 
-  // ======================================
-  // SEM RESULTADOS
-  // ======================================
-
   if (
     !results ||
     results.length === 0
@@ -542,11 +561,24 @@ function renderResults(
     return;
   }
 
-  // ======================================
-  // RESULTADOS
-  // ======================================
+  // remove duplicados
+  const unique = [];
 
   results.forEach(poi => {
+
+    const exists =
+      unique.some(
+        p =>
+          normalizeText(p.name) ===
+          normalizeText(poi.name)
+      );
+
+    if (!exists) {
+      unique.push(poi);
+    }
+  });
+
+  unique.forEach(poi => {
 
     const div =
       document.createElement(
