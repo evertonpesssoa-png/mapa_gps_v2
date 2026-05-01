@@ -2,14 +2,8 @@ async function geocode(query) {
 
   if (!query) return null;
 
-  query = query.trim();
-
-  // ======================================
-  // URL NOMINATIM
-  // ======================================
-
   const url =
-    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=` +
+    `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=` +
     encodeURIComponent(query);
 
   try {
@@ -20,70 +14,34 @@ async function geocode(query) {
       }
     });
 
-    const data = await res.json();
-
-    // ======================================
-    // VALIDAÇÃO
-    // ======================================
+    const data =
+      await res.json();
 
     if (
       !data ||
-      !Array.isArray(data) ||
-      data.length === 0
+      !data.length
     ) {
-
       return null;
     }
 
-    // ======================================
-    // PRIORIZA:
-    // cidade > estado > município
-    // ======================================
-
-    const preferred =
-      data.find(place => {
-
-        const type =
-          place.type || "";
-
-        return [
-
-          "city",
-          "state",
-          "administrative",
-          "town",
-          "municipality"
-
-        ].includes(type);
-
-      }) || data[0];
-
-    // ======================================
-    // RETORNO
-    // ======================================
+    const place = data[0];
 
     return {
 
       lat:
-        parseFloat(
-          preferred.lat
-        ),
+        parseFloat(place.lat),
 
       lng:
-        parseFloat(
-          preferred.lon
-        ),
+        parseFloat(place.lon),
 
       name:
-        preferred.display_name
+        place.display_name
+          .split(",")[0]
     };
 
   } catch (err) {
 
-    console.error(
-      "Geocoding error:",
-      err
-    );
+    console.error(err);
 
     return null;
   }
