@@ -90,7 +90,10 @@ function smartZoomToPlace(poi) {
     (poi.name || "")
       .toLowerCase();
 
-  // estados
+  // ======================================
+  // ESTADOS
+  // ======================================
+
   const states = [
 
     "acre",
@@ -119,6 +122,7 @@ function smartZoomToPlace(poi) {
     "são paulo",
     "sergipe",
     "tocantins"
+
   ];
 
   const isState =
@@ -136,7 +140,10 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // cidades grandes
+  // ======================================
+  // CIDADES GRANDES
+  // ======================================
+
   const bigCities = [
 
     "recife",
@@ -154,6 +161,7 @@ function smartZoomToPlace(poi) {
     "manaus",
     "belém",
     "brasília"
+
   ];
 
   const isCity =
@@ -171,7 +179,10 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // padrão
+  // ======================================
+  // PADRÃO
+  // ======================================
+
   window.map.setView(
     [poi.lat, poi.lng],
     16
@@ -343,30 +354,34 @@ async function searchPlace(
     return;
   }
 
+  let results = [];
+
   // ======================================
   // BUSCA LOCAL
   // ======================================
 
-  const local =
-    window.findPlacesByName
-      ? window.findPlacesByName(
-          query
-        )
-      : { results: [] };
+  if (window.findPlacesByName) {
 
-  if (
-    local.results.length > 0
-  ) {
+    const local =
+      window.findPlacesByName(
+        query
+      );
 
-    renderResults(
-      local.results
-    );
+    if (
+      local &&
+      Array.isArray(
+        local.results
+      )
+    ) {
 
-    return;
+      results.push(
+        ...local.results
+      );
+    }
   }
 
   // ======================================
-  // GEOCODING
+  // GEOCODING GLOBAL
   // ======================================
 
   if (window.geocode) {
@@ -380,20 +395,46 @@ async function searchPlace(
 
       if (geo) {
 
-        renderResults([
-          {
-            name: geo.name,
-            lat: geo.lat,
-            lng: geo.lng
-          }
-        ]);
+        const exists =
+          results.some(
+            r =>
+              r.name ===
+              geo.name
+          );
+
+        if (!exists) {
+
+          results.push({
+
+            name:
+              geo.name,
+
+            lat:
+              geo.lat,
+
+            lng:
+              geo.lng,
+
+            category:
+              "global"
+          });
+        }
       }
 
     } catch (err) {
 
-      console.error(err);
+      console.error(
+        "Geocode error:",
+        err
+      );
     }
   }
+
+  // ======================================
+  // RENDER
+  // ======================================
+
+  renderResults(results);
 }
 
 window.searchPlace =
@@ -416,6 +457,33 @@ function renderResults(
 
   container.innerHTML = "";
 
+  // ======================================
+  // SEM RESULTADOS
+  // ======================================
+
+  if (
+    !results ||
+    results.length === 0
+  ) {
+
+    container.innerHTML = `
+
+      <div style="
+        padding:12px;
+        color:#777;
+      ">
+        Nenhum resultado encontrado
+      </div>
+
+    `;
+
+    return;
+  }
+
+  // ======================================
+  // RESULTADOS
+  // ======================================
+
   results.forEach(poi => {
 
     const div =
@@ -435,8 +503,25 @@ function renderResults(
     div.style.background =
       "white";
 
+    div.style.transition =
+      "0.2s";
+
     div.innerText =
       poi.name;
+
+    div.onmouseenter =
+      () => {
+
+        div.style.background =
+          "#f2f2f2";
+      };
+
+    div.onmouseleave =
+      () => {
+
+        div.style.background =
+          "white";
+      };
 
     div.onclick = () => {
 
