@@ -1,6 +1,12 @@
 let searchOpen = false;
 
 // ======================================
+// CONTROLE DE BUSCAS ASSÍNCRONAS
+// ======================================
+
+let currentSearchId = 0;
+
+// ======================================
 // NORMALIZAR TEXTO
 // ======================================
 
@@ -38,7 +44,8 @@ function closePanels(except = null) {
   });
 }
 
-window.closePanels = closePanels;
+window.closePanels =
+  closePanels;
 
 // ======================================
 // TOGGLE SEARCH
@@ -58,14 +65,20 @@ function toggleSearch() {
 
   if (opened) {
 
-    panel.style.display = "none";
+    panel.style.display =
+      "none";
 
     return;
   }
 
-  closePanels("search-panel");
+  closePanels(
+    "search-panel"
+  );
 
-  panel.style.display = "block";
+  panel.style.display =
+    "block";
+
+  searchOpen = true;
 
   setTimeout(() => {
 
@@ -82,7 +95,7 @@ window.toggleSearch =
   toggleSearch;
 
 // ======================================
-// ZOOM
+// ZOOM INTELIGENTE
 // ======================================
 
 function smartZoomToPlace(poi) {
@@ -93,24 +106,51 @@ function smartZoomToPlace(poi) {
     poi.lng ?? poi.lon;
 
   const name =
-    normalizeText(poi.name);
+    normalizeText(
+      poi.name
+    );
 
-  // estados
+  // ======================================
+  // ESTADOS
+  // ======================================
+
   const states = [
-    "pernambuco",
-    "sao paulo",
+
+    "acre",
+    "alagoas",
+    "amapa",
+    "amazonas",
     "bahia",
     "ceara",
-    "amazonas",
+    "espirito santo",
+    "goias",
+    "maranhao",
+    "mato grosso",
+    "mato grosso do sul",
+    "minas gerais",
+    "para",
+    "paraiba",
+    "parana",
+    "pernambuco",
+    "piaui",
     "rio de janeiro",
-    "minas gerais"
+    "rio grande do norte",
+    "rio grande do sul",
+    "rondonia",
+    "roraima",
+    "santa catarina",
+    "sao paulo",
+    "sergipe",
+    "tocantins"
+
   ];
 
-  if (
-    states.some(s =>
-      name.includes(s)
-    )
-  ) {
+  const isState =
+    states.some(state =>
+      name.includes(state)
+    );
+
+  if (isState) {
 
     window.map.setView(
       [poi.lat, lng],
@@ -120,8 +160,12 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // cidades
+  // ======================================
+  // CIDADES
+  // ======================================
+
   const cities = [
+
     "goiana",
     "recife",
     "olinda",
@@ -129,14 +173,20 @@ function smartZoomToPlace(poi) {
     "petrolina",
     "fortaleza",
     "salvador",
-    "curitiba"
+    "curitiba",
+    "manaus",
+    "belem",
+    "brasilia",
+    "sao paulo"
+
   ];
 
-  if (
-    cities.some(c =>
-      name.includes(c)
-    )
-  ) {
+  const isCity =
+    cities.some(city =>
+      name.includes(city)
+    );
+
+  if (isCity) {
 
     window.map.setView(
       [poi.lat, lng],
@@ -146,7 +196,10 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // padrão
+  // ======================================
+  // PADRÃO
+  // ======================================
+
   window.map.setView(
     [poi.lat, lng],
     16
@@ -157,7 +210,10 @@ function smartZoomToPlace(poi) {
 // VIEW ON MAP
 // ======================================
 
-function viewOnMap(lat, lng) {
+function viewOnMap(
+  lat,
+  lng
+) {
 
   if (!window.map) return;
 
@@ -165,7 +221,7 @@ function viewOnMap(lat, lng) {
 
   window.map.setView(
     [lat, lng],
-    17
+    16
   );
 }
 
@@ -178,7 +234,9 @@ window.viewOnMap =
 
 function openRoutePanel(name) {
 
-  closePanels("route-panel");
+  closePanels(
+    "route-panel"
+  );
 
   const panel =
     document.getElementById(
@@ -190,12 +248,18 @@ function openRoutePanel(name) {
       "route-destination"
     );
 
-  if (input && name) {
+  if (
+    input &&
+    name
+  ) {
+
     input.value = name;
   }
 
   if (panel) {
-    panel.style.display = "flex";
+
+    panel.style.display =
+      "flex";
   }
 }
 
@@ -206,7 +270,9 @@ window.openRoutePanel =
 // ACTION PANEL
 // ======================================
 
-function showActionPanel(poi) {
+function showActionPanel(
+  poi
+) {
 
   const panel =
     document.getElementById(
@@ -218,8 +284,10 @@ function showActionPanel(poi) {
   const lng =
     poi.lng ?? poi.lon;
 
-  // NÃO FECHA SEARCH
-  closePanels("search-panel");
+  // mantém search aberto
+  closePanels(
+    "search-panel"
+  );
 
   panel.innerHTML = `
 
@@ -236,6 +304,12 @@ function showActionPanel(poi) {
         onclick="
           document.getElementById('action-panel').style.display='none'
         "
+        style="
+          border:none;
+          background:none;
+          font-size:18px;
+          cursor:pointer;
+        "
       >
         ✕
       </button>
@@ -244,7 +318,10 @@ function showActionPanel(poi) {
 
     <button
       onclick="
-        viewOnMap(${poi.lat}, ${lng})
+        viewOnMap(
+          ${poi.lat},
+          ${lng}
+        )
       "
       style="
         width:100%;
@@ -257,7 +334,9 @@ function showActionPanel(poi) {
 
     <button
       onclick="
-        openRoutePanel('${poi.name.replace(/'/g, "")}')
+        openRoutePanel(
+          '${poi.name.replace(/'/g, "")}'
+        )
       "
       style="
         width:100%;
@@ -279,7 +358,9 @@ window.showActionPanel =
 // SEARCH
 // ======================================
 
-async function searchPlace(query) {
+async function searchPlace(
+  query
+) {
 
   const container =
     document.getElementById(
@@ -290,17 +371,30 @@ async function searchPlace(query) {
 
   query = query?.trim();
 
-  if (!query || query.length < 2) {
+  if (
+    !query ||
+    query.length < 2
+  ) {
 
     container.innerHTML = "";
 
     return;
   }
 
+  // ======================================
+  // CONTROLE ASSÍNCRONO
+  // ======================================
+
+  const searchId =
+    ++currentSearchId;
+
+  const normalizedQuery =
+    normalizeText(query);
+
   let results = [];
 
   // ======================================
-  // LOCAL
+  // BUSCA LOCAL
   // ======================================
 
   if (
@@ -311,22 +405,35 @@ async function searchPlace(query) {
 
     const local =
       window.poiIndex.filter(
-        poi =>
-          normalizeText(
-            poi.name
-          ).includes(
-            normalizeText(query)
-          )
+        poi => {
+
+          const name =
+            normalizeText(
+              poi.name
+            );
+
+          return name.includes(
+            normalizedQuery
+          );
+        }
       );
 
-    results.push(...local);
+    results.push(
+      ...local
+    );
   }
 
+  // renderiza local imediatamente
+  renderResults(results);
+
   // ======================================
-  // GEOCODE
+  // GEOCODING
   // ======================================
 
-  if (window.geocode) {
+  if (
+    typeof window.geocode ===
+    "function"
+  ) {
 
     try {
 
@@ -335,38 +442,73 @@ async function searchPlace(query) {
           query
         );
 
+      // ======================================
+      // IGNORA BUSCA ANTIGA
+      // ======================================
+
+      if (
+        searchId !==
+        currentSearchId
+      ) {
+
+        return;
+      }
+
       if (geo) {
 
         const exists =
           results.some(
             r =>
-              normalizeText(r.name) ===
-              normalizeText(geo.name)
+              normalizeText(
+                r.name
+              ) ===
+              normalizeText(
+                geo.name
+              )
           );
 
         if (!exists) {
 
-          results.push(geo);
+          results.push({
+
+            name:
+              geo.name,
+
+            lat:
+              geo.lat,
+
+            lng:
+              geo.lng,
+
+            category:
+              "global"
+          });
         }
       }
 
+      // renderiza final
+      renderResults(results);
+
     } catch (err) {
 
-      console.error(err);
+      console.error(
+        "Geocode error:",
+        err
+      );
     }
   }
-
-  renderResults(results);
 }
 
 window.searchPlace =
   searchPlace;
 
 // ======================================
-// RENDER
+// RENDER RESULTS
 // ======================================
 
-function renderResults(results) {
+function renderResults(
+  results
+) {
 
   const container =
     document.getElementById(
@@ -377,24 +519,39 @@ function renderResults(results) {
 
   container.innerHTML = "";
 
-  if (!results.length) {
+  // ======================================
+  // SEM RESULTADOS
+  // ======================================
+
+  if (
+    !results ||
+    results.length === 0
+  ) {
 
     container.innerHTML = `
+
       <div style="
         padding:12px;
         color:#666;
       ">
         Nenhum resultado
       </div>
+
     `;
 
     return;
   }
 
+  // ======================================
+  // RESULTADOS
+  // ======================================
+
   results.forEach(poi => {
 
     const div =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
     div.style.padding =
       "10px";
@@ -408,15 +565,36 @@ function renderResults(results) {
     div.style.background =
       "white";
 
+    div.style.transition =
+      "0.2s";
+
     div.innerHTML = `
       <b>${poi.name}</b>
     `;
 
+    div.onmouseenter =
+      () => {
+
+        div.style.background =
+          "#f2f2f2";
+      };
+
+    div.onmouseleave =
+      () => {
+
+        div.style.background =
+          "white";
+      };
+
     div.onclick = () => {
 
-      smartZoomToPlace(poi);
+      smartZoomToPlace(
+        poi
+      );
 
-      showActionPanel(poi);
+      showActionPanel(
+        poi
+      );
     };
 
     container.appendChild(div);
@@ -424,7 +602,7 @@ function renderResults(results) {
 }
 
 // ======================================
-// INPUT
+// INPUT EVENTS
 // ======================================
 
 document.addEventListener(
@@ -445,6 +623,21 @@ document.addEventListener(
         searchPlace(
           e.target.value
         );
+      }
+    );
+
+    input.addEventListener(
+      "keydown",
+      e => {
+
+        if (
+          e.key === "Enter"
+        ) {
+
+          searchPlace(
+            input.value
+          );
+        }
       }
     );
   }
