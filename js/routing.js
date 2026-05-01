@@ -1,54 +1,134 @@
 const SPEEDS = {
   foot: 5,
-  bike: 35,
+  bike: 18,
   car: 50
 };
 
+// ======================================
+// TOGGLE ROUTE PANEL
+// ======================================
+
 function toggleRoute() {
 
-  const panel = document.getElementById("route-panel");
-  const search = document.getElementById("search-panel");
+  const panel =
+    document.getElementById(
+      "route-panel"
+    );
+
+  const search =
+    document.getElementById(
+      "search-panel"
+    );
+
+  const action =
+    document.getElementById(
+      "action-panel"
+    );
 
   if (!panel) return;
 
-  const open = panel.style.display === "flex";
+  const isOpen =
+    panel.style.display === "flex";
 
-  panel.style.display = open ? "none" : "flex";
-
+  // fecha outros
   if (search) {
     search.style.display = "none";
   }
+
+  if (action) {
+    action.style.display = "none";
+  }
+
+  panel.style.display =
+    isOpen
+      ? "none"
+      : "flex";
 }
 
-window.toggleRoute = toggleRoute;
+window.toggleRoute =
+  toggleRoute;
 
-function formatDistance(m) {
-  return m < 1000
-    ? `${m.toFixed(0)} m`
-    : `${(m / 1000).toFixed(2)} km`;
+// ======================================
+// FORMATADORES
+// ======================================
+
+function formatDistance(meters) {
+
+  if (meters < 1000) {
+    return `${meters.toFixed(0)} m`;
+  }
+
+  return `${(meters / 1000).toFixed(1)} km`;
 }
 
-function formatTime(distance, mode) {
+function formatTime(
+  distance,
+  mode
+) {
 
-  const speed = SPEEDS[mode] || SPEEDS.car;
+  const speed =
+    SPEEDS[mode] ||
+    SPEEDS.car;
 
-  const km = distance / 1000;
+  const km =
+    distance / 1000;
 
-  const minutes = Math.round((km / speed) * 60);
+  const minutes =
+    Math.round(
+      (km / speed) * 60
+    );
 
-  return `${minutes} min`;
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+
+  const hours =
+    Math.floor(minutes / 60);
+
+  const rest =
+    minutes % 60;
+
+  return `${hours}h ${rest}min`;
 }
+
+// ======================================
+// LIMPAR ROTA
+// ======================================
 
 function clearRoute() {
 
-  if (window.routeLayer) {
+  if (
+    window.routeLayer
+  ) {
+
     window.routeLayer.clearLayers();
   }
 }
 
-window.clearRoute = clearRoute;
+window.clearRoute =
+  clearRoute;
 
-function traceRoute(from, to, mode) {
+// ======================================
+// TRAÇAR ROTA
+// ======================================
+
+async function traceRoute(
+  from,
+  to,
+  mode = "car"
+) {
+
+  if (
+    !window.map ||
+    !window.routeLayer
+  ) {
+
+    console.error(
+      "Mapa ou routeLayer não encontrado"
+    );
+
+    return;
+  }
 
   const profile =
     mode === "foot"
@@ -62,109 +142,339 @@ function traceRoute(from, to, mode) {
     `${from.lng},${from.lat};${to.lng},${to.lat}` +
     `?overview=full&geometries=geojson`;
 
-  fetch(url)
-    .then(r => r.json())
-    .then(data => {
+  try {
 
-      if (!data.routes || !data.routes.length) {
-        alert("Rota não encontrada");
-        return;
-      }
+    const response =
+      await fetch(url);
 
-      clearRoute();
+    const data =
+      await response.json();
 
-      const route = data.routes[0];
+    if (
+      !data.routes ||
+      !data.routes.length
+    ) {
 
-      const geo = L.geoJSON(route.geometry, {
-        style: {
-          weight: 5
+      alert(
+        "Rota não encontrada"
+      );
+
+      return;
+    }
+
+    clearRoute();
+
+    const route =
+      data.routes[0];
+
+    // ======================================
+    // DESENHA LINHA
+    // ======================================
+
+    const geo =
+      L.geoJSON(
+        route.geometry,
+        {
+          style: {
+            weight: 6,
+            opacity: 0.9
+          }
         }
-      });
+      );
 
-      geo.addTo(window.routeLayer);
+    geo.addTo(
+      window.routeLayer
+    );
 
-      window.map.fitBounds(geo.getBounds());
+    // ======================================
+    // FIT BOUNDS
+    // ======================================
 
-      const info = document.getElementById("route-info");
-
-      if (info) {
-        info.innerText =
-          `📏 ${formatDistance(route.distance)} | ` +
-          `⏱ ${formatTime(route.distance, mode)}`;
+    window.map.fitBounds(
+      geo.getBounds(),
+      {
+        padding: [40, 40]
       }
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Erro ao criar rota");
-    });
+    );
+
+    // ======================================
+    // INFO
+    // ======================================
+
+    const info =
+      document.getElementById(
+        "route-info"
+      );
+
+    if (info) {
+
+      info.innerHTML =
+
+        `📏 ${formatDistance(route.distance)}
+         <br>
+         ⏱ ${formatTime(route.distance, mode)}`;
+    }
+
+  } catch (err) {
+
+    console.error(
+      "Erro rota:",
+      err
+    );
+
+    alert(
+      "Erro ao criar rota"
+    );
+  }
 }
 
-async function resolveText(text) {
+window.traceRoute =
+  traceRoute;
+
+// ======================================
+// NORMALIZAR TEXTO
+// ======================================
+
+function normalizeText(
+  text
+) {
+
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .trim();
+}
+
+// ======================================
+// RESOLVER TEXTO
+// ======================================
+
+async function resolveText(
+  text
+) {
 
   if (!text) return null;
 
-  const local = window.poiIndex.find(p =>
-    p.name.toLowerCase() === text.toLowerCase()
-  );
+  const normalized =
+    normalizeText(text);
 
-  if (local) {
-    return {
-      lat: local.lat,
-      lng: local.lng
-    };
+  // ======================================
+  // BUSCA LOCAL
+  // ======================================
+
+  if (
+    Array.isArray(
+      window.poiIndex
+    )
+  ) {
+
+    // busca exata
+    let local =
+      window.poiIndex.find(
+        p =>
+          normalizeText(
+            p.name
+          ) === normalized
+      );
+
+    // busca parcial
+    if (!local) {
+
+      local =
+        window.poiIndex.find(
+          p =>
+            normalizeText(
+              p.name
+            ).includes(
+              normalized
+            )
+        );
+    }
+
+    if (local) {
+
+      return {
+
+        lat:
+          Number(
+            local.lat
+          ),
+
+        lng:
+          Number(
+            local.lng ??
+            local.lon
+          )
+      };
+    }
   }
 
-  if (window.geocode) {
-    return await window.geocode(text);
+  // ======================================
+  // GEOCODING
+  // ======================================
+
+  if (
+    typeof window.geocode ===
+    "function"
+  ) {
+
+    try {
+
+      const geo =
+        await window.geocode(
+          text
+        );
+
+      if (geo) {
+
+        return {
+
+          lat:
+            Number(
+              geo.lat
+            ),
+
+          lng:
+            Number(
+              geo.lng ??
+              geo.lon
+            )
+        };
+      }
+
+    } catch (err) {
+
+      console.error(
+        "Erro geocode:",
+        err
+      );
+    }
   }
 
   return null;
 }
 
-async function createRoute(originText, destinationText, mode) {
+// ======================================
+// CREATE ROUTE
+// ======================================
 
-  let from;
-  let to;
+async function createRoute(
+  originText,
+  destinationText,
+  mode
+) {
 
-  if (!originText) {
+  let from = null;
+  let to = null;
 
-    if (!window.userMarker) {
-      alert("GPS indisponível");
+  // ======================================
+  // ORIGEM
+  // ======================================
+
+  if (
+    !originText ||
+    originText.trim() === ""
+  ) {
+
+    if (
+      !window.userMarker
+    ) {
+
+      alert(
+        "GPS indisponível"
+      );
+
       return;
     }
 
-    const pos = window.userMarker.getLatLng();
+    const pos =
+      window.userMarker.getLatLng();
 
     from = {
+
       lat: pos.lat,
       lng: pos.lng
     };
 
   } else {
 
-    from = await resolveText(originText);
+    from =
+      await resolveText(
+        originText
+      );
   }
 
-  to = await resolveText(destinationText);
+  // ======================================
+  // DESTINO
+  // ======================================
 
-  if (!from || !to) {
-    alert("Origem ou destino inválido");
+  to =
+    await resolveText(
+      destinationText
+    );
+
+  // ======================================
+  // VALIDAÇÃO
+  // ======================================
+
+  if (!from) {
+
+    alert(
+      "Origem inválida"
+    );
+
     return;
   }
 
-  traceRoute(from, to, mode);
+  if (!to) {
+
+    alert(
+      "Destino inválido"
+    );
+
+    return;
+  }
+
+  // ======================================
+  // TRAÇA ROTA
+  // ======================================
+
+  await traceRoute(
+    from,
+    to,
+    mode
+  );
 }
 
-window.createRoute = createRoute;
+window.createRoute =
+  createRoute;
 
-function routeToPlace(lat, lng) {
+// ======================================
+// ROTA DIRETA
+// ======================================
 
-  if (!window.userMarker) {
-    alert("GPS indisponível");
+function routeToPlace(
+  lat,
+  lng
+) {
+
+  if (
+    !window.userMarker
+  ) {
+
+    alert(
+      "GPS indisponível"
+    );
+
     return;
   }
 
-  const pos = window.userMarker.getLatLng();
+  const pos =
+    window.userMarker.getLatLng();
 
   traceRoute(
     {
@@ -177,41 +487,111 @@ function routeToPlace(lat, lng) {
     },
     "car"
   );
+
+  // abre painel info rota
+  const routePanel =
+    document.getElementById(
+      "route-panel"
+    );
+
+  if (routePanel) {
+
+    routePanel.style.display =
+      "flex";
+  }
 }
 
-window.routeToPlace = routeToPlace;
+window.routeToPlace =
+  routeToPlace;
 
-document.addEventListener("DOMContentLoaded", () => {
+// ======================================
+// EVENTS
+// ======================================
 
-  const btn = document.getElementById("createRouteBtn");
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
 
-  const modeButtons = document.querySelectorAll(".mode-btn");
+    const btn =
+      document.getElementById(
+        "createRouteBtn"
+      );
 
-  let selectedMode = "foot";
+    const modeButtons =
+      document.querySelectorAll(
+        ".mode-btn"
+      );
 
-  modeButtons.forEach(button => {
+    let selectedMode =
+      "foot";
 
-    button.addEventListener("click", () => {
+    // ======================================
+    // BOTÕES MODO
+    // ======================================
 
-      modeButtons.forEach(b => b.classList.remove("active"));
+    modeButtons.forEach(
+      button => {
 
-      button.classList.add("active");
+        button.addEventListener(
+          "click",
+          () => {
 
-      selectedMode = button.dataset.mode;
-    });
-  });
+            modeButtons.forEach(
+              b =>
+                b.classList.remove(
+                  "active"
+                )
+            );
 
-  btn?.addEventListener("click", async () => {
+            button.classList.add(
+              "active"
+            );
 
-    const origin = document.getElementById("route-origin")?.value || "";
+            selectedMode =
+              button.dataset.mode;
+          }
+        );
+      }
+    );
 
-    const destination = document.getElementById("route-destination")?.value || "";
+    // ======================================
+    // CRIAR ROTA
+    // ======================================
 
-    if (!destination) {
-      alert("Digite um destino");
-      return;
-    }
+    btn?.addEventListener(
+      "click",
+      async () => {
 
-    await createRoute(origin, destination, selectedMode);
-  });
-});
+        const origin =
+
+          document.getElementById(
+            "route-origin"
+          )?.value || "";
+
+        const destination =
+
+          document.getElementById(
+            "route-destination"
+          )?.value || "";
+
+        if (
+          !destination ||
+          destination.trim() === ""
+        ) {
+
+          alert(
+            "Digite um destino"
+          );
+
+          return;
+        }
+
+        await createRoute(
+          origin,
+          destination,
+          selectedMode
+        );
+      }
+    );
+  }
+);
