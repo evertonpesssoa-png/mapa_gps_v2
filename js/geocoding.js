@@ -2,6 +2,12 @@ async function geocode(query) {
 
   if (!query) return null;
 
+  query = query.trim();
+
+  // ======================================
+  // URL NOMINATIM
+  // ======================================
+
   const url =
     `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=` +
     encodeURIComponent(query);
@@ -14,34 +20,76 @@ async function geocode(query) {
       }
     });
 
+    if (!res.ok) {
+
+      console.error(
+        "Erro Nominatim:",
+        res.status
+      );
+
+      return null;
+    }
+
     const data =
       await res.json();
 
+    console.log(
+      "Resultado geocode:",
+      data
+    );
+
+    // ======================================
+    // VALIDAÇÃO
+    // ======================================
+
     if (
-      !data ||
-      !data.length
+      !Array.isArray(data) ||
+      data.length === 0
     ) {
+
       return null;
     }
 
     const place = data[0];
 
+    // ======================================
+    // PEGA NOME CURTO
+    // ======================================
+
+    let shortName =
+      place.display_name;
+
+    // pega só antes da primeira vírgula
+    if (
+      shortName.includes(",")
+    ) {
+
+      shortName =
+        shortName.split(",")[0];
+    }
+
+    // ======================================
+    // RETORNO
+    // ======================================
+
     return {
 
       lat:
-        parseFloat(place.lat),
+        Number(place.lat),
 
       lng:
-        parseFloat(place.lon),
+        Number(place.lon),
 
       name:
-        place.display_name
-          .split(",")[0]
+        shortName
     };
 
   } catch (err) {
 
-    console.error(err);
+    console.error(
+      "Geocoding error:",
+      err
+    );
 
     return null;
   }
