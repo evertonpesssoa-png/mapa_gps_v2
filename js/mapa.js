@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // =====================================
 
   const lightLayer = L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
       attribution:
         "&copy; OpenStreetMap &copy; CARTO",
