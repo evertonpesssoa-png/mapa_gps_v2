@@ -1,4 +1,18 @@
 window.poiIndex = window.poiIndex || [];
+window.autoPOIsReady = false;
+
+// ======================================
+// NORMALIZE
+// ======================================
+
+function normalizeText(text) {
+
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
 
 // ======================================
 // REGISTRO
@@ -6,12 +20,71 @@ window.poiIndex = window.poiIndex || [];
 
 function registerPOI(poi) {
 
-  if (!poi || !poi.name) return;
+  if (!poi) return;
 
-  window.poiIndex.push(poi);
+  // garante nome
+  if (
+    !poi.name ||
+    !poi.name.trim()
+  ) {
+
+    poi.name = "Local";
+  }
+
+  // compatibilidade
+  poi.lng =
+    poi.lng ?? poi.lon;
+
+  // converte número
+  poi.lat =
+    Number(poi.lat);
+
+  poi.lng =
+    Number(poi.lng);
+
+  // valida coords
+  if (
+    isNaN(poi.lat) ||
+    isNaN(poi.lng)
+  ) {
+
+    console.warn(
+      "POI inválido:",
+      poi
+    );
+
+    return;
+  }
+
+  // evita duplicados
+  const exists =
+    window.poiIndex.some(p =>
+
+      normalizeText(p.name) ===
+        normalizeText(poi.name) &&
+
+      p.lat === poi.lat &&
+      p.lng === poi.lng
+    );
+
+  if (exists) return;
+
+  window.poiIndex.push({
+
+    ...poi,
+
+    lat: poi.lat,
+    lng: poi.lng
+  });
+
+  console.log(
+    "POI registrado:",
+    poi.name
+  );
 }
 
-window.registerPOI = registerPOI;
+window.registerPOI =
+  registerPOI;
 
 // ======================================
 // BUSCA
@@ -20,19 +93,30 @@ window.registerPOI = registerPOI;
 function findPlacesByName(query) {
 
   if (!query) {
-    return { results: [] };
+
+    return {
+      results: []
+    };
   }
 
-  query = query.toLowerCase().trim();
+  const normalizedQuery =
+    normalizeText(query);
 
-  return {
-    results: window.poiIndex.filter(p =>
-      p.name.toLowerCase().includes(query)
-    )
-  };
+  const results =
+    window.poiIndex.filter(p =>
+
+      normalizeText(
+        p.name
+      ).includes(
+        normalizedQuery
+      )
+    );
+
+  return { results };
 }
 
-window.findPlacesByName = findPlacesByName;
+window.findPlacesByName =
+  findPlacesByName;
 
 // ======================================
 // POPUP
@@ -47,7 +131,12 @@ function createPopupContent(poi) {
 
       <br><br>
 
-      <button onclick="routeToPlace(${poi.lat}, ${poi.lng})">
+      <button onclick="
+        routeToPlace(
+          ${poi.lat},
+          ${poi.lng}
+        )
+      ">
         ➜ Rota direta
       </button>
 
@@ -63,16 +152,22 @@ function safeIcon(category) {
 
   try {
 
-    if (typeof getIcon === "function") {
+    if (
+      typeof getIcon ===
+      "function"
+    ) {
+
       return getIcon(category);
     }
 
   } catch (err) {
 
-    console.warn("Erro ícone:", err);
+    console.warn(
+      "Erro ícone:",
+      err
+    );
   }
 
-  // fallback Leaflet padrão
   return new L.Icon.Default();
 }
 
@@ -80,27 +175,40 @@ function safeIcon(category) {
 // CRIAR MARCADOR
 // ======================================
 
-function createMarker(poi, layer) {
+function createMarker(
+  poi,
+  layer
+) {
 
   if (!layer) return;
 
-  // valida coords
   if (
-    typeof poi.lat !== "number" ||
-    typeof poi.lng !== "number"
+    typeof poi.lat !==
+      "number" ||
+
+    typeof poi.lng !==
+      "number"
   ) {
-    console.warn("POI inválido:", poi);
+
+    console.warn(
+      "POI inválido:",
+      poi
+    );
+
     return;
   }
 
   try {
 
-    const marker = L.marker(
-      [poi.lat, poi.lng],
-      {
-        icon: safeIcon(poi.category)
-      }
-    );
+    const marker =
+      L.marker(
+        [poi.lat, poi.lng],
+        {
+          icon: safeIcon(
+            poi.category
+          )
+        }
+      );
 
     marker.bindPopup(
       createPopupContent(poi)
@@ -110,7 +218,11 @@ function createMarker(poi, layer) {
 
   } catch (err) {
 
-    console.error("Erro criando marker:", err, poi);
+    console.error(
+      "Erro marker:",
+      err,
+      poi
+    );
   }
 }
 
@@ -118,11 +230,20 @@ function createMarker(poi, layer) {
 // POIs MANUAIS
 // ======================================
 
-function loadManualPOIs(layer) {
+function loadManualPOIs(
+  layer
+) {
 
-  if (!window.manualPOIs) {
+  if (
+    !Array.isArray(
+      window.manualPOIs
+    )
+  ) {
 
-    console.warn("manualPOIs não encontrado");
+    console.warn(
+      "manualPOIs não encontrado"
+    );
+
     return;
   }
 
@@ -131,20 +252,30 @@ function loadManualPOIs(layer) {
     window.manualPOIs.length
   );
 
-  window.manualPOIs.forEach(poi => {
+  window.manualPOIs.forEach(
+    poi => {
 
-    // garante compatibilidade antiga
-    if (poi.lon && !poi.lng) {
-      poi.lng = poi.lon;
+      poi.lng =
+        poi.lng ??
+        poi.lon;
+
+      registerPOI(poi);
+
+      createMarker(
+        poi,
+        layer
+      );
     }
+  );
 
-    registerPOI(poi);
-
-    createMarker(poi, layer);
-  });
+  console.log(
+    "INDEX APÓS MANUAIS:",
+    window.poiIndex.length
+  );
 }
 
-window.loadManualPOIs = loadManualPOIs;
+window.loadManualPOIs =
+  loadManualPOIs;
 
 // ======================================
 // POIs AUTOMÁTICOS
@@ -156,6 +287,9 @@ async function loadAutoPOIs(
   radius,
   layer
 ) {
+
+  window.autoPOIsReady =
+    false;
 
   const query = `
     [out:json];
@@ -170,19 +304,33 @@ async function loadAutoPOIs(
 
   try {
 
-    const res = await fetch(
-      "https://overpass-api.de/api/interpreter",
-      {
-        method: "POST",
-        body: query
-      }
-    );
+    const res =
+      await fetch(
+        "https://overpass-api.de/api/interpreter",
+        {
+          method: "POST",
+          body: query
+        }
+      );
 
-    const data = await res.json();
+    if (!res.ok) {
+
+      console.error(
+        "Erro Overpass:",
+        res.status
+      );
+
+      return;
+    }
+
+    const data =
+      await res.json();
 
     if (
       !data ||
-      !Array.isArray(data.elements)
+      !Array.isArray(
+        data.elements
+      )
     ) {
 
       console.error(
@@ -202,43 +350,71 @@ async function loadAutoPOIs(
       const poi = {
 
         name:
-          el.tags?.name || "Local",
+          el.tags?.name ||
+          "Local",
 
-        lat: Number(el.lat),
+        lat:
+          Number(el.lat),
 
-        lng: Number(el.lon),
+        lng:
+          Number(el.lon),
 
-        category: "generic"
+        category:
+          "generic"
       };
 
+      // categoria
       if (
-        el.tags?.amenity === "hospital"
+        el.tags?.amenity ===
+        "hospital"
       ) {
-        poi.category = "hospital";
+
+        poi.category =
+          "hospital";
       }
 
       if (
-        el.tags?.amenity === "pharmacy"
+        el.tags?.amenity ===
+        "pharmacy"
       ) {
-        poi.category = "pharmacy";
+
+        poi.category =
+          "pharmacy";
       }
 
       if (
-        el.tags?.amenity === "police"
+        el.tags?.amenity ===
+        "police"
       ) {
-        poi.category = "police";
+
+        poi.category =
+          "police";
       }
 
       if (
-        el.tags?.shop === "supermarket"
+        el.tags?.shop ===
+        "supermarket"
       ) {
-        poi.category = "supermarket";
+
+        poi.category =
+          "supermarket";
       }
 
       registerPOI(poi);
 
-      createMarker(poi, layer);
+      createMarker(
+        poi,
+        layer
+      );
     });
+
+    console.log(
+      "INDEX FINAL:",
+      window.poiIndex.length
+    );
+
+    window.autoPOIsReady =
+      true;
 
   } catch (err) {
 
@@ -249,4 +425,5 @@ async function loadAutoPOIs(
   }
 }
 
-window.loadAutoPOIs = loadAutoPOIs;
+window.loadAutoPOIs =
+  loadAutoPOIs;
