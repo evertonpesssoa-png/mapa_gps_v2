@@ -1,130 +1,69 @@
-//
-// ==========================
-// ESTADO
-// ==========================
-
-let searchOpen = false;
-
-// ==========================
-// VIEW ON MAP
-// ==========================
-
-function viewOnMap(lat, lon) {
-  if (!window.map) return;
-  window.map.setView([lat, lon], 17);
-}
-
-// ==========================
-// SET DESTINATION
-// ==========================
-
-function setDestination(name) {
-  const input = document.getElementById("route-destination");
-  const routePanel = document.getElementById("route-panel");
-
-  if (input) input.value = name;
-
-  // mantém compatível com versões antigas
-  const searchPanel = document.getElementById("search-panel");
-  searchPanel?.classList?.remove("open");
-
-  if (routePanel) {
-    routePanel.classList.add("open");
-    routePanel.style.display = "flex";
-  }
-}
-
-// ==========================
-// OPEN / CLOSE SEARCH
-// ==========================
-
-function openSearchPanel() {
-  const panel = document.getElementById("search-panel");
-  const route = document.getElementById("route-panel");
-
-  if (!panel) return;
-
-  searchOpen = true;
-
-  panel.style.display = "block";
-
-  if (route) route.style.display = "none";
-}
-
-function closeSearchPanel() {
-  const panel = document.getElementById("search-panel");
-  if (panel) panel.style.display = "none";
-
-  const route = document.getElementById("route-panel");
-  if (route && route.classList.contains("open")) {
-    route.style.zIndex = "9999";
-  }
-}
-
-// ==========================
-// TOGGLE SEARCH
-// ==========================
-
 function toggleSearch() {
+
   const panel = document.getElementById("search-panel");
   const route = document.getElementById("route-panel");
 
   if (!panel) return;
 
-  const isOpen = panel.style.display === "block";
+  const open = panel.style.display === "block";
 
-  if (isOpen) {
-    closeSearchPanel();
-  } else {
-    openSearchPanel();
+  panel.style.display = open ? "none" : "block";
+
+  if (route) {
+    route.style.display = "none";
   }
-
-  if (route) route.style.display = "none";
 }
 
-// ==========================
-// ACTION PANEL
-// ==========================
+window.toggleSearch = toggleSearch;
 
 function showActionPanel(poi) {
+
   const panel = document.getElementById("action-panel");
+
   if (!panel) return;
 
   panel.innerHTML = `
+
     <b>${poi.name}</b><br><br>
 
-    <button onclick="viewOnMap(${poi.lat}, ${poi.lon})">
+    <button onclick="viewOnMap(${poi.lat}, ${poi.lng})">
       📍 Ver no mapa
-    </button><br><br>
-
-    <button onclick="routeToPlace(${poi.lat}, ${poi.lon})">
-      🧭 Traçar rota
-    </button><br><br>
-
-    <button onclick="setDestination('${poi.name.replace(/'/g, "")}')">
-      🎯 Definir destino
     </button>
+
+    <br><br>
+
+    <button onclick="routeToPlace(${poi.lat}, ${poi.lng})">
+      🧭 Criar rota
+    </button>
+
   `;
 
   panel.style.display = "block";
 }
 
-// ==========================
-// SEARCH PRINCIPAL
-// ==========================
+window.showActionPanel = showActionPanel;
+
+function viewOnMap(lat, lng) {
+
+  if (!window.map) return;
+
+  window.map.setView([lat, lng], 17);
+}
+
+window.viewOnMap = viewOnMap;
 
 async function searchPlace(query) {
-  const container = document.getElementById("search-results");
-  if (!container) return;
 
-  if (!query || query.trim().length < 2) {
-    container.innerHTML = "";
+  const resultsBox = document.getElementById("search-results");
+
+  if (!resultsBox) return;
+
+  if (!query || query.length < 2) {
+    resultsBox.innerHTML = "";
     return;
   }
 
-  const local = window.findPlacesByName
-    ? window.findPlacesByName(query)
-    : { results: [] };
+  const local = window.findPlacesByName(query);
 
   if (local.results.length > 0) {
     renderResults(local.results);
@@ -132,79 +71,62 @@ async function searchPlace(query) {
   }
 
   if (window.geocode) {
-    try {
-      const geo = await window.geocode(query);
 
-      if (geo) {
-        renderResults([{
+    const geo = await window.geocode(query);
+
+    if (geo) {
+
+      renderResults([
+        {
           name: geo.name,
           lat: geo.lat,
-          lon: geo.lng
-        }]);
-      }
-    } catch (e) {
-      console.warn(e);
+          lng: geo.lng
+        }
+      ]);
     }
   }
 }
 
-// ==========================
-// RENDER RESULTS
-// ==========================
+window.searchPlace = searchPlace;
 
 function renderResults(results) {
-  const container = document.getElementById("search-results");
-  if (!container) return;
 
-  container.innerHTML = "";
+  const box = document.getElementById("search-results");
+
+  if (!box) return;
+
+  box.innerHTML = "";
 
   results.forEach(poi => {
+
     const div = document.createElement("div");
 
     div.style.padding = "8px";
     div.style.borderBottom = "1px solid #ddd";
     div.style.cursor = "pointer";
 
-    div.textContent = poi.name;
+    div.innerText = poi.name;
 
     div.onclick = () => {
-      window.map?.setView([poi.lat, poi.lon], 16);
+
+      viewOnMap(poi.lat, poi.lng);
+
       showActionPanel(poi);
-      closeSearchPanel();
+
+      document.getElementById("search-panel").style.display = "none";
     };
 
-    container.appendChild(div);
+    box.appendChild(div);
   });
 }
 
-// ==========================
-// INPUT FIX
-// ==========================
-
 document.addEventListener("DOMContentLoaded", () => {
+
   const input = document.getElementById("search-input");
 
   if (!input) return;
 
-  input.addEventListener("input", (e) => {
+  input.addEventListener("input", e => {
     searchPlace(e.target.value);
   });
-
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      searchPlace(input.value);
-    }
-  });
 });
-
-// ==========================
-// EXPORT GLOBAL
-// ==========================
-
-window.openSearchPanel = openSearchPanel;
-window.closeSearchPanel = closeSearchPanel;
-window.toggleSearch = toggleSearch;
-window.searchPlace = searchPlace;
-window.showActionPanel = showActionPanel;
-window.viewOnMap = viewOnMap;
-window.setDestination = setDestination;
