@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<title>Mapa com GPS e POIs</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mapa Inteligente</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
@@ -15,153 +15,170 @@ html, body {
 }
 
 #map {
-  height: 100%;
   width: 100%;
+  height: 100%;
 }
 
-/* =========================
-   SEARCH PANEL
-========================= */
-#search-panel {
-  display: none;
+#search-panel,
+#action-panel,
+#route-panel {
   position: absolute;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  z-index: 9999;
+}
+
+#search-panel {
   top: 10px;
   left: 10px;
-  z-index: 99999;
-  background: #fff;
+  width: 260px;
   padding: 10px;
-  border-radius: 10px;
-  width: 250px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  display: none;
 }
 
-#search-panel input {
+#search-input,
+#route-origin,
+#route-destination {
   width: 100%;
   padding: 8px;
+  margin-bottom: 8px;
   border: 1px solid #ccc;
   border-radius: 6px;
-  outline: none;
-  margin-bottom: 6px;
+  box-sizing: border-box;
 }
 
 #search-results {
-  max-height: 180px;
+  max-height: 220px;
   overflow-y: auto;
 }
 
-/* =========================
-   ACTION PANEL
-========================= */
 #action-panel {
-  display: none;
-  position: absolute;
   bottom: 20px;
   left: 10px;
-  z-index: 10000;
-  background: #fff;
-  padding: 10px;
-  border-radius: 10px;
-  width: 250px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  width: 260px;
+  padding: 12px;
+  display: none;
 }
 
-/* =========================
-   ROUTE PANEL
-========================= */
 #route-panel {
-  position: absolute;
-  top: 80px;
+  top: 70px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1100;
-  background: white;
-  padding: 12px;
-  border-radius: 14px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.3);
   width: 90%;
   max-width: 360px;
+  padding: 12px;
   display: none;
   flex-direction: column;
   gap: 8px;
 }
 
-/* =========================
-   CONTROLES
-========================= */
+.mode-container {
+  display: flex;
+  gap: 8px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mode-btn.active {
+  outline: 2px solid black;
+}
+
+#createRouteBtn {
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 .map-controls {
   position: absolute;
   right: 12px;
   bottom: 20px;
-  z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  z-index: 9999;
 }
 
 .control-btn {
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: none;
   background: white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
   font-size: 18px;
   cursor: pointer;
 }
 
-/* =========================
-   ROUTE INFO
-========================= */
 #route-info {
   position: absolute;
   bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1000;
   background: white;
   padding: 10px 14px;
-  border-radius: 14px;
+  border-radius: 12px;
+  z-index: 9999;
   font-weight: bold;
-  box-shadow: 0 4px 10px rgba(0,0,0,.25);
 }
 
-/* ajustes extras de z-index (removido bloco quebrado) */
-#search-panel {
-  z-index: 99999;
+.suggestions {
+  max-height: 100px;
+  overflow-y: auto;
 }
 
-#action-panel {
-  z-index: 10000;
+.suggestions div {
+  padding: 6px;
+  cursor: pointer;
 }
 
-#route-panel {
-  z-index: 1100;
+.suggestions div:hover {
+  background: #eee;
 }
 </style>
 </head>
-
 <body>
 
-<!-- 🔎 SEARCH PANEL -->
 <div id="search-panel">
-  <input id="search-input" placeholder="Buscar local..." />
+  <input id="search-input" placeholder="Buscar local...">
   <div id="search-results"></div>
 </div>
 
-<!-- ⚡ ACTION PANEL -->
+<div id="route-panel">
+  <input id="route-origin" placeholder="Origem (ou vazio para GPS)">
+  <div id="origin-suggestions" class="suggestions"></div>
+
+  <input id="route-destination" placeholder="Destino">
+  <div id="dest-suggestions" class="suggestions"></div>
+
+  <div class="mode-container">
+    <button class="mode-btn active" data-mode="foot">🚶</button>
+    <button class="mode-btn" data-mode="bike">🚴</button>
+    <button class="mode-btn" data-mode="car">🚗</button>
+  </div>
+
+  <button id="createRouteBtn">Criar rota</button>
+</div>
+
 <div id="action-panel"></div>
 
-<!-- MAPA -->
+<div id="route-info"></div>
+
 <div id="map"></div>
 
-<!-- CONTROLES -->
 <div class="map-controls">
   <button class="control-btn" onclick="toggleSearch()">🔎</button>
   <button class="control-btn" onclick="centerOnUser()">📍</button>
   <button class="control-btn" onclick="toggleRoute()">➜</button>
 </div>
-
-<div id="route-info"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -172,54 +189,6 @@ html, body {
 <script src="js/routing.js"></script>
 <script src="js/search.js"></script>
 <script src="js/mapa.js"></script>
-
-<!-- =========================
-     AUTOCOMPLETE
-========================= -->
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-
-  function setupAutocomplete(inputId, boxId) {
-    const input = document.getElementById(inputId);
-    const box = document.getElementById(boxId);
-
-    if (!input || !box) return;
-
-    input.addEventListener("input", () => {
-      const text = input.value.toLowerCase();
-      box.innerHTML = "";
-
-      if (!text || !window.poiIndex) return;
-
-      const results = window.poiIndex
-        .filter(p => p.name.toLowerCase().includes(text))
-        .slice(0, 5);
-
-      results.forEach(p => {
-        const div = document.createElement("div");
-        div.textContent = p.name;
-
-        div.onclick = () => {
-          input.value = p.name;
-          box.innerHTML = "";
-        };
-
-        box.appendChild(div);
-      });
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!box.contains(e.target) && e.target !== input) {
-        box.innerHTML = "";
-      }
-    });
-  }
-
-  setupAutocomplete("route-origin", "origin-suggestions");
-  setupAutocomplete("route-destination", "dest-suggestions");
-
-});
-</script>
 
 </body>
 </html>
