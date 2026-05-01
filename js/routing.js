@@ -1,84 +1,69 @@
-// ==========================
-// CONFIG
-// ==========================
-
 const SPEEDS = {
   foot: 5,
   bike: 35,
   car: 50
 };
 
-// ==========================
-// UTIL
-// ==========================
+function toggleRoute() {
+
+  const panel = document.getElementById("route-panel");
+  const search = document.getElementById("search-panel");
+
+  if (!panel) return;
+
+  const open = panel.style.display === "flex";
+
+  panel.style.display = open ? "none" : "flex";
+
+  if (search) {
+    search.style.display = "none";
+  }
+}
+
+window.toggleRoute = toggleRoute;
 
 function formatDistance(m) {
-  return m < 1000 ? `${m.toFixed(0)} m` : `${(m / 1000).toFixed(2)} km`;
+  return m < 1000
+    ? `${m.toFixed(0)} m`
+    : `${(m / 1000).toFixed(2)} km`;
 }
 
-function formatTimeFromDistance(distanceMeters, mode) {
+function formatTime(distance, mode) {
+
   const speed = SPEEDS[mode] || SPEEDS.car;
-  const distanceKm = distanceMeters / 1000;
-  const hours = distanceKm / speed;
-  const minutes = Math.round(hours * 60);
 
-  return minutes < 60
-    ? `${minutes} min`
-    : `${Math.floor(minutes / 60)}h ${minutes % 60}min`;
+  const km = distance / 1000;
+
+  const minutes = Math.round((km / speed) * 60);
+
+  return `${minutes} min`;
 }
-
-// ==========================
-// LAYER CHECK
-// ==========================
-
-function ensureRouteLayer() {
-  if (!window.map) return null;
-
-  if (!window.routeLayer) {
-    window.routeLayer = L.layerGroup().addTo(window.map);
-  }
-
-  return window.routeLayer;
-}
-
-// ==========================
-// LIMPAR ROTA
-// ==========================
 
 function clearRoute() {
+
   if (window.routeLayer) {
     window.routeLayer.clearLayers();
   }
-
-  const info = document.getElementById("route-info");
-  if (info) info.innerText = "";
 }
 
 window.clearRoute = clearRoute;
 
-// ==========================
-// ROTA OSRM
-// ==========================
-
 function traceRoute(from, to, mode) {
 
-  let profile = "driving";
-  if (mode === "foot") profile = "walking";
-  if (mode === "bike") profile = "cycling";
+  const profile =
+    mode === "foot"
+      ? "walking"
+      : mode === "bike"
+      ? "cycling"
+      : "driving";
 
   const url =
     `https://router.project-osrm.org/route/v1/${profile}/` +
     `${from.lng},${from.lat};${to.lng},${to.lat}` +
     `?overview=full&geometries=geojson`;
 
-  const info = document.getElementById("route-info");
-  if (info) info.innerText = "🧭 Calculando rota...";
-
   fetch(url)
-    .then(res => {
-      if (!res.ok) throw new Error("OSRM error");
-      return res.json();
-    })
+    .then(r => r.json())
     .then(data => {
 
       if (!data.routes || !data.routes.length) {
@@ -86,209 +71,147 @@ function traceRoute(from, to, mode) {
         return;
       }
 
-      const route = data.routes[0];
-
-      const layer = ensureRouteLayer();
-      if (!layer) return;
-
       clearRoute();
+
+      const route = data.routes[0];
 
       const geo = L.geoJSON(route.geometry, {
         style: {
-          weight: 5,
-          opacity: 0.9
+          weight: 5
         }
       });
 
-      geo.addTo(layer);
+      geo.addTo(window.routeLayer);
 
-      window.map.fitBounds(geo.getBounds(), {
-        padding: [50, 50]
-      });
+      window.map.fitBounds(geo.getBounds());
 
-      if (window.poiLayer?.bringToFront) {
-        window.poiLayer.bringToFront();
-      }
+      const info = document.getElementById("route-info");
 
       if (info) {
         info.innerText =
           `📏 ${formatDistance(route.distance)} | ` +
-          `⏱️ ${formatTimeFromDistance(route.distance, mode)}`;
+          `⏱ ${formatTime(route.distance, mode)}`;
       }
     })
     .catch(err => {
       console.error(err);
-      alert("Erro ao calcular rota");
+      alert("Erro ao criar rota");
     });
 }
 
-// ==========================
-// RESOLVER TEXTO → COORDS
-// ==========================
+async function resolveText(text) {
 
-async function resolveTextToCoords(text) {
   if (!text) return null;
 
-  text = text.trim();
+  const local = window.poiIndex.find(p =>
+    p.name.toLowerCase() === text.toLowerCase()
+  );
 
-  // coordenadas diretas
-  if (text.includes(",")) {
-    const parts = text.split(",");
-    const lat = parseFloat(parts[0]);
-    const lng = parseFloat(parts[1]);
-
-    if (!isNaN(lat) && !isNaN(lng)) {
-      return { lat, lng };
-    }
+  if (local) {
+    return {
+      lat: local.lat,
+      lng: local.lng
+    };
   }
 
-  // POIs locais
-  if (window.poiIndex) {
-    const found = window.poiIndex.find(p =>
-      p.name.toLowerCase() === text.toLowerCase()
-    );
-
-    if (found) {
-      return { lat: found.lat, lng: found.lon };
-    }
-  }
-
-  // 🌍 GEOCODING GLOBAL
   if (window.geocode) {
-    try {
-      const geo = await window.geocode(text);
-      if (geo) return geo;
-    } catch (e) {
-      console.warn("geocode error:", e);
-    }
+    return await window.geocode(text);
   }
 
   return null;
 }
 
-// ==========================
-// CREATE ROUTE
-// ==========================
-
 async function createRoute(originText, destinationText, mode) {
 
-  if (!window.map) {
-    alert("Mapa não carregado");
-    return;
-  }
+  let from;
+  let to;
 
-  let fromCoords;
-  let toCoords;
+  if (!originText) {
 
-  // origem
-  if (!originText || originText.toLowerCase().includes("minha")) {
     if (!window.userMarker) {
-      alert("GPS ainda não disponível");
+      alert("GPS indisponível");
       return;
     }
 
     const pos = window.userMarker.getLatLng();
-    fromCoords = { lat: pos.lat, lng: pos.lng };
+
+    from = {
+      lat: pos.lat,
+      lng: pos.lng
+    };
 
   } else {
-    fromCoords = await resolveTextToCoords(originText);
+
+    from = await resolveText(originText);
   }
 
-  // destino
-  toCoords = await resolveTextToCoords(destinationText);
+  to = await resolveText(destinationText);
 
-  if (!fromCoords) {
-    alert("Origem inválida");
+  if (!from || !to) {
+    alert("Origem ou destino inválido");
     return;
   }
 
-  if (!toCoords) {
-    alert("Destino inválido");
-    return;
-  }
-
-  traceRoute(fromCoords, toCoords, mode);
+  traceRoute(from, to, mode);
 }
 
 window.createRoute = createRoute;
 
-// ==========================
-// ROTA DIRETA
-// ==========================
-
-function routeToPlace(lat, lon) {
+function routeToPlace(lat, lng) {
 
   if (!window.userMarker) {
-    alert("GPS ainda não disponível");
+    alert("GPS indisponível");
     return;
   }
 
   const pos = window.userMarker.getLatLng();
 
   traceRoute(
-    { lat: pos.lat, lng: pos.lng },
-    { lat, lng: lon },
+    {
+      lat: pos.lat,
+      lng: pos.lng
+    },
+    {
+      lat,
+      lng
+    },
     "car"
   );
 }
 
 window.routeToPlace = routeToPlace;
 
-// ==========================
-// TOGGLE ROUTE (CORRIGIDO)
-// ==========================
-
-function toggleRoute() {
-  const route = document.getElementById("route-panel");
-  const search = document.getElementById("search-panel");
-
-  if (!route) return;
-
-  const isOpen = route.style.display === "flex";
-
-  route.style.display = isOpen ? "none" : "flex";
-
-  if (search) search.style.display = "none";
-}
-
-window.toggleRoute = toggleRoute;
-
-// ==========================
-// UI EVENTS
-// ==========================
-
 document.addEventListener("DOMContentLoaded", () => {
 
-  const createBtn = document.getElementById("createRouteBtn");
-  const originInput = document.getElementById("route-origin");
-  const destinationInput = document.getElementById("route-destination");
+  const btn = document.getElementById("createRouteBtn");
+
   const modeButtons = document.querySelectorAll(".mode-btn");
 
   let selectedMode = "foot";
 
-  modeButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
+  modeButtons.forEach(button => {
+
+    button.addEventListener("click", () => {
 
       modeButtons.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
 
-      selectedMode = btn.dataset.mode;
+      button.classList.add("active");
+
+      selectedMode = button.dataset.mode;
     });
   });
 
-  if (createBtn) {
-    createBtn.addEventListener("click", async () => {
+  btn?.addEventListener("click", async () => {
 
-      const origin = originInput?.value || "";
-      const destination = destinationInput?.value || "";
+    const origin = document.getElementById("route-origin")?.value || "";
 
-      if (!destination) {
-        alert("Digite um destino");
-        return;
-      }
+    const destination = document.getElementById("route-destination")?.value || "";
 
-      await createRoute(origin, destination, selectedMode);
-    });
-  }
+    if (!destination) {
+      alert("Digite um destino");
+      return;
+    }
 
+    await createRoute(origin, destination, selectedMode);
+  });
 });
