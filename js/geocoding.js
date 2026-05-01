@@ -2,34 +2,89 @@ async function geocode(query) {
 
   if (!query) return null;
 
-  const finalQuery = query.includes(",")
-    ? query
-    : `${query}, Brasil`;
+  query = query.trim();
+
+  // ======================================
+  // URL NOMINATIM
+  // ======================================
 
   const url =
-    `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=` +
-    encodeURIComponent(finalQuery);
+    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=` +
+    encodeURIComponent(query);
 
   try {
 
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      headers: {
+        "Accept": "application/json"
+      }
+    });
 
     const data = await res.json();
 
-    if (!data || !data.length) {
+    // ======================================
+    // VALIDAÇÃO
+    // ======================================
+
+    if (
+      !data ||
+      !Array.isArray(data) ||
+      data.length === 0
+    ) {
+
       return null;
     }
 
-    const place = data[0];
+    // ======================================
+    // PRIORIZA:
+    // cidade > estado > município
+    // ======================================
+
+    const preferred =
+      data.find(place => {
+
+        const type =
+          place.type || "";
+
+        return [
+
+          "city",
+          "state",
+          "administrative",
+          "town",
+          "municipality"
+
+        ].includes(type);
+
+      }) || data[0];
+
+    // ======================================
+    // RETORNO
+    // ======================================
 
     return {
-      lat: parseFloat(place.lat),
-      lng: parseFloat(place.lon),
-      name: place.display_name
+
+      lat:
+        parseFloat(
+          preferred.lat
+        ),
+
+      lng:
+        parseFloat(
+          preferred.lon
+        ),
+
+      name:
+        preferred.display_name
     };
 
   } catch (err) {
-    console.error(err);
+
+    console.error(
+      "Geocoding error:",
+      err
+    );
+
     return null;
   }
 }
