@@ -14,43 +14,31 @@ function normalizeText(text) {
 }
 
 // ======================================
-// FECHAR TODOS OS PAINÉIS
+// FECHAR PAINÉIS
 // ======================================
 
-function closeAllPanels() {
+function closePanels(except = null) {
 
-  const search =
-    document.getElementById(
-      "search-panel"
-    );
+  const panels = [
+    "search-panel",
+    "action-panel",
+    "route-panel"
+  ];
 
-  const action =
-    document.getElementById(
-      "action-panel"
-    );
+  panels.forEach(id => {
 
-  const route =
-    document.getElementById(
-      "route-panel"
-    );
+    if (id === except) return;
 
-  if (search) {
-    search.style.display = "none";
-  }
+    const el =
+      document.getElementById(id);
 
-  if (action) {
-    action.style.display = "none";
-  }
-
-  if (route) {
-    route.style.display = "none";
-  }
-
-  searchOpen = false;
+    if (el) {
+      el.style.display = "none";
+    }
+  });
 }
 
-window.closeAllPanels =
-  closeAllPanels;
+window.closePanels = closePanels;
 
 // ======================================
 // TOGGLE SEARCH
@@ -65,34 +53,36 @@ function toggleSearch() {
 
   if (!panel) return;
 
-  const isOpen =
+  const opened =
     panel.style.display === "block";
 
-  closeAllPanels();
+  if (opened) {
 
-  if (!isOpen) {
+    panel.style.display = "none";
 
-    panel.style.display = "block";
-
-    searchOpen = true;
-
-    setTimeout(() => {
-
-      document
-        .getElementById(
-          "search-input"
-        )
-        ?.focus();
-
-    }, 100);
+    return;
   }
+
+  closePanels("search-panel");
+
+  panel.style.display = "block";
+
+  setTimeout(() => {
+
+    document
+      .getElementById(
+        "search-input"
+      )
+      ?.focus();
+
+  }, 100);
 }
 
 window.toggleSearch =
   toggleSearch;
 
 // ======================================
-// ZOOM INTELIGENTE
+// ZOOM
 // ======================================
 
 function smartZoomToPlace(poi) {
@@ -103,51 +93,24 @@ function smartZoomToPlace(poi) {
     poi.lng ?? poi.lon;
 
   const name =
-    normalizeText(
-      poi.name || ""
-    );
+    normalizeText(poi.name);
 
-  // ======================================
-  // ESTADOS
-  // ======================================
-
+  // estados
   const states = [
-
-    "acre",
-    "alagoas",
-    "amapa",
-    "amazonas",
+    "pernambuco",
+    "sao paulo",
     "bahia",
     "ceara",
-    "espirito santo",
-    "goias",
-    "maranhao",
-    "mato grosso",
-    "mato grosso do sul",
-    "minas gerais",
-    "para",
-    "paraiba",
-    "parana",
-    "pernambuco",
-    "piaui",
+    "amazonas",
     "rio de janeiro",
-    "rio grande do norte",
-    "rio grande do sul",
-    "rondonia",
-    "roraima",
-    "santa catarina",
-    "sao paulo",
-    "sergipe",
-    "tocantins"
-
+    "minas gerais"
   ];
 
-  const isState =
-    states.some(state =>
-      name.includes(state)
-    );
-
-  if (isState) {
+  if (
+    states.some(s =>
+      name.includes(s)
+    )
+  ) {
 
     window.map.setView(
       [poi.lat, lng],
@@ -157,36 +120,23 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // ======================================
-  // CIDADES GRANDES
-  // ======================================
-
-  const bigCities = [
-
-    "recife",
+  // cidades
+  const cities = [
     "goiana",
+    "recife",
     "olinda",
-    "jaboatao",
-    "paulista",
     "caruaru",
     "petrolina",
-    "sao paulo",
-    "rio de janeiro",
-    "salvador",
     "fortaleza",
-    "curitiba",
-    "manaus",
-    "belem",
-    "brasilia"
-
+    "salvador",
+    "curitiba"
   ];
 
-  const isCity =
-    bigCities.some(city =>
-      name.includes(city)
-    );
-
-  if (isCity) {
+  if (
+    cities.some(c =>
+      name.includes(c)
+    )
+  ) {
 
     window.map.setView(
       [poi.lat, lng],
@@ -196,10 +146,7 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // ======================================
-  // PADRÃO
-  // ======================================
-
+  // padrão
   window.map.setView(
     [poi.lat, lng],
     16
@@ -210,14 +157,11 @@ function smartZoomToPlace(poi) {
 // VIEW ON MAP
 // ======================================
 
-function viewOnMap(
-  lat,
-  lng
-) {
+function viewOnMap(lat, lng) {
 
   if (!window.map) return;
 
-  closeAllPanels();
+  closePanels();
 
   window.map.setView(
     [lat, lng],
@@ -229,38 +173,30 @@ window.viewOnMap =
   viewOnMap;
 
 // ======================================
-// ABRIR ROTA
+// ROUTE PANEL
 // ======================================
 
-function openRoutePanel(
-  destinationName
-) {
+function openRoutePanel(name) {
 
-  closeAllPanels();
+  closePanels("route-panel");
 
   const panel =
     document.getElementById(
       "route-panel"
     );
 
-  const destination =
+  const input =
     document.getElementById(
       "route-destination"
     );
 
-  if (!panel) return;
-
-  if (
-    destinationName &&
-    destination
-  ) {
-
-    destination.value =
-      destinationName;
+  if (input && name) {
+    input.value = name;
   }
 
-  panel.style.display =
-    "flex";
+  if (panel) {
+    panel.style.display = "flex";
+  }
 }
 
 window.openRoutePanel =
@@ -270,9 +206,7 @@ window.openRoutePanel =
 // ACTION PANEL
 // ======================================
 
-function showActionPanel(
-  poi
-) {
+function showActionPanel(poi) {
 
   const panel =
     document.getElementById(
@@ -281,10 +215,11 @@ function showActionPanel(
 
   if (!panel) return;
 
-  closeAllPanels();
-
   const lng =
     poi.lng ?? poi.lon;
+
+  // NÃO FECHA SEARCH
+  closePanels("search-panel");
 
   panel.innerHTML = `
 
@@ -298,12 +233,8 @@ function showActionPanel(
       <b>${poi.name}</b>
 
       <button
-        onclick="closeAllPanels()"
-        style="
-          border:none;
-          background:none;
-          font-size:18px;
-          cursor:pointer;
+        onclick="
+          document.getElementById('action-panel').style.display='none'
         "
       >
         ✕
@@ -313,10 +244,7 @@ function showActionPanel(
 
     <button
       onclick="
-        viewOnMap(
-          ${poi.lat},
-          ${lng}
-        )
+        viewOnMap(${poi.lat}, ${lng})
       "
       style="
         width:100%;
@@ -329,9 +257,7 @@ function showActionPanel(
 
     <button
       onclick="
-        openRoutePanel(
-          '${poi.name.replace(/'/g, "")}'
-        )
+        openRoutePanel('${poi.name.replace(/'/g, "")}')
       "
       style="
         width:100%;
@@ -353,9 +279,7 @@ window.showActionPanel =
 // SEARCH
 // ======================================
 
-async function searchPlace(
-  query
-) {
+async function searchPlace(query) {
 
   const container =
     document.getElementById(
@@ -364,23 +288,19 @@ async function searchPlace(
 
   if (!container) return;
 
-  if (
-    !query ||
-    query.trim().length < 2
-  ) {
+  query = query?.trim();
+
+  if (!query || query.length < 2) {
 
     container.innerHTML = "";
 
     return;
   }
 
-  const normalizedQuery =
-    normalizeText(query);
-
   let results = [];
 
   // ======================================
-  // BUSCA LOCAL
+  // LOCAL
   // ======================================
 
   if (
@@ -389,28 +309,21 @@ async function searchPlace(
     )
   ) {
 
-    const localResults =
+    const local =
       window.poiIndex.filter(
-        poi => {
-
-          const name =
-            normalizeText(
-              poi.name
-            );
-
-          return name.includes(
-            normalizedQuery
-          );
-        }
+        poi =>
+          normalizeText(
+            poi.name
+          ).includes(
+            normalizeText(query)
+          )
       );
 
-    results.push(
-      ...localResults
-    );
+    results.push(...local);
   }
 
   // ======================================
-  // GEOCODING GLOBAL
+  // GEOCODE
   // ======================================
 
   if (window.geocode) {
@@ -427,60 +340,21 @@ async function searchPlace(
         const exists =
           results.some(
             r =>
-              normalizeText(
-                r.name
-              ) ===
-              normalizeText(
-                geo.name
-              )
+              normalizeText(r.name) ===
+              normalizeText(geo.name)
           );
 
         if (!exists) {
 
-          results.push({
-
-            name:
-              geo.name,
-
-            lat:
-              geo.lat,
-
-            lng:
-              geo.lng,
-
-            category:
-              "global"
-          });
+          results.push(geo);
         }
       }
 
     } catch (err) {
 
-      console.error(
-        "Geocode error:",
-        err
-      );
+      console.error(err);
     }
   }
-
-  // ======================================
-  // NORMALIZA LNG/LON
-  // ======================================
-
-  results = results.map(
-    poi => ({
-
-      ...poi,
-
-      lng:
-        poi.lng ??
-        poi.lon
-    })
-  );
-
-  // ======================================
-  // RENDER
-  // ======================================
 
   renderResults(results);
 }
@@ -489,12 +363,10 @@ window.searchPlace =
   searchPlace;
 
 // ======================================
-// RENDER RESULTS
+// RENDER
 // ======================================
 
-function renderResults(
-  results
-) {
+function renderResults(results) {
 
   const container =
     document.getElementById(
@@ -505,39 +377,24 @@ function renderResults(
 
   container.innerHTML = "";
 
-  // ======================================
-  // SEM RESULTADOS
-  // ======================================
-
-  if (
-    !results ||
-    results.length === 0
-  ) {
+  if (!results.length) {
 
     container.innerHTML = `
-
       <div style="
         padding:12px;
-        color:#777;
+        color:#666;
       ">
-        Nenhum resultado encontrado
+        Nenhum resultado
       </div>
-
     `;
 
     return;
   }
 
-  // ======================================
-  // RESULTADOS
-  // ======================================
-
   results.forEach(poi => {
 
     const div =
-      document.createElement(
-        "div"
-      );
+      document.createElement("div");
 
     div.style.padding =
       "10px";
@@ -551,35 +408,15 @@ function renderResults(
     div.style.background =
       "white";
 
-    div.style.transition =
-      "0.2s";
-
-    div.innerText =
-      poi.name;
-
-    div.onmouseenter =
-      () => {
-
-        div.style.background =
-          "#f2f2f2";
-      };
-
-    div.onmouseleave =
-      () => {
-
-        div.style.background =
-          "white";
-      };
+    div.innerHTML = `
+      <b>${poi.name}</b>
+    `;
 
     div.onclick = () => {
 
-      smartZoomToPlace(
-        poi
-      );
+      smartZoomToPlace(poi);
 
-      showActionPanel(
-        poi
-      );
+      showActionPanel(poi);
     };
 
     container.appendChild(div);
@@ -587,7 +424,7 @@ function renderResults(
 }
 
 // ======================================
-// INPUT EVENTS
+// INPUT
 // ======================================
 
 document.addEventListener(
@@ -608,21 +445,6 @@ document.addEventListener(
         searchPlace(
           e.target.value
         );
-      }
-    );
-
-    input.addEventListener(
-      "keydown",
-      e => {
-
-        if (
-          e.key === "Enter"
-        ) {
-
-          searchPlace(
-            input.value
-          );
-        }
       }
     );
   }
