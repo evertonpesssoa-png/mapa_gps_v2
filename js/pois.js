@@ -1,5 +1,9 @@
 window.poiIndex = window.poiIndex || [];
 
+// ======================================
+// REGISTRO
+// ======================================
+
 function registerPOI(poi) {
 
   if (!poi || !poi.name) return;
@@ -9,9 +13,15 @@ function registerPOI(poi) {
 
 window.registerPOI = registerPOI;
 
+// ======================================
+// BUSCA
+// ======================================
+
 function findPlacesByName(query) {
 
-  if (!query) return { results: [] };
+  if (!query) {
+    return { results: [] };
+  }
 
   query = query.toLowerCase().trim();
 
@@ -24,39 +34,128 @@ function findPlacesByName(query) {
 
 window.findPlacesByName = findPlacesByName;
 
+// ======================================
+// POPUP
+// ======================================
+
 function createPopupContent(poi) {
+
   return `
-    <div>
-      <b>${poi.name}</b><br><br>
+    <div style="min-width:160px">
+
+      <b>${poi.name}</b>
+
+      <br><br>
 
       <button onclick="routeToPlace(${poi.lat}, ${poi.lng})">
         ➜ Rota direta
       </button>
+
     </div>
   `;
 }
 
+// ======================================
+// ICON SAFE
+// ======================================
+
+function safeIcon(category) {
+
+  try {
+
+    if (typeof getIcon === "function") {
+      return getIcon(category);
+    }
+
+  } catch (err) {
+
+    console.warn("Erro ícone:", err);
+  }
+
+  // fallback Leaflet padrão
+  return new L.Icon.Default();
+}
+
+// ======================================
+// CRIAR MARCADOR
+// ======================================
+
+function createMarker(poi, layer) {
+
+  if (!layer) return;
+
+  // valida coords
+  if (
+    typeof poi.lat !== "number" ||
+    typeof poi.lng !== "number"
+  ) {
+    console.warn("POI inválido:", poi);
+    return;
+  }
+
+  try {
+
+    const marker = L.marker(
+      [poi.lat, poi.lng],
+      {
+        icon: safeIcon(poi.category)
+      }
+    );
+
+    marker.bindPopup(
+      createPopupContent(poi)
+    );
+
+    marker.addTo(layer);
+
+  } catch (err) {
+
+    console.error("Erro criando marker:", err, poi);
+  }
+}
+
+// ======================================
+// POIs MANUAIS
+// ======================================
+
 function loadManualPOIs(layer) {
 
-  if (!window.manualPOIs) return;
+  if (!window.manualPOIs) {
+
+    console.warn("manualPOIs não encontrado");
+    return;
+  }
+
+  console.log(
+    "Carregando POIs manuais:",
+    window.manualPOIs.length
+  );
 
   window.manualPOIs.forEach(poi => {
 
+    // garante compatibilidade antiga
+    if (poi.lon && !poi.lng) {
+      poi.lng = poi.lon;
+    }
+
     registerPOI(poi);
 
-    const marker = L.marker([poi.lat, poi.lng], {
-      icon: getIcon(poi.category)
-    });
-
-    marker.bindPopup(createPopupContent(poi));
-
-    marker.addTo(layer);
+    createMarker(poi, layer);
   });
 }
 
 window.loadManualPOIs = loadManualPOIs;
 
-async function loadAutoPOIs(lat, lng, radius, layer) {
+// ======================================
+// POIs AUTOMÁTICOS
+// ======================================
+
+async function loadAutoPOIs(
+  lat,
+  lng,
+  radius,
+  layer
+) {
 
   const query = `
     [out:json];
@@ -81,49 +180,72 @@ async function loadAutoPOIs(lat, lng, radius, layer) {
 
     const data = await res.json();
 
-    if (!data || !Array.isArray(data.elements)) {
-      console.error("Resposta inválida da API");
+    if (
+      !data ||
+      !Array.isArray(data.elements)
+    ) {
+
+      console.error(
+        "Resposta inválida da API"
+      );
+
       return;
     }
+
+    console.log(
+      "POIs dinâmicos:",
+      data.elements.length
+    );
 
     data.elements.forEach(el => {
 
       const poi = {
-        name: el.tags?.name || "Local",
-        lat: el.lat,
-        lng: el.lon,
+
+        name:
+          el.tags?.name || "Local",
+
+        lat: Number(el.lat),
+
+        lng: Number(el.lon),
+
         category: "generic"
       };
 
-      if (el.tags?.amenity === "hospital") {
+      if (
+        el.tags?.amenity === "hospital"
+      ) {
         poi.category = "hospital";
       }
 
-      if (el.tags?.amenity === "pharmacy") {
+      if (
+        el.tags?.amenity === "pharmacy"
+      ) {
         poi.category = "pharmacy";
       }
 
-      if (el.tags?.amenity === "police") {
+      if (
+        el.tags?.amenity === "police"
+      ) {
         poi.category = "police";
       }
 
-      if (el.tags?.shop === "supermarket") {
+      if (
+        el.tags?.shop === "supermarket"
+      ) {
         poi.category = "supermarket";
       }
 
       registerPOI(poi);
 
-      const marker = L.marker([poi.lat, poi.lng], {
-        icon: getIcon(poi.category)
-      });
-
-      marker.bindPopup(createPopupContent(poi));
-
-      marker.addTo(layer);
+      createMarker(poi, layer);
     });
 
   } catch (err) {
-    console.error("Erro Overpass:", err);
+
+    console.error(
+      "Erro Overpass:",
+      err
+    );
   }
 }
 
