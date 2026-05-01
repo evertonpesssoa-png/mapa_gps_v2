@@ -2,13 +2,6 @@ async function geocode(query) {
 
   if (!query) return null;
 
-  query = query.trim();
-
-  // ==========================
-  // 🔥 NÃO RESTRINGE MAIS (IMPORTANTE)
-  // ==========================
-
-  // só adiciona país se for muito genérico
   const finalQuery = query.includes(",")
     ? query
     : `${query}, Brasil`;
@@ -18,15 +11,14 @@ async function geocode(query) {
     encodeURIComponent(finalQuery);
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "MapaApp/1.0"
-      }
-    });
+
+    const res = await fetch(url);
 
     const data = await res.json();
 
-    if (!data || !data.length) return null;
+    if (!data || !data.length) {
+      return null;
+    }
 
     const place = data[0];
 
@@ -37,7 +29,7 @@ async function geocode(query) {
     };
 
   } catch (err) {
-    console.error("Erro geocoding:", err);
+    console.error(err);
     return null;
   }
 }
