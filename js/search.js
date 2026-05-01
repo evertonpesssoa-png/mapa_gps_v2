@@ -1,6 +1,19 @@
 let searchOpen = false;
 
 // ======================================
+// NORMALIZAR TEXTO
+// ======================================
+
+function normalizeText(text) {
+
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+// ======================================
 // FECHAR TODOS OS PAINÉIS
 // ======================================
 
@@ -86,9 +99,13 @@ function smartZoomToPlace(poi) {
 
   if (!window.map) return;
 
+  const lng =
+    poi.lng ?? poi.lon;
+
   const name =
-    (poi.name || "")
-      .toLowerCase();
+    normalizeText(
+      poi.name || ""
+    );
 
   // ======================================
   // ESTADOS
@@ -98,28 +115,28 @@ function smartZoomToPlace(poi) {
 
     "acre",
     "alagoas",
-    "amapá",
+    "amapa",
     "amazonas",
     "bahia",
-    "ceará",
-    "espírito santo",
-    "goiás",
-    "maranhão",
+    "ceara",
+    "espirito santo",
+    "goias",
+    "maranhao",
     "mato grosso",
     "mato grosso do sul",
     "minas gerais",
-    "pará",
-    "paraíba",
-    "paraná",
+    "para",
+    "paraiba",
+    "parana",
     "pernambuco",
-    "piauí",
+    "piaui",
     "rio de janeiro",
     "rio grande do norte",
     "rio grande do sul",
-    "rondônia",
+    "rondonia",
     "roraima",
     "santa catarina",
-    "são paulo",
+    "sao paulo",
     "sergipe",
     "tocantins"
 
@@ -133,7 +150,7 @@ function smartZoomToPlace(poi) {
   if (isState) {
 
     window.map.setView(
-      [poi.lat, poi.lng],
+      [poi.lat, lng],
       7
     );
 
@@ -149,18 +166,18 @@ function smartZoomToPlace(poi) {
     "recife",
     "goiana",
     "olinda",
-    "jaboatão",
+    "jaboatao",
     "paulista",
     "caruaru",
     "petrolina",
-    "são paulo",
+    "sao paulo",
     "rio de janeiro",
     "salvador",
     "fortaleza",
     "curitiba",
     "manaus",
-    "belém",
-    "brasília"
+    "belem",
+    "brasilia"
 
   ];
 
@@ -172,7 +189,7 @@ function smartZoomToPlace(poi) {
   if (isCity) {
 
     window.map.setView(
-      [poi.lat, poi.lng],
+      [poi.lat, lng],
       11
     );
 
@@ -184,7 +201,7 @@ function smartZoomToPlace(poi) {
   // ======================================
 
   window.map.setView(
-    [poi.lat, poi.lng],
+    [poi.lat, lng],
     16
   );
 }
@@ -266,6 +283,9 @@ function showActionPanel(
 
   closeAllPanels();
 
+  const lng =
+    poi.lng ?? poi.lon;
+
   panel.innerHTML = `
 
     <div style="
@@ -295,7 +315,7 @@ function showActionPanel(
       onclick="
         viewOnMap(
           ${poi.lat},
-          ${poi.lng}
+          ${lng}
         )
       "
       style="
@@ -354,30 +374,39 @@ async function searchPlace(
     return;
   }
 
+  const normalizedQuery =
+    normalizeText(query);
+
   let results = [];
 
   // ======================================
   // BUSCA LOCAL
   // ======================================
 
-  if (window.findPlacesByName) {
+  if (
+    Array.isArray(
+      window.poiIndex
+    )
+  ) {
 
-    const local =
-      window.findPlacesByName(
-        query
+    const localResults =
+      window.poiIndex.filter(
+        poi => {
+
+          const name =
+            normalizeText(
+              poi.name
+            );
+
+          return name.includes(
+            normalizedQuery
+          );
+        }
       );
 
-    if (
-      local &&
-      Array.isArray(
-        local.results
-      )
-    ) {
-
-      results.push(
-        ...local.results
-      );
-    }
+    results.push(
+      ...localResults
+    );
   }
 
   // ======================================
@@ -398,8 +427,12 @@ async function searchPlace(
         const exists =
           results.some(
             r =>
-              r.name ===
-              geo.name
+              normalizeText(
+                r.name
+              ) ===
+              normalizeText(
+                geo.name
+              )
           );
 
         if (!exists) {
@@ -429,6 +462,21 @@ async function searchPlace(
       );
     }
   }
+
+  // ======================================
+  // NORMALIZA LNG/LON
+  // ======================================
+
+  results = results.map(
+    poi => ({
+
+      ...poi,
+
+      lng:
+        poi.lng ??
+        poi.lon
+    })
+  );
 
   // ======================================
   // RENDER
