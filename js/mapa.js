@@ -13,16 +13,15 @@ document.addEventListener("DOMContentLoaded", () => {
   window.map = map;
 
   // =====================================
-  // TILE MODERNO (ESTILO GOOGLE/UBER)
+  // MAPA PADRÃO (OSM)
   // =====================================
 
   const lightLayer = L.tileLayer(
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
       attribution:
-        "&copy; OpenStreetMap &copy; CARTO",
-      subdomains: "abcd",
-      maxZoom: 20
+        "&copy; OpenStreetMap contributors",
+      maxZoom: 19
     }
   );
 
@@ -33,12 +32,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const satelliteLayer = L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     {
-      attribution: "Tiles © Esri",
-      maxZoom: 20
+      attribution:
+        "Tiles © Esri",
+      maxZoom: 18
     }
   );
 
-  // mapa inicial
+  // =====================================
+  // MAPA INICIAL
+  // =====================================
+
   lightLayer.addTo(map);
 
   // =====================================
@@ -47,7 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   L.control.layers(
     {
-      "🌎 Moderno": lightLayer,
+      "🌎 Mapa": lightLayer,
       "🛰 Satélite": satelliteLayer
     },
     {},
@@ -60,8 +63,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // CAMADAS
   // =====================================
 
-  window.poiLayer = L.layerGroup().addTo(map);
-  window.routeLayer = L.layerGroup().addTo(map);
+  window.poiLayer =
+    L.layerGroup().addTo(map);
+
+  window.routeLayer =
+    L.layerGroup().addTo(map);
 
   // =====================================
   // USER
@@ -75,14 +81,21 @@ document.addEventListener("DOMContentLoaded", () => {
   let autoPOIsLoaded = false;
 
   // =====================================
-  // CARREGA POIs MANUAIS IMEDIATAMENTE
+  // POIs MANUAIS
   // =====================================
 
-  if (typeof loadManualPOIs === "function") {
+  if (
+    typeof loadManualPOIs ===
+    "function"
+  ) {
 
-    loadManualPOIs(window.poiLayer);
+    loadManualPOIs(
+      window.poiLayer
+    );
 
-    console.log("POIs manuais carregados");
+    console.log(
+      "POIs manuais carregados"
+    );
   }
 
   // =====================================
@@ -91,14 +104,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handlePosition(pos) {
 
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    const accuracy = pos.coords.accuracy;
+    const lat =
+      pos.coords.latitude;
 
-    window.lastGPS = { lat, lng };
+    const lng =
+      pos.coords.longitude;
+
+    const accuracy =
+      pos.coords.accuracy;
+
+    window.lastGPS = {
+      lat,
+      lng
+    };
 
     // =====================================
-    // PRIMEIRO FIX
+    // PRIMEIRA POSIÇÃO
     // =====================================
 
     if (!userMarker) {
@@ -118,7 +139,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       ).addTo(map);
 
-      window.userMarker = userMarker;
+      window.userMarker =
+        userMarker;
 
       if (firstFix) {
 
@@ -152,7 +174,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (
       !autoPOIsLoaded &&
-      typeof loadAutoPOIs === "function"
+      typeof loadAutoPOIs ===
+        "function"
     ) {
 
       autoPOIsLoaded = true;
@@ -215,18 +238,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // CENTRALIZAR USUÁRIO
   // =====================================
 
-  window.centerOnUser = function () {
+  window.centerOnUser =
+    function () {
 
-    if (!window.userMarker) return;
+      if (
+        !window.userMarker
+      ) return;
 
-    map.setView(
-      window.userMarker.getLatLng(),
-      16
-    );
-  };
+      map.setView(
+        window.userMarker.getLatLng(),
+        16
+      );
+    };
 
   // =====================================
-  // INVALIDATE SIZE
+  // FIX RENDER
   // =====================================
 
   setTimeout(() => {
