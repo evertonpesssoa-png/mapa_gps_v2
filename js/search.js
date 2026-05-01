@@ -1,19 +1,25 @@
 let searchOpen = false;
 
 // ======================================
-// FECHAR TODOS
+// FECHAR TODOS OS PAINÉIS
 // ======================================
 
 function closeAllPanels() {
 
   const search =
-    document.getElementById("search-panel");
+    document.getElementById(
+      "search-panel"
+    );
 
   const action =
-    document.getElementById("action-panel");
+    document.getElementById(
+      "action-panel"
+    );
 
   const route =
-    document.getElementById("route-panel");
+    document.getElementById(
+      "route-panel"
+    );
 
   if (search) {
     search.style.display = "none";
@@ -30,7 +36,8 @@ function closeAllPanels() {
   searchOpen = false;
 }
 
-window.closeAllPanels = closeAllPanels;
+window.closeAllPanels =
+  closeAllPanels;
 
 // ======================================
 // TOGGLE SEARCH
@@ -39,16 +46,18 @@ window.closeAllPanels = closeAllPanels;
 function toggleSearch() {
 
   const panel =
-    document.getElementById("search-panel");
+    document.getElementById(
+      "search-panel"
+    );
 
   if (!panel) return;
 
-  const opened =
+  const isOpen =
     panel.style.display === "block";
 
   closeAllPanels();
 
-  if (!opened) {
+  if (!isOpen) {
 
     panel.style.display = "block";
 
@@ -57,20 +66,126 @@ function toggleSearch() {
     setTimeout(() => {
 
       document
-        .getElementById("search-input")
+        .getElementById(
+          "search-input"
+        )
         ?.focus();
 
     }, 100);
   }
 }
 
-window.toggleSearch = toggleSearch;
+window.toggleSearch =
+  toggleSearch;
+
+// ======================================
+// ZOOM INTELIGENTE
+// ======================================
+
+function smartZoomToPlace(poi) {
+
+  if (!window.map) return;
+
+  const name =
+    (poi.name || "")
+      .toLowerCase();
+
+  // estados
+  const states = [
+
+    "acre",
+    "alagoas",
+    "amapá",
+    "amazonas",
+    "bahia",
+    "ceará",
+    "espírito santo",
+    "goiás",
+    "maranhão",
+    "mato grosso",
+    "mato grosso do sul",
+    "minas gerais",
+    "pará",
+    "paraíba",
+    "paraná",
+    "pernambuco",
+    "piauí",
+    "rio de janeiro",
+    "rio grande do norte",
+    "rio grande do sul",
+    "rondônia",
+    "roraima",
+    "santa catarina",
+    "são paulo",
+    "sergipe",
+    "tocantins"
+  ];
+
+  const isState =
+    states.some(state =>
+      name.includes(state)
+    );
+
+  if (isState) {
+
+    window.map.setView(
+      [poi.lat, poi.lng],
+      7
+    );
+
+    return;
+  }
+
+  // cidades grandes
+  const bigCities = [
+
+    "recife",
+    "goiana",
+    "olinda",
+    "jaboatão",
+    "paulista",
+    "caruaru",
+    "petrolina",
+    "são paulo",
+    "rio de janeiro",
+    "salvador",
+    "fortaleza",
+    "curitiba",
+    "manaus",
+    "belém",
+    "brasília"
+  ];
+
+  const isCity =
+    bigCities.some(city =>
+      name.includes(city)
+    );
+
+  if (isCity) {
+
+    window.map.setView(
+      [poi.lat, poi.lng],
+      11
+    );
+
+    return;
+  }
+
+  // padrão
+  window.map.setView(
+    [poi.lat, poi.lng],
+    16
+  );
+}
 
 // ======================================
 // VIEW ON MAP
 // ======================================
 
-function viewOnMap(lat, lng) {
+function viewOnMap(
+  lat,
+  lng
+) {
 
   if (!window.map) return;
 
@@ -82,18 +197,23 @@ function viewOnMap(lat, lng) {
   );
 }
 
-window.viewOnMap = viewOnMap;
+window.viewOnMap =
+  viewOnMap;
 
 // ======================================
-// ABRIR UX DE ROTA
+// ABRIR ROTA
 // ======================================
 
-function openRoutePanel(destinationName) {
+function openRoutePanel(
+  destinationName
+) {
 
   closeAllPanels();
 
   const panel =
-    document.getElementById("route-panel");
+    document.getElementById(
+      "route-panel"
+    );
 
   const destination =
     document.getElementById(
@@ -102,20 +222,29 @@ function openRoutePanel(destinationName) {
 
   if (!panel) return;
 
-  if (destinationName && destination) {
-    destination.value = destinationName;
+  if (
+    destinationName &&
+    destination
+  ) {
+
+    destination.value =
+      destinationName;
   }
 
-  panel.style.display = "flex";
+  panel.style.display =
+    "flex";
 }
 
-window.openRoutePanel = openRoutePanel;
+window.openRoutePanel =
+  openRoutePanel;
 
 // ======================================
 // ACTION PANEL
 // ======================================
 
-function showActionPanel(poi) {
+function showActionPanel(
+  poi
+) {
 
   const panel =
     document.getElementById(
@@ -152,7 +281,12 @@ function showActionPanel(poi) {
     </div>
 
     <button
-      onclick="viewOnMap(${poi.lat}, ${poi.lng})"
+      onclick="
+        viewOnMap(
+          ${poi.lat},
+          ${poi.lng}
+        )
+      "
       style="
         width:100%;
         padding:10px;
@@ -165,7 +299,7 @@ function showActionPanel(poi) {
     <button
       onclick="
         openRoutePanel(
-          '${poi.name.replace(/'/g, '')}'
+          '${poi.name.replace(/'/g, "")}'
         )
       "
       style="
@@ -177,7 +311,8 @@ function showActionPanel(poi) {
     </button>
   `;
 
-  panel.style.display = "block";
+  panel.style.display =
+    "block";
 }
 
 window.showActionPanel =
@@ -187,7 +322,9 @@ window.showActionPanel =
 // SEARCH
 // ======================================
 
-async function searchPlace(query) {
+async function searchPlace(
+  query
+) {
 
   const container =
     document.getElementById(
@@ -196,31 +333,50 @@ async function searchPlace(query) {
 
   if (!container) return;
 
-  if (!query || query.length < 2) {
+  if (
+    !query ||
+    query.trim().length < 2
+  ) {
 
     container.innerHTML = "";
 
     return;
   }
 
+  // ======================================
+  // BUSCA LOCAL
+  // ======================================
+
   const local =
     window.findPlacesByName
-      ? window.findPlacesByName(query)
+      ? window.findPlacesByName(
+          query
+        )
       : { results: [] };
 
-  if (local.results.length > 0) {
+  if (
+    local.results.length > 0
+  ) {
 
-    renderResults(local.results);
+    renderResults(
+      local.results
+    );
 
     return;
   }
+
+  // ======================================
+  // GEOCODING
+  // ======================================
 
   if (window.geocode) {
 
     try {
 
       const geo =
-        await window.geocode(query);
+        await window.geocode(
+          query
+        );
 
       if (geo) {
 
@@ -240,13 +396,16 @@ async function searchPlace(query) {
   }
 }
 
-window.searchPlace = searchPlace;
+window.searchPlace =
+  searchPlace;
 
 // ======================================
 // RENDER RESULTS
 // ======================================
 
-function renderResults(results) {
+function renderResults(
+  results
+) {
 
   const container =
     document.getElementById(
@@ -260,28 +419,34 @@ function renderResults(results) {
   results.forEach(poi => {
 
     const div =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
-    div.style.padding = "10px";
+    div.style.padding =
+      "10px";
 
     div.style.borderBottom =
       "1px solid #ddd";
 
-    div.style.cursor = "pointer";
+    div.style.cursor =
+      "pointer";
 
-    div.innerText = poi.name;
+    div.style.background =
+      "white";
+
+    div.innerText =
+      poi.name;
 
     div.onclick = () => {
 
-      if (window.map) {
+      smartZoomToPlace(
+        poi
+      );
 
-        window.map.setView(
-          [poi.lat, poi.lng],
-          16
-        );
-      }
-
-      showActionPanel(poi);
+      showActionPanel(
+        poi
+      );
     };
 
     container.appendChild(div);
@@ -289,7 +454,7 @@ function renderResults(results) {
 }
 
 // ======================================
-// INPUT
+// INPUT EVENTS
 // ======================================
 
 document.addEventListener(
@@ -307,7 +472,9 @@ document.addEventListener(
       "input",
       e => {
 
-        searchPlace(e.target.value);
+        searchPlace(
+          e.target.value
+        );
       }
     );
 
@@ -315,9 +482,13 @@ document.addEventListener(
       "keydown",
       e => {
 
-        if (e.key === "Enter") {
+        if (
+          e.key === "Enter"
+        ) {
 
-          searchPlace(input.value);
+          searchPlace(
+            input.value
+          );
         }
       }
     );
