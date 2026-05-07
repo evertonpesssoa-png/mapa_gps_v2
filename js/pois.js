@@ -1,5 +1,16 @@
-window.poiIndex = window.poiIndex || [];
-window.autoPOIsReady = false;
+window.poiIndex =
+  window.poiIndex || [];
+
+window.autoPOIsReady =
+  false;
+
+// ======================================
+// LAYER AUTO POIs
+// ======================================
+
+window.autoPOILayer =
+  window.autoPOILayer ||
+  L.layerGroup();
 
 // ======================================
 // NORMALIZE
@@ -8,10 +19,28 @@ window.autoPOIsReady = false;
 function normalizeText(text) {
 
   return (text || "")
+    .toString()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
     .trim();
+}
+
+// ======================================
+// ESCAPE HTML
+// ======================================
+
+function escapeHTML(text) {
+
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // ======================================
@@ -25,7 +54,7 @@ function registerPOI(poi) {
   // garante nome
   if (
     !poi.name ||
-    !poi.name.trim()
+    !String(poi.name).trim()
   ) {
 
     poi.name = "Local";
@@ -58,14 +87,31 @@ function registerPOI(poi) {
 
   // evita duplicados
   const exists =
-    window.poiIndex.some(p =>
+    window.poiIndex.some(p => {
 
-      normalizeText(p.name) ===
-        normalizeText(poi.name) &&
+      const sameName =
 
-      p.lat === poi.lat &&
-      p.lng === poi.lng
-    );
+        normalizeText(p.name) ===
+        normalizeText(poi.name);
+
+      const sameLat =
+
+        Math.abs(
+          p.lat - poi.lat
+        ) < 0.00001;
+
+      const sameLng =
+
+        Math.abs(
+          p.lng - poi.lng
+        ) < 0.00001;
+
+      return (
+        sameName &&
+        sameLat &&
+        sameLng
+      );
+    });
 
   if (exists) return;
 
@@ -90,7 +136,9 @@ window.registerPOI =
 // BUSCA
 // ======================================
 
-function findPlacesByName(query) {
+function findPlacesByName(
+  query
+) {
 
   if (!query) {
 
@@ -103,13 +151,14 @@ function findPlacesByName(query) {
     normalizeText(query);
 
   const results =
-    window.poiIndex.filter(p =>
+    window.poiIndex.filter(
+      p =>
 
-      normalizeText(
-        p.name
-      ).includes(
-        normalizedQuery
-      )
+        normalizeText(
+          p.name
+        ).includes(
+          normalizedQuery
+        )
     );
 
   return { results };
@@ -122,12 +171,21 @@ window.findPlacesByName =
 // POPUP
 // ======================================
 
-function createPopupContent(poi) {
+function createPopupContent(
+  poi
+) {
+
+  const safeName =
+    escapeHTML(
+      poi.name
+    );
 
   return `
-    <div style="min-width:160px">
+    <div style="
+      min-width:160px
+    ">
 
-      <b>${poi.name}</b>
+      <b>${safeName}</b>
 
       <br><br>
 
@@ -157,7 +215,9 @@ function safeIcon(category) {
       "function"
     ) {
 
-      return getIcon(category);
+      return getIcon(
+        category
+      );
     }
 
   } catch (err) {
@@ -211,10 +271,14 @@ function createMarker(
       );
 
     marker.bindPopup(
-      createPopupContent(poi)
+      createPopupContent(
+        poi
+      )
     );
 
     marker.addTo(layer);
+
+    return marker;
 
   } catch (err) {
 
@@ -291,27 +355,62 @@ async function loadAutoPOIs(
   window.autoPOIsReady =
     false;
 
+  // ======================================
+  // LIMPA AUTO POIs ANTIGOS
+  // ======================================
+
+  if (
+    window.autoPOILayer
+  ) {
+
+    window.autoPOILayer.clearLayers();
+  }
+
+  // ======================================
+  // LIMITA RADIUS
+  // ======================================
+
+  radius =
+    Math.min(
+      Number(radius) || 3000,
+      5000
+    );
+
   const query = `
-    [out:json];
+    [out:json][timeout:10];
     (
       node["amenity"="hospital"](around:${radius},${lat},${lng});
       node["amenity"="pharmacy"](around:${radius},${lat},${lng});
       node["amenity"="police"](around:${radius},${lat},${lng});
       node["shop"="supermarket"](around:${radius},${lat},${lng});
     );
-    out;
+    out 80;
   `;
 
   try {
+
+    const controller =
+      new AbortController();
+
+    const timeout =
+      setTimeout(() => {
+
+        controller.abort();
+
+      }, 12000);
 
     const res =
       await fetch(
         "https://overpass-api.de/api/interpreter",
         {
           method: "POST",
-          body: query
+          body: query,
+          signal:
+            controller.signal
         }
       );
+
+    clearTimeout(timeout);
 
     if (!res.ok) {
 
@@ -345,68 +444,87 @@ async function loadAutoPOIs(
       data.elements.length
     );
 
-    data.elements.forEach(el => {
+    data.elements.forEach(
+      el => {
 
-      const poi = {
+        const poi = {
 
-        name:
-          el.tags?.name ||
-          "Local",
+          name:
+            String(
+              el.tags?.name ||
+              "Local"
+            ),
 
-        lat:
-          Number(el.lat),
+          lat:
+            Number(el.lat),
 
-        lng:
-          Number(el.lon),
+          lng:
+            Number(el.lon),
 
-        category:
-          "generic"
-      };
+          category:
+            "generic"
+        };
 
-      // categoria
-      if (
-        el.tags?.amenity ===
-        "hospital"
-      ) {
+        // categorias
+        if (
+          el.tags?.amenity ===
+          "hospital"
+        ) {
 
-        poi.category =
-          "hospital";
+          poi.category =
+            "hospital";
+        }
+
+        if (
+          el.tags?.amenity ===
+          "pharmacy"
+        ) {
+
+          poi.category =
+            "pharmacy";
+        }
+
+        if (
+          el.tags?.amenity ===
+          "police"
+        ) {
+
+          poi.category =
+            "police";
+        }
+
+        if (
+          el.tags?.shop ===
+          "supermarket"
+        ) {
+
+          poi.category =
+            "supermarket";
+        }
+
+        registerPOI(poi);
+
+        createMarker(
+          poi,
+          window.autoPOILayer
+        );
       }
+    );
 
-      if (
-        el.tags?.amenity ===
-        "pharmacy"
-      ) {
+    // ======================================
+    // ADICIONA AO MAPA
+    // ======================================
 
-        poi.category =
-          "pharmacy";
-      }
+    if (
+      layer &&
+      typeof layer.addLayer ===
+        "function"
+    ) {
 
-      if (
-        el.tags?.amenity ===
-        "police"
-      ) {
-
-        poi.category =
-          "police";
-      }
-
-      if (
-        el.tags?.shop ===
-        "supermarket"
-      ) {
-
-        poi.category =
-          "supermarket";
-      }
-
-      registerPOI(poi);
-
-      createMarker(
-        poi,
-        layer
+      layer.addLayer(
+        window.autoPOILayer
       );
-    });
+    }
 
     console.log(
       "INDEX FINAL:",
@@ -417,6 +535,18 @@ async function loadAutoPOIs(
       true;
 
   } catch (err) {
+
+    if (
+      err.name ===
+      "AbortError"
+    ) {
+
+      console.warn(
+        "Overpass timeout"
+      );
+
+      return;
+    }
 
     console.error(
       "Erro Overpass:",
