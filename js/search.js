@@ -14,6 +14,13 @@ window.searchCache =
   window.searchCache || {};
 
 // ======================================
+// DESTINO GLOBAL SELECIONADO
+// ======================================
+
+window.selectedDestination =
+  window.selectedDestination || null;
+
+// ======================================
 // NORMALIZAR TEXTO
 // ======================================
 
@@ -25,6 +32,20 @@ function normalizeText(text) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+}
+
+// ======================================
+// ESCAPE HTML
+// ======================================
+
+function escapeHTML(text) {
+
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // ======================================
@@ -163,7 +184,7 @@ function smartZoomToPlace(poi) {
       ""
     );
 
-  // estados
+  // estado
   if (
     type.includes("state") ||
     type.includes("estado")
@@ -177,16 +198,33 @@ function smartZoomToPlace(poi) {
     return;
   }
 
-  // cidades
+  // cidade
   if (
     type.includes("city") ||
     type.includes("town") ||
-    type.includes("cidade")
+    type.includes("cidade") ||
+    type.includes("municipality")
   ) {
 
     window.map.setView(
       [lat, lng],
       11
+    );
+
+    return;
+  }
+
+  // rua / bairro
+  if (
+    type.includes("road") ||
+    type.includes("street") ||
+    type.includes("residential") ||
+    type.includes("suburb")
+  ) {
+
+    window.map.setView(
+      [lat, lng],
+      15
     );
 
     return;
@@ -225,7 +263,9 @@ window.viewOnMap =
 // ROUTE PANEL
 // ======================================
 
-function openRoutePanel(poi) {
+function openRoutePanel(
+  poi = null
+) {
 
   closePanels(
     "route-panel"
@@ -241,18 +281,39 @@ function openRoutePanel(poi) {
       "route-destination"
     );
 
-  if (poi) {
+  if (
+    poi &&
+    !isNaN(Number(poi.lat)) &&
+    !isNaN(Number(
+      poi.lng ?? poi.lon
+    ))
+  ) {
 
     window.selectedDestination = {
-      name: poi.name,
-      lat: Number(poi.lat),
-      lng: Number(
-        poi.lng ?? poi.lon
-      )
+
+      name:
+        poi.name || "Destino",
+
+      lat:
+        Number(poi.lat),
+
+      lng:
+        Number(
+          poi.lng ??
+          poi.lon
+        ),
+
+      fullName:
+        poi.fullName || "",
+
+      type:
+        poi.type || ""
     };
 
     if (input) {
-      input.value = poi.name;
+
+      input.value =
+        poi.name || "";
     }
   }
 
@@ -295,9 +356,14 @@ function showActionPanel(
   );
 
   const safeName =
-    String(poi.name || "")
-      .replace(/'/g, "")
-      .replace(/"/g, "");
+    escapeHTML(
+      poi.name || "Local"
+    );
+
+  const safeFullName =
+    escapeHTML(
+      poi.fullName || ""
+    );
 
   panel.innerHTML = `
 
@@ -327,14 +393,15 @@ function showActionPanel(
     </div>
 
     ${
-      poi.fullName
+      safeFullName
         ? `
           <div style="
             font-size:12px;
             color:#666;
             margin-bottom:10px;
+            line-height:1.4;
           ">
-            ${poi.fullName}
+            ${safeFullName}
           </div>
         `
         : ""
@@ -351,20 +418,28 @@ function showActionPanel(
         width:100%;
         padding:10px;
         margin-bottom:8px;
+        border:none;
+        border-radius:10px;
+        cursor:pointer;
       "
     >
       📍 Ver no mapa
     </button>
 
     <button
-      onclick="
-        openRoutePanel(
-          '${safeName}'
-        )
-      "
+      onclick='openRoutePanel(${JSON.stringify({
+        name: poi.name,
+        fullName: poi.fullName,
+        lat,
+        lng,
+        type: poi.type
+      })})'
       style="
         width:100%;
         padding:10px;
+        border:none;
+        border-radius:10px;
+        cursor:pointer;
       "
     >
       🧭 Criar rota
@@ -432,8 +507,20 @@ async function searchPlace(
               poi.name
             );
 
-          return name.includes(
-            normalizedQuery
+          const full =
+            normalizeText(
+              poi.fullName
+            );
+
+          return (
+
+            name.includes(
+              normalizedQuery
+            ) ||
+
+            full.includes(
+              normalizedQuery
+            )
           );
         }
       );
@@ -442,7 +529,7 @@ async function searchPlace(
   }
 
   // ======================================
-  // CACHE LOCAL
+  // CACHE
   // ======================================
 
   const cached =
@@ -464,23 +551,22 @@ async function searchPlace(
   renderResults(results);
 
   // ======================================
-  // LOCATION ENGINE
+  // GEOCODE GLOBAL
   // ======================================
 
   if (
-    typeof window.locationEngine
-      ?.searchLocation ===
+    typeof window.geocode ===
     "function"
   ) {
 
     try {
 
       const geoResults =
-        await window.locationEngine.searchLocation(
+        await window.geocode(
           query
         );
 
-      // ignora buscas antigas
+      // ignora busca antiga
       if (
         searchId !==
         currentSearchId
@@ -492,11 +578,9 @@ async function searchPlace(
       if (
         Array.isArray(
           geoResults
-        ) &&
-        geoResults.length > 0
+        )
       ) {
 
-        // salva cache
         window.searchCache[
           normalizedQuery
         ] = geoResults;
@@ -518,16 +602,24 @@ async function searchPlace(
                 r => {
 
                   const sameName =
-                    normalizeText(r.name) ===
-                    normalizeText(geo.name);
+
+                    normalizeText(
+                      r.name
+                    ) ===
+
+                    normalizeText(
+                      geo.name
+                    );
 
                   const sameLat =
+
                     Math.abs(
                       Number(r.lat) -
                       geoLat
                     ) < 0.0001;
 
                   const sameLng =
+
                     Math.abs(
                       Number(
                         r.lng ??
@@ -564,6 +656,11 @@ async function searchPlace(
 
                 category:
                   geo.category ||
+                  geo.type ||
+                  "global",
+
+                source:
+                  geo.source ||
                   "global"
               });
             }
@@ -643,16 +740,24 @@ function renderResults(
         p => {
 
           const sameName =
-            normalizeText(p.name) ===
-            normalizeText(poi.name);
+
+            normalizeText(
+              p.name
+            ) ===
+
+            normalizeText(
+              poi.name
+            );
 
           const sameLat =
+
             Math.abs(
               Number(p.lat) -
               lat
             ) < 0.0001;
 
           const sameLng =
+
             Math.abs(
               Number(
                 p.lng ??
@@ -671,7 +776,9 @@ function renderResults(
     if (!exists) {
 
       unique.push({
+
         ...poi,
+
         lat,
         lng
       });
@@ -679,10 +786,17 @@ function renderResults(
   });
 
   // ======================================
+  // LIMITA RESULTADOS
+  // ======================================
+
+  const finalResults =
+    unique.slice(0, 25);
+
+  // ======================================
   // RENDER
   // ======================================
 
-  unique.forEach(poi => {
+  finalResults.forEach(poi => {
 
     const div =
       document.createElement(
@@ -690,10 +804,10 @@ function renderResults(
       );
 
     div.style.padding =
-      "10px";
+      "12px";
 
     div.style.borderBottom =
-      "1px solid #ddd";
+      "1px solid #eee";
 
     div.style.cursor =
       "pointer";
@@ -704,8 +818,28 @@ function renderResults(
     div.style.transition =
       "0.2s";
 
+    div.style.lineHeight =
+      "1.4";
+
+    const sourceLabel =
+
+      poi.auto
+        ? "📍 Próximo"
+
+      : poi.source ===
+        "nominatim"
+        ? "🌎 Global"
+
+      : "🗂 Local";
+
     div.innerHTML = `
-      <b>${poi.name}</b>
+
+      <div style="
+        font-weight:bold;
+        margin-bottom:4px;
+      ">
+        ${escapeHTML(poi.name)}
+      </div>
 
       ${
         poi.fullName
@@ -713,20 +847,29 @@ function renderResults(
             <div style="
               font-size:12px;
               color:#666;
-              margin-top:4px;
+              margin-bottom:4px;
             ">
-              ${poi.fullName}
+              ${escapeHTML(
+                poi.fullName
+              )}
             </div>
           `
           : ""
       }
+
+      <div style="
+        font-size:11px;
+        color:#999;
+      ">
+        ${sourceLabel}
+      </div>
     `;
 
     div.onmouseenter =
       () => {
 
         div.style.background =
-          "#f2f2f2";
+          "#f5f5f5";
       };
 
     div.onmouseleave =
@@ -773,13 +916,12 @@ document.addEventListener(
       return;
     }
 
-    // debounce
     const debouncedSearch =
       debounce(value => {
 
         searchPlace(value);
 
-      }, 400);
+      }, 350);
 
     input.addEventListener(
       "input",
