@@ -5,7 +5,7 @@ const SPEEDS = {
 };
 
 // ======================================
-// CONTROLE DE REQUEST ROTA
+// CONTROLE REQUESTS
 // ======================================
 
 let currentRouteController = null;
@@ -36,7 +36,6 @@ function toggleRoute() {
   const isOpen =
     panel.style.display === "flex";
 
-  // fecha outros
   if (search) {
     search.style.display = "none";
   }
@@ -59,6 +58,10 @@ window.toggleRoute =
 // ======================================
 
 function formatDistance(meters) {
+
+  if (!meters || isNaN(meters)) {
+    return "0 m";
+  }
 
   if (meters < 1000) {
     return `${meters.toFixed(0)} m`;
@@ -124,6 +127,221 @@ window.clearRoute =
   clearRoute;
 
 // ======================================
+// NORMALIZAR TEXTO
+// ======================================
+
+function normalizeText(
+  text
+) {
+
+  return (text || "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .trim();
+}
+
+// ======================================
+// RESOLVER LOCALIZAÇÃO
+// ======================================
+
+async function resolveText(
+  text
+) {
+
+  if (!text) return null;
+
+  const normalized =
+    normalizeText(text);
+
+  // ======================================
+  // LOCATION ENGINE
+  // ======================================
+
+  if (
+    typeof window.resolveLocation ===
+    "function"
+  ) {
+
+    try {
+
+      const resolved =
+        await window.resolveLocation(
+          text
+        );
+
+      if (
+        resolved &&
+        !isNaN(resolved.lat) &&
+        !isNaN(resolved.lng)
+      ) {
+
+        return {
+
+          lat:
+            Number(
+              resolved.lat
+            ),
+
+          lng:
+            Number(
+              resolved.lng
+            ),
+
+          name:
+            resolved.name ||
+            text
+        };
+      }
+
+    } catch (err) {
+
+      console.warn(
+        "Erro locationEngine:",
+        err
+      );
+    }
+  }
+
+  // ======================================
+  // BUSCA LOCAL FALLBACK
+  // ======================================
+
+  if (
+    Array.isArray(
+      window.poiIndex
+    )
+  ) {
+
+    let local =
+      window.poiIndex.find(
+        p =>
+          normalizeText(
+            p.name
+          ) === normalized
+      );
+
+    if (!local) {
+
+      local =
+        window.poiIndex.find(
+          p =>
+            normalizeText(
+              p.name
+            ).includes(
+              normalized
+            )
+        );
+    }
+
+    if (local) {
+
+      return {
+
+        lat:
+          Number(
+            local.lat
+          ),
+
+        lng:
+          Number(
+            local.lng ??
+            local.lon
+          ),
+
+        name:
+          local.name
+      };
+    }
+  }
+
+  // ======================================
+  // GEOCODING FALLBACK
+  // ======================================
+
+  if (
+    typeof window.geocode ===
+    "function"
+  ) {
+
+    try {
+
+      const geo =
+        await window.geocode(
+          text
+        );
+
+      if (!geo) {
+        return null;
+      }
+
+      // array
+      if (
+        Array.isArray(geo) &&
+        geo.length > 0
+      ) {
+
+        const best =
+          geo[0];
+
+        return {
+
+          lat:
+            Number(
+              best.lat
+            ),
+
+          lng:
+            Number(
+              best.lng ??
+              best.lon
+            ),
+
+          name:
+            best.name ||
+            text
+        };
+      }
+
+      // objeto
+      return {
+
+        lat:
+          Number(
+            geo.lat
+          ),
+
+        lng:
+          Number(
+            geo.lng ??
+            geo.lon
+          ),
+
+        name:
+          geo.name ||
+          text
+      };
+
+    } catch (err) {
+
+      console.error(
+        "Erro geocode:",
+        err
+      );
+    }
+  }
+
+  return null;
+}
+
+window.resolveText =
+  resolveText;
+
+// ======================================
 // TRAÇAR ROTA
 // ======================================
 
@@ -145,7 +363,7 @@ async function traceRoute(
     return;
   }
 
-  // cancela rota anterior
+  // cancela request anterior
   if (
     currentRouteController
   ) {
@@ -175,7 +393,7 @@ async function traceRoute(
 
         currentRouteController.abort();
 
-      }, 10000);
+      }, 12000);
 
     const response =
       await fetch(url, {
@@ -220,7 +438,7 @@ async function traceRoute(
       data.routes[0];
 
     // ======================================
-    // DESENHA LINHA
+    // LINHA
     // ======================================
 
     const geo =
@@ -260,11 +478,11 @@ async function traceRoute(
 
     if (info) {
 
-      info.innerHTML =
-
-        `📏 ${formatDistance(route.distance)}
-         <br>
-         ⏱ ${formatTime(route.distance, mode)}`;
+      info.innerHTML = `
+        📏 ${formatDistance(route.distance)}
+        <br>
+        ⏱ ${formatTime(route.distance, mode)}
+      `;
     }
 
   } catch (err) {
@@ -295,149 +513,13 @@ window.traceRoute =
   traceRoute;
 
 // ======================================
-// NORMALIZAR TEXTO
-// ======================================
-
-function normalizeText(
-  text
-) {
-
-  return (text || "")
-    .toString()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .trim();
-}
-
-// ======================================
-// RESOLVER TEXTO
-// ======================================
-
-async function resolveText(
-  text
-) {
-
-  if (!text) return null;
-
-  const normalized =
-    normalizeText(text);
-
-  // ======================================
-  // BUSCA LOCAL
-  // ======================================
-
-  if (
-    Array.isArray(
-      window.poiIndex
-    )
-  ) {
-
-    // busca exata
-    let local =
-      window.poiIndex.find(
-        p =>
-          normalizeText(
-            p.name
-          ) === normalized
-      );
-
-    // busca parcial
-    if (!local) {
-
-      local =
-        window.poiIndex.find(
-          p =>
-            normalizeText(
-              p.name
-            ).includes(
-              normalized
-            )
-        );
-    }
-
-    if (local) {
-
-      return {
-
-        lat:
-          Number(
-            local.lat
-          ),
-
-        lng:
-          Number(
-            local.lng ??
-            local.lon
-          )
-      };
-    }
-  }
-
-  // ======================================
-  // GEOCODING
-  // ======================================
-
-  if (
-    typeof window.geocode ===
-    "function"
-  ) {
-
-    try {
-
-      const geoResults =
-        await window.geocode(
-          text
-        );
-
-      if (
-        Array.isArray(
-          geoResults
-        ) &&
-        geoResults.length > 0
-      ) {
-
-        const best =
-          geoResults[0];
-
-        return {
-
-          lat:
-            Number(
-              best.lat
-            ),
-
-          lng:
-            Number(
-              best.lng ??
-              best.lon
-            )
-        };
-      }
-
-    } catch (err) {
-
-      console.error(
-        "Erro geocode:",
-        err
-      );
-    }
-  }
-
-  return null;
-}
-
-// ======================================
 // CREATE ROUTE
 // ======================================
 
 async function createRoute(
   originText,
   destinationText,
-  mode
+  mode = "car"
 ) {
 
   let from = null;
@@ -512,7 +594,7 @@ async function createRoute(
   }
 
   // ======================================
-  // TRAÇA ROTA
+  // TRACE
   // ======================================
 
   await traceRoute(
@@ -529,7 +611,7 @@ window.createRoute =
 // ROTA DIRETA
 // ======================================
 
-function routeToPlace(
+async function routeToPlace(
   lat,
   lng
 ) {
@@ -548,7 +630,7 @@ function routeToPlace(
   const pos =
     window.userMarker.getLatLng();
 
-  traceRoute(
+  await traceRoute(
     {
       lat: pos.lat,
       lng: pos.lng
@@ -560,7 +642,6 @@ function routeToPlace(
     "car"
   );
 
-  // abre painel rota
   const routePanel =
     document.getElementById(
       "route-panel"
@@ -598,7 +679,7 @@ document.addEventListener(
       "foot";
 
     // ======================================
-    // BOTÕES MODO
+    // MODO
     // ======================================
 
     modeButtons.forEach(
@@ -627,7 +708,23 @@ document.addEventListener(
     );
 
     // ======================================
-    // CRIAR ROTA
+    // DEFAULT ACTIVE
+    // ======================================
+
+    const firstButton =
+      document.querySelector(
+        '.mode-btn[data-mode="foot"]'
+      );
+
+    if (firstButton) {
+
+      firstButton.classList.add(
+        "active"
+      );
+    }
+
+    // ======================================
+    // CREATE ROUTE BTN
     // ======================================
 
     btn?.addEventListener(
@@ -635,13 +732,11 @@ document.addEventListener(
       async () => {
 
         const origin =
-
           document.getElementById(
             "route-origin"
           )?.value || "";
 
         const destination =
-
           document.getElementById(
             "route-destination"
           )?.value || "";
@@ -658,11 +753,20 @@ document.addEventListener(
           return;
         }
 
-        await createRoute(
-          origin,
-          destination,
-          selectedMode
-        );
+        btn.disabled = true;
+
+        try {
+
+          await createRoute(
+            origin,
+            destination,
+            selectedMode
+          );
+
+        } finally {
+
+          btn.disabled = false;
+        }
       }
     );
   }
