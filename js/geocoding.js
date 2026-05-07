@@ -1,24 +1,69 @@
+JavaScript
+// ======================================
+// CONTROLE DE REQUESTS
+// ======================================
+
+let currentGeocodeController = null;
+
+// ======================================
+// GEOCODING PRINCIPAL
+// ======================================
+
 async function geocode(query) {
 
-  if (!query) return null;
+  // ======================================
+  // VALIDAÇÃO
+  // ======================================
+
+  if (!query || typeof query !== "string") {
+    return [];
+  }
 
   query = query.trim();
+
+  if (query.length < 2) {
+    return [];
+  }
+
+  // ======================================
+  // CANCELA REQUEST ANTERIOR
+  // ======================================
+
+  if (currentGeocodeController) {
+    currentGeocodeController.abort();
+  }
+
+  currentGeocodeController =
+    new AbortController();
 
   // ======================================
   // URL NOMINATIM
   // ======================================
 
   const url =
-    `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=` +
-    encodeURIComponent(query);
+    `https://nominatim.openstreetmap.org/search` +
+    `?format=json` +
+    `&addressdetails=1` +
+    `&limit=5` +
+    `&countrycodes=br` +
+    `&accept-language=pt-BR` +
+    `&q=${encodeURIComponent(query)}`;
 
   try {
 
     const res = await fetch(url, {
+
+      signal:
+        currentGeocodeController.signal,
+
       headers: {
         "Accept": "application/json"
       }
     });
+
+    // ======================================
+    // ERRO HTTP
+    // ======================================
 
     if (!res.ok) {
 
@@ -27,8 +72,12 @@ async function geocode(query) {
         res.status
       );
 
-      return null;
+      return [];
     }
+
+    // ======================================
+    // JSON
+    // ======================================
 
     const data =
       await res.json();
@@ -47,52 +96,119 @@ async function geocode(query) {
       data.length === 0
     ) {
 
-      return null;
-    }
-
-    const place = data[0];
-
-    // ======================================
-    // PEGA NOME CURTO
-    // ======================================
-
-    let shortName =
-      place.display_name;
-
-    // pega só antes da primeira vírgula
-    if (
-      shortName.includes(",")
-    ) {
-
-      shortName =
-        shortName.split(",")[0];
+      return [];
     }
 
     // ======================================
-    // RETORNO
+    // FILTRAR TIPOS ÚTEIS
     // ======================================
 
-    return {
+    const validTypes = [
 
-      lat:
-        Number(place.lat),
+      "city",
+      "town",
+      "village",
+      "suburb",
+      "neighbourhood",
+      "road",
+      "residential",
+      "house",
+      "building",
+      "amenity"
 
-      lng:
-        Number(place.lon),
+    ];
 
-      name:
-        shortName
-    };
+    const filtered =
+      data.filter(place =>
+        validTypes.includes(place.type)
+      );
+
+    // se nada passar no filtro,
+    // usa os originais
+    const finalResults =
+      filtered.length > 0
+        ? filtered
+        : data;
+
+    // ======================================
+    // NORMALIZAÇÃO
+    // ======================================
+
+    return finalResults.map(place => {
+
+      // nome amigável
+      let shortName =
+        place.display_name;
+
+      // tenta usar nome mais curto
+      if (place.name) {
+        shortName = place.name;
+      }
+
+      return {
+
+        lat:
+          Number(place.lat),
+
+        lng:
+          Number(place.lon),
+
+        name:
+          shortName,
+
+        fullName:
+          place.display_name,
+
+        type:
+          place.type,
+
+        importance:
+          place.importance || 0
+      };
+    });
 
   } catch (err) {
+
+    // request cancelada
+    if (err.name === "AbortError") {
+
+      console.log(
+        "Request cancelada"
+      );
+
+      return [];
+    }
 
     console.error(
       "Geocoding error:",
       err
     );
 
-    return null;
+    return [];
   }
 }
 
+// ======================================
+// DEBOUNCE
+// ======================================
+
+function debounce(func, delay = 400) {
+
+  let timeout;
+
+  return function (...args) {
+
+    clearTimeout(timeout);
+
+    timeout = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+}
+
+// ======================================
+// EXPORT GLOBAL
+// ======================================
+
 window.geocode = geocode;
+window.debounce = debounce;
