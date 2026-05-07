@@ -28,6 +28,29 @@ function normalizeText(text) {
 }
 
 // ======================================
+// DEBOUNCE SAFE
+// ======================================
+
+function debounce(
+  fn,
+  delay = 300
+) {
+
+  let timeout = null;
+
+  return function (...args) {
+
+    clearTimeout(timeout);
+
+    timeout = setTimeout(() => {
+
+      fn.apply(this, args);
+
+    }, delay);
+  };
+}
+
+// ======================================
 // FECHAR PAINÉIS
 // ======================================
 
@@ -47,6 +70,7 @@ function closePanels(except = null) {
       document.getElementById(id);
 
     if (el) {
+
       el.style.display = "none";
     }
   });
@@ -110,55 +134,43 @@ function smartZoomToPlace(poi) {
 
   if (!window.map) return;
 
-  const lng =
-    poi.lng ?? poi.lon;
+  const lat =
+    Number(poi.lat);
 
-  const name =
+  const lng =
+    Number(
+      poi.lng ??
+      poi.lon
+    );
+
+  if (
+    isNaN(lat) ||
+    isNaN(lng)
+  ) {
+
+    console.warn(
+      "POI inválido:",
+      poi
+    );
+
+    return;
+  }
+
+  const type =
     normalizeText(
-      poi.name
+      poi.type ||
+      poi.category ||
+      ""
     );
 
   // estados
-  const states = [
-
-    "acre",
-    "alagoas",
-    "amapa",
-    "amazonas",
-    "bahia",
-    "ceara",
-    "espirito santo",
-    "goias",
-    "maranhao",
-    "mato grosso",
-    "mato grosso do sul",
-    "minas gerais",
-    "para",
-    "paraiba",
-    "parana",
-    "pernambuco",
-    "piaui",
-    "rio de janeiro",
-    "rio grande do norte",
-    "rio grande do sul",
-    "rondonia",
-    "roraima",
-    "santa catarina",
-    "sao paulo",
-    "sergipe",
-    "tocantins"
-
-  ];
-
-  const isState =
-    states.some(state =>
-      name.includes(state)
-    );
-
-  if (isState) {
+  if (
+    type.includes("state") ||
+    type.includes("estado")
+  ) {
 
     window.map.setView(
-      [poi.lat, lng],
+      [lat, lng],
       7
     );
 
@@ -166,33 +178,14 @@ function smartZoomToPlace(poi) {
   }
 
   // cidades
-  const cities = [
-
-    "goiana",
-    "recife",
-    "olinda",
-    "caruaru",
-    "petrolina",
-    "fortaleza",
-    "salvador",
-    "curitiba",
-    "manaus",
-    "belem",
-    "brasilia",
-    "sao paulo",
-    "joao pessoa"
-
-  ];
-
-  const isCity =
-    cities.some(city =>
-      name.includes(city)
-    );
-
-  if (isCity) {
+  if (
+    type.includes("city") ||
+    type.includes("town") ||
+    type.includes("cidade")
+  ) {
 
     window.map.setView(
-      [poi.lat, lng],
+      [lat, lng],
       11
     );
 
@@ -201,7 +194,7 @@ function smartZoomToPlace(poi) {
 
   // padrão
   window.map.setView(
-    [poi.lat, lng],
+    [lat, lng],
     16
   );
 }
@@ -281,12 +274,23 @@ function showActionPanel(
 
   if (!panel) return;
 
+  const lat =
+    Number(poi.lat);
+
   const lng =
-    poi.lng ?? poi.lon;
+    Number(
+      poi.lng ??
+      poi.lon
+    );
 
   closePanels(
-    "search-panel"
+    "action-panel"
   );
+
+  const safeName =
+    String(poi.name || "")
+      .replace(/'/g, "")
+      .replace(/"/g, "");
 
   panel.innerHTML = `
 
@@ -297,7 +301,7 @@ function showActionPanel(
       margin-bottom:10px;
     ">
 
-      <b>${poi.name}</b>
+      <b>${safeName}</b>
 
       <button
         onclick="
@@ -315,10 +319,24 @@ function showActionPanel(
 
     </div>
 
+    ${
+      poi.fullName
+        ? `
+          <div style="
+            font-size:12px;
+            color:#666;
+            margin-bottom:10px;
+          ">
+            ${poi.fullName}
+          </div>
+        `
+        : ""
+    }
+
     <button
       onclick="
         viewOnMap(
-          ${poi.lat},
+          ${lat},
           ${lng}
         )
       "
@@ -334,7 +352,7 @@ function showActionPanel(
     <button
       onclick="
         openRoutePanel(
-          '${poi.name.replace(/'/g, "")}'
+          '${safeName}'
         )
       "
       style="
@@ -417,7 +435,7 @@ async function searchPlace(
   }
 
   // ======================================
-  // CACHE
+  // CACHE LOCAL
   // ======================================
 
   const cached =
@@ -432,26 +450,30 @@ async function searchPlace(
     results.push(...cached);
   }
 
-  // render imediato
+  // ======================================
+  // RENDER INSTANTÂNEO
+  // ======================================
+
   renderResults(results);
 
   // ======================================
-  // GEOCODING
+  // LOCATION ENGINE
   // ======================================
 
   if (
-    typeof window.geocode ===
+    typeof window.locationEngine
+      ?.searchLocation ===
     "function"
   ) {
 
     try {
 
       const geoResults =
-        await window.geocode(
+        await window.locationEngine.searchLocation(
           query
         );
 
-      // ignora busca antiga
+      // ignora buscas antigas
       if (
         searchId !==
         currentSearchId
@@ -475,6 +497,15 @@ async function searchPlace(
         geoResults.forEach(
           geo => {
 
+            const geoLat =
+              Number(geo.lat);
+
+            const geoLng =
+              Number(
+                geo.lng ??
+                geo.lon
+              );
+
             const exists =
               results.some(
                 r => {
@@ -485,13 +516,16 @@ async function searchPlace(
 
                   const sameLat =
                     Math.abs(
-                      r.lat - geo.lat
+                      Number(r.lat) -
+                      geoLat
                     ) < 0.0001;
 
                   const sameLng =
                     Math.abs(
-                      (r.lng ?? r.lon) -
-                      geo.lng
+                      Number(
+                        r.lng ??
+                        r.lon
+                      ) - geoLng
                     ) < 0.0001;
 
                   return (
@@ -513,15 +547,16 @@ async function searchPlace(
                   geo.fullName,
 
                 lat:
-                  geo.lat,
+                  geoLat,
 
                 lng:
-                  geo.lng,
+                  geoLng,
 
                 type:
                   geo.type,
 
                 category:
+                  geo.category ||
                   "global"
               });
             }
@@ -533,7 +568,7 @@ async function searchPlace(
     } catch (err) {
 
       console.error(
-        "Geocode error:",
+        "Erro search:",
         err
       );
     }
@@ -579,10 +614,22 @@ function renderResults(
     return;
   }
 
-  // remove duplicados
+  // ======================================
+  // REMOVE DUPLICADOS
+  // ======================================
+
   const unique = [];
 
   results.forEach(poi => {
+
+    const lat =
+      Number(poi.lat);
+
+    const lng =
+      Number(
+        poi.lng ??
+        poi.lon
+      );
 
     const exists =
       unique.some(
@@ -594,13 +641,16 @@ function renderResults(
 
           const sameLat =
             Math.abs(
-              p.lat - poi.lat
+              Number(p.lat) -
+              lat
             ) < 0.0001;
 
           const sameLng =
             Math.abs(
-              (p.lng ?? p.lon) -
-              (poi.lng ?? poi.lon)
+              Number(
+                p.lng ??
+                p.lon
+              ) - lng
             ) < 0.0001;
 
           return (
@@ -612,9 +662,18 @@ function renderResults(
       );
 
     if (!exists) {
-      unique.push(poi);
+
+      unique.push({
+        ...poi,
+        lat,
+        lng
+      });
     }
   });
+
+  // ======================================
+  // RENDER
+  // ======================================
 
   unique.forEach(poi => {
 
@@ -640,6 +699,7 @@ function renderResults(
 
     div.innerHTML = `
       <b>${poi.name}</b>
+
       ${
         poi.fullName
           ? `
@@ -697,7 +757,14 @@ document.addEventListener(
         "search-input"
       );
 
-    if (!input) return;
+    if (!input) {
+
+      console.warn(
+        "search-input não encontrado"
+      );
+
+      return;
+    }
 
     // debounce
     const debouncedSearch =
