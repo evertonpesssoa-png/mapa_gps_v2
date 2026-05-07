@@ -70,7 +70,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let firstFix = true;
 
-  // controle de reload POIs
+  // =====================================
+  // CONTROLE POIs
+  // =====================================
+
   let lastPOILoad = null;
 
   // =====================================
@@ -102,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =====================================
-  // DISTÂNCIA ENTRE PONTOS
+  // DISTÂNCIA
   // =====================================
 
   function distanceInMeters(
@@ -123,6 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
       Math.PI / 180;
 
     const a =
+
       Math.sin(dLat / 2) *
       Math.sin(dLat / 2) +
 
@@ -133,6 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
       Math.sin(dLng / 2);
 
     const c =
+
       2 *
       Math.atan2(
         Math.sqrt(a),
@@ -143,7 +148,34 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =====================================
-  // CARREGAR POIs DINÂMICOS
+  // LIMPAR APENAS POIs AUTOMÁTICOS
+  // =====================================
+
+  function clearAutoPOIs() {
+
+    if (!window.poiLayer) return;
+
+    window.poiLayer.eachLayer(layer => {
+
+      if (
+        layer._autoPOI === true
+      ) {
+
+        window.poiLayer.removeLayer(
+          layer
+        );
+      }
+    });
+
+    // remove do index também
+    window.poiIndex =
+      window.poiIndex.filter(
+        poi => !poi.auto
+      );
+  }
+
+  // =====================================
+  // CARREGAR POIs PRÓXIMOS
   // =====================================
 
   async function loadNearbyPOIs(
@@ -151,7 +183,9 @@ document.addEventListener("DOMContentLoaded", () => {
     lng
   ) {
 
-    // evita reload excessivo
+    // =====================================
+    // EVITA RELOAD PEQUENO
+    // =====================================
 
     if (lastPOILoad) {
 
@@ -175,10 +209,18 @@ document.addEventListener("DOMContentLoaded", () => {
       lng
     };
 
+    // =====================================
+    // VALIDA FUNÇÃO
+    // =====================================
+
     if (
       typeof loadAutoPOIs !==
       "function"
     ) {
+
+      console.warn(
+        "loadAutoPOIs não encontrado"
+      );
 
       return;
     }
@@ -186,7 +228,13 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
 
       console.log(
-        "Carregando POIs próximos..."
+        "Limpando POIs antigos..."
+      );
+
+      clearAutoPOIs();
+
+      console.log(
+        "Carregando novos POIs..."
       );
 
       await loadAutoPOIs(
@@ -197,13 +245,14 @@ document.addEventListener("DOMContentLoaded", () => {
       );
 
       console.log(
-        "POIs dinâmicos carregados"
+        "POIs carregados:",
+        window.poiIndex.length
       );
 
     } catch (err) {
 
       console.error(
-        "Erro loadAutoPOIs:",
+        "Erro loadNearbyPOIs:",
         err
       );
     }
@@ -247,6 +296,12 @@ document.addEventListener("DOMContentLoaded", () => {
       lng,
       accuracy
     };
+
+    console.log(
+      "GPS:",
+      lat,
+      lng
+    );
 
     // =====================================
     // PRIMEIRA POSIÇÃO
@@ -298,7 +353,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // =====================================
-    // CARREGA POIs
+    // CARREGA POIs DINÂMICOS
     // =====================================
 
     loadNearbyPOIs(
@@ -324,18 +379,24 @@ document.addEventListener("DOMContentLoaded", () => {
     switch (err.code) {
 
       case 1:
+
         message =
           "Permissão de localização negada";
+
         break;
 
       case 2:
+
         message =
           "Localização indisponível";
+
         break;
 
       case 3:
+
         message =
           "Tempo de GPS esgotado";
+
         break;
     }
 
@@ -396,6 +457,30 @@ document.addEventListener("DOMContentLoaded", () => {
       map.setView(
         window.userMarker.getLatLng(),
         16
+      );
+    };
+
+  // =====================================
+  // RECARREGAR POIs MANUALMENTE
+  // =====================================
+
+  window.reloadNearbyPOIs =
+    async function () {
+
+      if (
+        !window.lastGPS
+      ) {
+
+        alert(
+          "GPS indisponível"
+        );
+
+        return;
+      }
+
+      await loadNearbyPOIs(
+        window.lastGPS.lat,
+        window.lastGPS.lng
       );
     };
 
