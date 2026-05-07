@@ -312,7 +312,7 @@ body {
 
   position: absolute;
 
-  bottom: 14px;
+  bottom: 160px;
   left: 50%;
 
   transform:
@@ -327,7 +327,7 @@ body {
   border-radius:
     12px;
 
-  z-index: 9999;
+  z-index: 9998;
 
   font-weight: bold;
 
@@ -336,6 +336,18 @@ body {
     rgba(0,0,0,.2);
 
   display: none;
+
+  text-align:center;
+
+  min-width:140px;
+}
+
+@media (max-width: 600px) {
+
+  #route-info {
+
+    bottom: 240px;
+  }
 }
 
 /* ====================================== */
