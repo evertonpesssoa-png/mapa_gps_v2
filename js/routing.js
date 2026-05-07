@@ -5,6 +5,12 @@ const SPEEDS = {
 };
 
 // ======================================
+// CONTROLE DE REQUEST ROTA
+// ======================================
+
+let currentRouteController = null;
+
+// ======================================
 // TOGGLE ROUTE PANEL
 // ======================================
 
@@ -103,6 +109,15 @@ function clearRoute() {
 
     window.routeLayer.clearLayers();
   }
+
+  const info =
+    document.getElementById(
+      "route-info"
+    );
+
+  if (info) {
+    info.innerHTML = "";
+  }
 }
 
 window.clearRoute =
@@ -130,6 +145,17 @@ async function traceRoute(
     return;
   }
 
+  // cancela rota anterior
+  if (
+    currentRouteController
+  ) {
+
+    currentRouteController.abort();
+  }
+
+  currentRouteController =
+    new AbortController();
+
   const profile =
     mode === "foot"
       ? "walking"
@@ -144,8 +170,34 @@ async function traceRoute(
 
   try {
 
+    const timeout =
+      setTimeout(() => {
+
+        currentRouteController.abort();
+
+      }, 10000);
+
     const response =
-      await fetch(url);
+      await fetch(url, {
+        signal:
+          currentRouteController.signal
+      });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+
+      console.error(
+        "Erro OSRM:",
+        response.status
+      );
+
+      alert(
+        "Erro ao buscar rota"
+      );
+
+      return;
+    }
 
     const data =
       await response.json();
@@ -217,6 +269,17 @@ async function traceRoute(
 
   } catch (err) {
 
+    if (
+      err.name === "AbortError"
+    ) {
+
+      console.log(
+        "Rota cancelada"
+      );
+
+      return;
+    }
+
     console.error(
       "Erro rota:",
       err
@@ -240,6 +303,7 @@ function normalizeText(
 ) {
 
   return (text || "")
+    .toString()
     .toLowerCase()
     .normalize("NFD")
     .replace(
@@ -324,24 +388,32 @@ async function resolveText(
 
     try {
 
-      const geo =
+      const geoResults =
         await window.geocode(
           text
         );
 
-      if (geo) {
+      if (
+        Array.isArray(
+          geoResults
+        ) &&
+        geoResults.length > 0
+      ) {
+
+        const best =
+          geoResults[0];
 
         return {
 
           lat:
             Number(
-              geo.lat
+              best.lat
             ),
 
           lng:
             Number(
-              geo.lng ??
-              geo.lon
+              best.lng ??
+              best.lon
             )
         };
       }
@@ -488,7 +560,7 @@ function routeToPlace(
     "car"
   );
 
-  // abre painel info rota
+  // abre painel rota
   const routePanel =
     document.getElementById(
       "route-panel"
