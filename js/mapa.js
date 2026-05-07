@@ -7,7 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // =====================================
 
   const map = L.map("map", {
-    zoomControl: false
+    zoomControl: false,
+    preferCanvas: true
   }).setView([-8.0400, -34.8761], 13);
 
   window.map = map;
@@ -52,6 +53,14 @@ document.addEventListener("DOMContentLoaded", () => {
   ).addTo(map);
 
   // =====================================
+  // ZOOM
+  // =====================================
+
+  L.control.zoom({
+    position: "bottomright"
+  }).addTo(map);
+
+  // =====================================
   // LAYERS
   // =====================================
 
@@ -59,6 +68,9 @@ document.addEventListener("DOMContentLoaded", () => {
     L.layerGroup().addTo(map);
 
   window.routeLayer =
+    L.layerGroup().addTo(map);
+
+  window.userLayer =
     L.layerGroup().addTo(map);
 
   // =====================================
@@ -77,32 +89,44 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastPOILoad = null;
 
   // =====================================
-  // POIs MANUAIS
+  // UX CONTROLE CAMERA
   // =====================================
 
-  if (
-    typeof loadManualPOIs ===
-    "function"
-  ) {
+  let autoFollowUser = true;
 
-    try {
+  let isAnimatingMap = false;
 
-      loadManualPOIs(
-        window.poiLayer
-      );
+  // =====================================
+  // ÍCONE USUÁRIO
+  // =====================================
 
-      console.log(
-        "POIs manuais carregados"
-      );
+  const userIcon = L.divIcon({
+    className: "user-marker",
+    html: `
+      <div style="
+        width:18px;
+        height:18px;
+        background:#2196f3;
+        border:3px solid white;
+        border-radius:50%;
+        box-shadow:0 0 10px rgba(0,0,0,0.35);
+      "></div>
+    `,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
+  });
 
-    } catch (err) {
+  // =====================================
+  // EVENTOS MAPA
+  // =====================================
 
-      console.error(
-        "Erro POIs manuais:",
-        err
-      );
+  map.on("dragstart zoomstart", () => {
+
+    if (!isAnimatingMap) {
+
+      autoFollowUser = false;
     }
-  }
+  });
 
   // =====================================
   // DISTÂNCIA
@@ -148,26 +172,78 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =====================================
+  // ANIMAÇÃO SAFE
+  // =====================================
+
+  function animatedSetView(
+    coords,
+    zoom = null
+  ) {
+
+    if (!coords) return;
+
+    isAnimatingMap = true;
+
+    if (zoom !== null) {
+
+      map.flyTo(coords, zoom, {
+        duration: 1.2,
+        easeLinearity: 0.25
+      });
+
+    } else {
+
+      map.flyTo(coords, map.getZoom(), {
+        duration: 1.2,
+        easeLinearity: 0.25
+      });
+    }
+
+    setTimeout(() => {
+
+      isAnimatingMap = false;
+
+    }, 1500);
+  }
+
+  // =====================================
+  // FIT BOUNDS UX
+  // =====================================
+
+  window.smartFitBounds =
+    function (
+      bounds,
+      options = {}
+    ) {
+
+      if (!bounds) return;
+
+      isAnimatingMap = true;
+
+      map.flyToBounds(bounds, {
+        padding: options.padding || [60, 60],
+        maxZoom: options.maxZoom || 17,
+        duration: 1.3,
+        easeLinearity: 0.2
+      });
+
+      setTimeout(() => {
+
+        isAnimatingMap = false;
+
+      }, 1800);
+    };
+
+  // =====================================
   // LIMPAR APENAS POIs AUTOMÁTICOS
   // =====================================
 
   function clearAutoPOIs() {
 
-    if (!window.poiLayer) return;
+    if (!window.autoPOILayer) return;
 
-    window.poiLayer.eachLayer(layer => {
+    window.autoPOILayer.clearLayers();
 
-      if (
-        layer._autoPOI === true
-      ) {
-
-        window.poiLayer.removeLayer(
-          layer
-        );
-      }
-    });
-
-    // remove do index
     window.poiIndex =
       window.poiIndex.filter(
         poi => !poi.auto
@@ -197,8 +273,8 @@ document.addEventListener("DOMContentLoaded", () => {
           lastPOILoad.lng
         );
 
-      // só recarrega se mover > 800m
-      if (dist < 800) {
+      // recarrega só se mover > 700m
+      if (dist < 700) {
 
         return;
       }
@@ -228,14 +304,10 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
 
       console.log(
-        "Limpando POIs antigos..."
+        "Atualizando POIs..."
       );
 
       clearAutoPOIs();
-
-      console.log(
-        "Carregando novos POIs..."
-      );
 
       await loadAutoPOIs(
         lat,
@@ -275,6 +347,11 @@ document.addEventListener("DOMContentLoaded", () => {
         position.accuracy || 0
       );
 
+    const heading =
+      Number(
+        position.heading || 0
+      );
+
     if (
       isNaN(lat) ||
       isNaN(lng)
@@ -301,25 +378,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
       userMarker =
         L.marker(
-          [lat, lng]
-        ).addTo(map);
+          [lat, lng],
+          {
+            icon: userIcon,
+            zIndexOffset: 9999
+          }
+        ).addTo(
+          window.userLayer
+        );
 
       userCircle =
         L.circle(
           [lat, lng],
           {
             radius: accuracy,
-            fillOpacity: 0.15,
+            color: "#2196f3",
+            fillColor: "#2196f3",
+            fillOpacity: 0.12,
             weight: 1
           }
-        ).addTo(map);
+        ).addTo(
+          window.userLayer
+        );
 
       window.userMarker =
         userMarker;
 
       if (firstFix) {
 
-        map.setView(
+        animatedSetView(
           [lat, lng],
           16
         );
@@ -329,12 +416,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } else {
 
-      // atualiza marker
       userMarker.setLatLng(
         [lat, lng]
       );
 
-      // atualiza círculo
       userCircle.setLatLng(
         [lat, lng]
       );
@@ -342,6 +427,35 @@ document.addEventListener("DOMContentLoaded", () => {
       userCircle.setRadius(
         accuracy
       );
+
+      // =====================================
+      // AUTO FOLLOW SUAVE
+      // =====================================
+
+      if (
+        autoFollowUser
+      ) {
+
+        animatedSetView(
+          [lat, lng]
+        );
+      }
+    }
+
+    // =====================================
+    // ROTAÇÃO USER
+    // =====================================
+
+    const el =
+      userMarker.getElement();
+
+    if (
+      el &&
+      !isNaN(heading)
+    ) {
+
+      el.style.transform +=
+        ` rotate(${heading}deg)`;
     }
 
     // =====================================
@@ -397,10 +511,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      map.setView(
+      autoFollowUser = true;
+
+      animatedSetView(
         [pos.lat, pos.lng],
-        16
+        17
       );
+    };
+
+  // =====================================
+  // PARAR FOLLOW
+  // =====================================
+
+  window.stopFollowingUser =
+    function () {
+
+      autoFollowUser = false;
     };
 
   // =====================================
@@ -423,10 +549,107 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      lastPOILoad = null;
+
       await loadNearbyPOIs(
         pos.lat,
         pos.lng
       );
+    };
+
+  // =====================================
+  // VIEW ON MAP GLOBAL
+  // =====================================
+
+  window.viewOnMap =
+    function (
+      lat,
+      lng,
+      zoom = 16
+    ) {
+
+      if (
+        isNaN(lat) ||
+        isNaN(lng)
+      ) {
+
+        return;
+      }
+
+      animatedSetView(
+        [lat, lng],
+        zoom
+      );
+    };
+
+  // =====================================
+  // FOCUS POI
+  // =====================================
+
+  window.focusPOI =
+    function (
+      poi,
+      zoom = 17
+    ) {
+
+      if (!poi) return;
+
+      const lat =
+        Number(poi.lat);
+
+      const lng =
+        Number(
+          poi.lng ??
+          poi.lon
+        );
+
+      if (
+        isNaN(lat) ||
+        isNaN(lng)
+      ) {
+
+        return;
+      }
+
+      animatedSetView(
+        [lat, lng],
+        zoom
+      );
+
+      // tenta abrir popup
+      setTimeout(() => {
+
+        window.poiLayer.eachLayer(layer => {
+
+          if (
+            layer.getLatLng
+          ) {
+
+            const p =
+              layer.getLatLng();
+
+            const sameLat =
+              Math.abs(
+                p.lat - lat
+              ) < 0.00001;
+
+            const sameLng =
+              Math.abs(
+                p.lng - lng
+              ) < 0.00001;
+
+            if (
+              sameLat &&
+              sameLng &&
+              layer.openPopup
+            ) {
+
+              layer.openPopup();
+            }
+          }
+        });
+
+      }, 800);
     };
 
   // =====================================
@@ -438,6 +661,18 @@ document.addEventListener("DOMContentLoaded", () => {
     map.invalidateSize();
 
   }, 500);
+
+  // =====================================
+  // RESIZE
+  // =====================================
+
+  window.addEventListener(
+    "resize",
+    () => {
+
+      map.invalidateSize();
+    }
+  );
 
   // =====================================
   // DEBUG
