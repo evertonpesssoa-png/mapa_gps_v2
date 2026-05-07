@@ -8,12 +8,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const map = L.map("map", {
     zoomControl: false
-  }).setView([-23.55052, -46.633308], 13);
+  }).setView([-8.0400, -34.8761], 13);
 
   window.map = map;
 
   // =====================================
-  // MAPA PADRÃO (OSM)
+  // CAMADAS BASE
   // =====================================
 
   const lightLayer = L.tileLayer(
@@ -25,27 +25,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   );
 
-  // =====================================
-  // SATÉLITE
-  // =====================================
-
   const satelliteLayer = L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     {
       attribution:
         "Tiles © Esri",
-      maxZoom: 18
+      maxZoom: 19
     }
   );
-
-  // =====================================
-  // MAPA INICIAL
-  // =====================================
 
   lightLayer.addTo(map);
 
   // =====================================
-  // CONTROLE DE CAMADAS
+  // CONTROLE CAMADAS
   // =====================================
 
   L.control.layers(
@@ -60,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ).addTo(map);
 
   // =====================================
-  // CAMADAS
+  // LAYERS
   // =====================================
 
   window.poiLayer =
@@ -78,7 +70,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let firstFix = true;
 
-  let autoPOIsLoaded = false;
+  // controle de reload POIs
+  let lastPOILoad = null;
 
   // =====================================
   // POIs MANUAIS
@@ -89,33 +82,170 @@ document.addEventListener("DOMContentLoaded", () => {
     "function"
   ) {
 
-    loadManualPOIs(
-      window.poiLayer
-    );
+    try {
 
-    console.log(
-      "POIs manuais carregados"
-    );
+      loadManualPOIs(
+        window.poiLayer
+      );
+
+      console.log(
+        "POIs manuais carregados"
+      );
+
+    } catch (err) {
+
+      console.error(
+        "Erro POIs manuais:",
+        err
+      );
+    }
   }
 
   // =====================================
-  // GPS
+  // DISTÂNCIA ENTRE PONTOS
+  // =====================================
+
+  function distanceInMeters(
+    lat1,
+    lng1,
+    lat2,
+    lng2
+  ) {
+
+    const R = 6371000;
+
+    const dLat =
+      (lat2 - lat1) *
+      Math.PI / 180;
+
+    const dLng =
+      (lng2 - lng1) *
+      Math.PI / 180;
+
+    const a =
+      Math.sin(dLat / 2) *
+      Math.sin(dLat / 2) +
+
+      Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      );
+
+    return R * c;
+  }
+
+  // =====================================
+  // CARREGAR POIs DINÂMICOS
+  // =====================================
+
+  async function loadNearbyPOIs(
+    lat,
+    lng
+  ) {
+
+    // evita reload excessivo
+
+    if (lastPOILoad) {
+
+      const dist =
+        distanceInMeters(
+          lat,
+          lng,
+          lastPOILoad.lat,
+          lastPOILoad.lng
+        );
+
+      // só recarrega se mover > 800m
+      if (dist < 800) {
+
+        return;
+      }
+    }
+
+    lastPOILoad = {
+      lat,
+      lng
+    };
+
+    if (
+      typeof loadAutoPOIs !==
+      "function"
+    ) {
+
+      return;
+    }
+
+    try {
+
+      console.log(
+        "Carregando POIs próximos..."
+      );
+
+      await loadAutoPOIs(
+        lat,
+        lng,
+        2500,
+        window.poiLayer
+      );
+
+      console.log(
+        "POIs dinâmicos carregados"
+      );
+
+    } catch (err) {
+
+      console.error(
+        "Erro loadAutoPOIs:",
+        err
+      );
+    }
+  }
+
+  // =====================================
+  // GPS SUCCESS
   // =====================================
 
   function handlePosition(pos) {
 
     const lat =
-      pos.coords.latitude;
+      Number(
+        pos.coords.latitude
+      );
 
     const lng =
-      pos.coords.longitude;
+      Number(
+        pos.coords.longitude
+      );
 
     const accuracy =
-      pos.coords.accuracy;
+      Number(
+        pos.coords.accuracy
+      );
+
+    if (
+      isNaN(lat) ||
+      isNaN(lng)
+    ) {
+
+      console.warn(
+        "GPS inválido"
+      );
+
+      return;
+    }
 
     window.lastGPS = {
       lat,
-      lng
+      lng,
+      accuracy
     };
 
     // =====================================
@@ -124,20 +254,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!userMarker) {
 
-      // marcador usuário
-      userMarker = L.marker(
-        [lat, lng]
-      ).addTo(map);
+      userMarker =
+        L.marker(
+          [lat, lng]
+        ).addTo(map);
 
-      // círculo precisão
-      userCircle = L.circle(
-        [lat, lng],
-        {
-          radius: accuracy,
-          fillOpacity: 0.18,
-          weight: 0
-        }
-      ).addTo(map);
+      userCircle =
+        L.circle(
+          [lat, lng],
+          {
+            radius: accuracy,
+            fillOpacity: 0.15,
+            weight: 1
+          }
+        ).addTo(map);
 
       window.userMarker =
         userMarker;
@@ -154,7 +284,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } else {
 
-      // atualiza posição
       userMarker.setLatLng(
         [lat, lng]
       );
@@ -169,28 +298,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // =====================================
-    // POIs DINÂMICOS
+    // CARREGA POIs
     // =====================================
 
-    if (
-      !autoPOIsLoaded &&
-      typeof loadAutoPOIs ===
-        "function"
-    ) {
-
-      autoPOIsLoaded = true;
-
-      loadAutoPOIs(
-        lat,
-        lng,
-        1200,
-        window.poiLayer
-      );
-
-      console.log(
-        "POIs dinâmicos carregados"
-      );
-    }
+    loadNearbyPOIs(
+      lat,
+      lng
+    );
   }
 
   // =====================================
@@ -203,6 +317,29 @@ document.addEventListener("DOMContentLoaded", () => {
       "GPS error:",
       err
     );
+
+    let message =
+      "Erro GPS";
+
+    switch (err.code) {
+
+      case 1:
+        message =
+          "Permissão de localização negada";
+        break;
+
+      case 2:
+        message =
+          "Localização indisponível";
+        break;
+
+      case 3:
+        message =
+          "Tempo de GPS esgotado";
+        break;
+    }
+
+    console.warn(message);
   }
 
   // =====================================
@@ -215,7 +352,9 @@ document.addEventListener("DOMContentLoaded", () => {
       handlePosition,
       handleError,
       {
-        enableHighAccuracy: true
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
       }
     );
 
@@ -223,7 +362,9 @@ document.addEventListener("DOMContentLoaded", () => {
       handlePosition,
       handleError,
       {
-        enableHighAccuracy: true
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 5000
       }
     );
 
@@ -243,7 +384,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (
         !window.userMarker
-      ) return;
+      ) {
+
+        alert(
+          "GPS ainda não disponível"
+        );
+
+        return;
+      }
 
       map.setView(
         window.userMarker.getLatLng(),
@@ -252,7 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
   // =====================================
-  // FIX RENDER
+  // FIX LEAFLET
   // =====================================
 
   setTimeout(() => {
@@ -260,5 +408,13 @@ document.addEventListener("DOMContentLoaded", () => {
     map.invalidateSize();
 
   }, 500);
+
+  // =====================================
+  // DEBUG
+  // =====================================
+
+  console.log(
+    "Mapa inicializado"
+  );
 
 });
