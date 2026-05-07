@@ -225,7 +225,7 @@ window.viewOnMap =
 // ROUTE PANEL
 // ======================================
 
-function openRoutePanel(name) {
+function openRoutePanel(poi) {
 
   closePanels(
     "route-panel"
@@ -241,12 +241,19 @@ function openRoutePanel(name) {
       "route-destination"
     );
 
-  if (
-    input &&
-    name
-  ) {
+  if (poi) {
 
-    input.value = name;
+    window.selectedDestination = {
+      name: poi.name,
+      lat: Number(poi.lat),
+      lng: Number(
+        poi.lng ?? poi.lon
+      )
+    };
+
+    if (input) {
+      input.value = poi.name;
+    }
   }
 
   if (panel) {
