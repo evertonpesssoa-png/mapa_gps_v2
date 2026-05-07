@@ -13,6 +13,13 @@ window.autoPOILayer =
   L.layerGroup();
 
 // ======================================
+// CACHE DE ÁREAS
+// ======================================
+
+window.loadedPOIAreas =
+  window.loadedPOIAreas || {};
+
+// ======================================
 // NORMALIZE
 // ======================================
 
@@ -41,6 +48,24 @@ function escapeHTML(text) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// ======================================
+// HASH DE ÁREA
+// ======================================
+
+function createAreaKey(
+  lat,
+  lng
+) {
+
+  const latKey =
+    Math.floor(lat * 100);
+
+  const lngKey =
+    Math.floor(lng * 100);
+
+  return `${latKey}:${lngKey}`;
 }
 
 // ======================================
@@ -276,6 +301,13 @@ function createMarker(
       )
     );
 
+    // marca como auto
+    if (poi.auto) {
+
+      marker._autoPOI =
+        true;
+    }
+
     marker.addTo(layer);
 
     return marker;
@@ -342,6 +374,68 @@ window.loadManualPOIs =
   loadManualPOIs;
 
 // ======================================
+// DETECTAR CATEGORIA
+// ======================================
+
+function detectCategory(tags) {
+
+  if (!tags) {
+
+    return "generic";
+  }
+
+  if (
+    tags.amenity ===
+    "hospital"
+  ) {
+
+    return "hospital";
+  }
+
+  if (
+    tags.amenity ===
+    "pharmacy"
+  ) {
+
+    return "pharmacy";
+  }
+
+  if (
+    tags.amenity ===
+    "police"
+  ) {
+
+    return "police";
+  }
+
+  if (
+    tags.shop ===
+    "supermarket"
+  ) {
+
+    return "supermarket";
+  }
+
+  if (
+    tags.amenity ===
+    "restaurant"
+  ) {
+
+    return "restaurant";
+  }
+
+  if (
+    tags.amenity ===
+    "fuel"
+  ) {
+
+    return "gas_station";
+  }
+
+  return "generic";
+}
+
+// ======================================
 // POIs AUTOMÁTICOS
 // ======================================
 
@@ -356,14 +450,47 @@ async function loadAutoPOIs(
     false;
 
   // ======================================
-  // LIMPA AUTO POIs ANTIGOS
+  // CACHE DE ÁREA
+  // ======================================
+
+  const areaKey =
+    createAreaKey(
+      lat,
+      lng
+    );
+
+  if (
+    window.loadedPOIAreas[
+      areaKey
+    ]
+  ) {
+
+    console.log(
+      "Área já carregada:",
+      areaKey
+    );
+
+    return;
+  }
+
+  window.loadedPOIAreas[
+    areaKey
+  ] = true;
+
+  // ======================================
+  // ADICIONA LAYER AO MAPA
   // ======================================
 
   if (
-    window.autoPOILayer
+    layer &&
+    !layer.hasLayer(
+      window.autoPOILayer
+    )
   ) {
 
-    window.autoPOILayer.clearLayers();
+    layer.addLayer(
+      window.autoPOILayer
+    );
   }
 
   // ======================================
@@ -377,14 +504,16 @@ async function loadAutoPOIs(
     );
 
   const query = `
-    [out:json][timeout:10];
+    [out:json][timeout:12];
     (
       node["amenity"="hospital"](around:${radius},${lat},${lng});
       node["amenity"="pharmacy"](around:${radius},${lat},${lng});
       node["amenity"="police"](around:${radius},${lat},${lng});
       node["shop"="supermarket"](around:${radius},${lat},${lng});
+      node["amenity"="restaurant"](around:${radius},${lat},${lng});
+      node["amenity"="fuel"](around:${radius},${lat},${lng});
     );
-    out 80;
+    out body;
   `;
 
   try {
@@ -397,7 +526,11 @@ async function loadAutoPOIs(
 
         controller.abort();
 
-      }, 12000);
+      }, 15000);
+
+    console.log(
+      "Buscando Overpass..."
+    );
 
     const res =
       await fetch(
@@ -462,45 +595,15 @@ async function loadAutoPOIs(
             Number(el.lon),
 
           category:
-            "generic"
+            detectCategory(
+              el.tags
+            ),
+
+          auto: true,
+
+          osmId:
+            el.id
         };
-
-        // categorias
-        if (
-          el.tags?.amenity ===
-          "hospital"
-        ) {
-
-          poi.category =
-            "hospital";
-        }
-
-        if (
-          el.tags?.amenity ===
-          "pharmacy"
-        ) {
-
-          poi.category =
-            "pharmacy";
-        }
-
-        if (
-          el.tags?.amenity ===
-          "police"
-        ) {
-
-          poi.category =
-            "police";
-        }
-
-        if (
-          el.tags?.shop ===
-          "supermarket"
-        ) {
-
-          poi.category =
-            "supermarket";
-        }
 
         registerPOI(poi);
 
@@ -510,21 +613,6 @@ async function loadAutoPOIs(
         );
       }
     );
-
-    // ======================================
-    // ADICIONA AO MAPA
-    // ======================================
-
-    if (
-      layer &&
-      typeof layer.addLayer ===
-        "function"
-    ) {
-
-      layer.addLayer(
-        window.autoPOILayer
-      );
-    }
 
     console.log(
       "INDEX FINAL:",
