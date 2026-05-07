@@ -413,36 +413,23 @@ async function searchPlace(
         }
       );
 
-    results.push(
-      ...local
-    );
+    results.push(...local);
   }
 
   // ======================================
   // CACHE
   // ======================================
 
-  if (
+  const cached =
     window.searchCache[
       normalizedQuery
-    ]
+    ];
+
+  if (
+    Array.isArray(cached)
   ) {
 
-    const cached =
-      window.searchCache[
-        normalizedQuery
-      ];
-
-    const exists =
-      results.some(
-        r =>
-          normalizeText(r.name) ===
-          normalizeText(cached.name)
-      );
-
-    if (!exists) {
-      results.push(cached);
-    }
+    results.push(...cached);
   }
 
   // render imediato
@@ -459,12 +446,12 @@ async function searchPlace(
 
     try {
 
-      const geo =
+      const geoResults =
         await window.geocode(
           query
         );
 
-      // ignora busca velha
+      // ignora busca antiga
       if (
         searchId !==
         currentSearchId
@@ -473,41 +460,72 @@ async function searchPlace(
         return;
       }
 
-      if (geo) {
+      if (
+        Array.isArray(
+          geoResults
+        ) &&
+        geoResults.length > 0
+      ) {
 
         // salva cache
         window.searchCache[
           normalizedQuery
-        ] = geo;
+        ] = geoResults;
 
-        const exists =
-          results.some(
-            r =>
-              normalizeText(
-                r.name
-              ) ===
-              normalizeText(
-                geo.name
-              )
-          );
+        geoResults.forEach(
+          geo => {
 
-        if (!exists) {
+            const exists =
+              results.some(
+                r => {
 
-          results.push({
+                  const sameName =
+                    normalizeText(r.name) ===
+                    normalizeText(geo.name);
 
-            name:
-              geo.name,
+                  const sameLat =
+                    Math.abs(
+                      r.lat - geo.lat
+                    ) < 0.0001;
 
-            lat:
-              geo.lat,
+                  const sameLng =
+                    Math.abs(
+                      (r.lng ?? r.lon) -
+                      geo.lng
+                    ) < 0.0001;
 
-            lng:
-              geo.lng,
+                  return (
+                    sameName &&
+                    sameLat &&
+                    sameLng
+                  );
+                }
+              );
 
-            category:
-              "global"
+            if (!exists) {
+
+              results.push({
+
+                name:
+                  geo.name,
+
+                fullName:
+                  geo.fullName,
+
+                lat:
+                  geo.lat,
+
+                lng:
+                  geo.lng,
+
+                type:
+                  geo.type,
+
+                category:
+                  "global"
+              });
+            }
           });
-        }
       }
 
       renderResults(results);
@@ -568,9 +586,29 @@ function renderResults(
 
     const exists =
       unique.some(
-        p =>
-          normalizeText(p.name) ===
-          normalizeText(poi.name)
+        p => {
+
+          const sameName =
+            normalizeText(p.name) ===
+            normalizeText(poi.name);
+
+          const sameLat =
+            Math.abs(
+              p.lat - poi.lat
+            ) < 0.0001;
+
+          const sameLng =
+            Math.abs(
+              (p.lng ?? p.lon) -
+              (poi.lng ?? poi.lon)
+            ) < 0.0001;
+
+          return (
+            sameName &&
+            sameLat &&
+            sameLng
+          );
+        }
       );
 
     if (!exists) {
@@ -602,6 +640,19 @@ function renderResults(
 
     div.innerHTML = `
       <b>${poi.name}</b>
+      ${
+        poi.fullName
+          ? `
+            <div style="
+              font-size:12px;
+              color:#666;
+              margin-top:4px;
+            ">
+              ${poi.fullName}
+            </div>
+          `
+          : ""
+      }
     `;
 
     div.onmouseenter =
@@ -648,11 +699,19 @@ document.addEventListener(
 
     if (!input) return;
 
+    // debounce
+    const debouncedSearch =
+      debounce(value => {
+
+        searchPlace(value);
+
+      }, 400);
+
     input.addEventListener(
       "input",
       e => {
 
-        searchPlace(
+        debouncedSearch(
           e.target.value
         );
       }
