@@ -167,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // remove do index também
+    // remove do index
     window.poiIndex =
       window.poiIndex.filter(
         poi => !poi.auto
@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ) {
 
     // =====================================
-    // EVITA RELOAD PEQUENO
+    // EVITA RELOADS PEQUENOS
     // =====================================
 
     if (lastPOILoad) {
@@ -210,7 +210,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // =====================================
-    // VALIDA FUNÇÃO
+    // VALIDAÇÃO
     // =====================================
 
     if (
@@ -259,24 +259,20 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =====================================
-  // GPS SUCCESS
+  // HANDLE POSITION
   // =====================================
 
-  function handlePosition(pos) {
+  function handlePosition(position) {
 
     const lat =
-      Number(
-        pos.coords.latitude
-      );
+      Number(position.lat);
 
     const lng =
-      Number(
-        pos.coords.longitude
-      );
+      Number(position.lng);
 
     const accuracy =
       Number(
-        pos.coords.accuracy
+        position.accuracy || 0
       );
 
     if (
@@ -285,20 +281,14 @@ document.addEventListener("DOMContentLoaded", () => {
     ) {
 
       console.warn(
-        "GPS inválido"
+        "Posição inválida"
       );
 
       return;
     }
 
-    window.lastGPS = {
-      lat,
-      lng,
-      accuracy
-    };
-
     console.log(
-      "GPS:",
+      "Nova posição:",
       lat,
       lng
     );
@@ -339,10 +329,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } else {
 
+      // atualiza marker
       userMarker.setLatLng(
         [lat, lng]
       );
 
+      // atualiza círculo
       userCircle.setLatLng(
         [lat, lng]
       );
@@ -363,76 +355,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =====================================
-  // GPS ERROR
+  // LOCATION ENGINE
   // =====================================
 
-  function handleError(err) {
+  if (
+    window.locationEngine
+  ) {
 
-    console.error(
-      "GPS error:",
-      err
+    window.locationEngine.subscribe(
+      handlePosition
     );
 
-    let message =
-      "Erro GPS";
-
-    switch (err.code) {
-
-      case 1:
-
-        message =
-          "Permissão de localização negada";
-
-        break;
-
-      case 2:
-
-        message =
-          "Localização indisponível";
-
-        break;
-
-      case 3:
-
-        message =
-          "Tempo de GPS esgotado";
-
-        break;
-    }
-
-    console.warn(message);
-  }
-
-  // =====================================
-  // START GPS
-  // =====================================
-
-  if (navigator.geolocation) {
-
-    navigator.geolocation.getCurrentPosition(
-      handlePosition,
-      handleError,
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      }
-    );
-
-    navigator.geolocation.watchPosition(
-      handlePosition,
-      handleError,
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000
-      }
+    console.log(
+      "Mapa conectado ao LocationEngine"
     );
 
   } else {
 
-    console.warn(
-      "Geolocalização não suportada"
+    console.error(
+      "locationEngine não encontrado"
     );
   }
 
@@ -443,9 +384,11 @@ document.addEventListener("DOMContentLoaded", () => {
   window.centerOnUser =
     function () {
 
-      if (
-        !window.userMarker
-      ) {
+      const pos =
+        window.locationEngine?.
+          getPosition();
+
+      if (!pos) {
 
         alert(
           "GPS ainda não disponível"
@@ -455,21 +398,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       map.setView(
-        window.userMarker.getLatLng(),
+        [pos.lat, pos.lng],
         16
       );
     };
 
   // =====================================
-  // RECARREGAR POIs MANUALMENTE
+  // RECARREGAR POIs
   // =====================================
 
   window.reloadNearbyPOIs =
     async function () {
 
-      if (
-        !window.lastGPS
-      ) {
+      const pos =
+        window.locationEngine?.
+          getPosition();
+
+      if (!pos) {
 
         alert(
           "GPS indisponível"
@@ -479,8 +424,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       await loadNearbyPOIs(
-        window.lastGPS.lat,
-        window.lastGPS.lng
+        pos.lat,
+        pos.lng
       );
     };
 
