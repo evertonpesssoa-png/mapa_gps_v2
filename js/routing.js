@@ -21,28 +21,22 @@ function toggleRoute() {
       "route-panel"
     );
 
-  const search =
-    document.getElementById(
-      "search-panel"
-    );
-
-  const action =
-    document.getElementById(
-      "action-panel"
-    );
-
   if (!panel) return;
 
+  // sincroniza com search.js
+  if (
+    typeof window.closePanels ===
+    "function"
+  ) {
+
+    window.closePanels(
+      "route-panel"
+    );
+  }
+
   const isOpen =
-    panel.style.display === "flex";
-
-  if (search) {
-    search.style.display = "none";
-  }
-
-  if (action) {
-    action.style.display = "none";
-  }
+    panel.style.display ===
+    "flex";
 
   panel.style.display =
     isOpen
@@ -57,23 +51,46 @@ window.toggleRoute =
 // FORMATADORES
 // ======================================
 
-function formatDistance(meters) {
+function formatDistance(
+  meters
+) {
 
-  if (!meters || isNaN(meters)) {
+  meters =
+    Number(meters);
+
+  if (
+    isNaN(meters) ||
+    meters <= 0
+  ) {
+
     return "0 m";
   }
 
   if (meters < 1000) {
+
     return `${meters.toFixed(0)} m`;
   }
 
-  return `${(meters / 1000).toFixed(1)} km`;
+  return `${(
+    meters / 1000
+  ).toFixed(1)} km`;
 }
 
 function formatTime(
   distance,
   mode
 ) {
+
+  distance =
+    Number(distance);
+
+  if (
+    isNaN(distance) ||
+    distance <= 0
+  ) {
+
+    return "0 min";
+  }
 
   const speed =
     SPEEDS[mode] ||
@@ -83,16 +100,22 @@ function formatTime(
     distance / 1000;
 
   const minutes =
-    Math.round(
-      (km / speed) * 60
+    Math.max(
+      1,
+      Math.round(
+        (km / speed) * 60
+      )
     );
 
   if (minutes < 60) {
+
     return `${minutes} min`;
   }
 
   const hours =
-    Math.floor(minutes / 60);
+    Math.floor(
+      minutes / 60
+    );
 
   const rest =
     minutes % 60;
@@ -119,7 +142,11 @@ function clearRoute() {
     );
 
   if (info) {
+
     info.innerHTML = "";
+
+    info.style.display =
+      "none";
   }
 }
 
@@ -146,6 +173,23 @@ function normalizeText(
 }
 
 // ======================================
+// VALIDAR COORDENADAS
+// ======================================
+
+function isValidCoordinate(
+  lat,
+  lng
+) {
+
+  return (
+    !isNaN(lat) &&
+    !isNaN(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180
+  );
+}
+
+// ======================================
 // RESOLVER LOCALIZAÇÃO
 // ======================================
 
@@ -153,62 +197,57 @@ async function resolveText(
   text
 ) {
 
-  if (!text) return null;
+  if (
+    !text ||
+    typeof text !==
+      "string"
+  ) {
+
+    return null;
+  }
+
+  text = text.trim();
+
+  if (!text) {
+
+    return null;
+  }
 
   const normalized =
     normalizeText(text);
 
   // ======================================
-  // LOCATION ENGINE
+  // DESTINO SELECIONADO
   // ======================================
 
   if (
-    typeof window.resolveLocation ===
-    "function"
+    window.selectedDestination &&
+    normalizeText(
+      window.selectedDestination
+        .name
+    ) === normalized
   ) {
 
-    try {
+    return {
 
-      const resolved =
-        await window.resolveLocation(
-          text
-        );
+      lat: Number(
+        window.selectedDestination
+          .lat
+      ),
 
-      if (
-        resolved &&
-        !isNaN(resolved.lat) &&
-        !isNaN(resolved.lng)
-      ) {
+      lng: Number(
+        window.selectedDestination
+          .lng
+      ),
 
-        return {
-
-          lat:
-            Number(
-              resolved.lat
-            ),
-
-          lng:
-            Number(
-              resolved.lng
-            ),
-
-          name:
-            resolved.name ||
-            text
-        };
-      }
-
-    } catch (err) {
-
-      console.warn(
-        "Erro locationEngine:",
-        err
-      );
-    }
+      name:
+        window.selectedDestination
+          .name
+    };
   }
 
   // ======================================
-  // BUSCA LOCAL FALLBACK
+  // BUSCA LOCAL
   // ======================================
 
   if (
@@ -219,9 +258,10 @@ async function resolveText(
 
     let local =
       window.poiIndex.find(
-        p =>
+        poi =>
+
           normalizeText(
-            p.name
+            poi.name
           ) === normalized
       );
 
@@ -229,9 +269,10 @@ async function resolveText(
 
       local =
         window.poiIndex.find(
-          p =>
+          poi =>
+
             normalizeText(
-              p.name
+              poi.name
             ).includes(
               normalized
             )
@@ -240,27 +281,36 @@ async function resolveText(
 
     if (local) {
 
-      return {
+      const lat =
+        Number(local.lat);
 
-        lat:
-          Number(
-            local.lat
-          ),
+      const lng =
+        Number(
+          local.lng ??
+          local.lon
+        );
 
-        lng:
-          Number(
-            local.lng ??
-            local.lon
-          ),
+      if (
+        isValidCoordinate(
+          lat,
+          lng
+        )
+      ) {
 
-        name:
-          local.name
-      };
+        return {
+
+          lat,
+          lng,
+
+          name:
+            local.name
+        };
+      }
     }
   }
 
   // ======================================
-  // GEOCODING FALLBACK
+  // GEOCODING
   // ======================================
 
   if (
@@ -270,59 +320,51 @@ async function resolveText(
 
     try {
 
-      const geo =
+      const results =
         await window.geocode(
           text
         );
 
-      if (!geo) {
+      if (
+        !Array.isArray(
+          results
+        ) ||
+
+        results.length === 0
+      ) {
+
         return null;
       }
 
-      // array
+      const best =
+        results[0];
+
+      const lat =
+        Number(best.lat);
+
+      const lng =
+        Number(
+          best.lng ??
+          best.lon
+        );
+
       if (
-        Array.isArray(geo) &&
-        geo.length > 0
+        !isValidCoordinate(
+          lat,
+          lng
+        )
       ) {
 
-        const best =
-          geo[0];
-
-        return {
-
-          lat:
-            Number(
-              best.lat
-            ),
-
-          lng:
-            Number(
-              best.lng ??
-              best.lon
-            ),
-
-          name:
-            best.name ||
-            text
-        };
+        return null;
       }
 
-      // objeto
       return {
 
-        lat:
-          Number(
-            geo.lat
-          ),
-
-        lng:
-          Number(
-            geo.lng ??
-            geo.lon
-          ),
+        lat,
+        lng,
 
         name:
-          geo.name ||
+          best.name ||
           text
       };
 
@@ -340,6 +382,42 @@ async function resolveText(
 
 window.resolveText =
   resolveText;
+
+// ======================================
+// ESTILO DA ROTA
+// ======================================
+
+function getRouteStyle(
+  mode
+) {
+
+  switch (mode) {
+
+    case "foot":
+
+      return {
+        color: "#16a34a",
+        weight: 6,
+        opacity: 0.9
+      };
+
+    case "bike":
+
+      return {
+        color: "#2563eb",
+        weight: 6,
+        opacity: 0.9
+      };
+
+    default:
+
+      return {
+        color: "#ef4444",
+        weight: 6,
+        opacity: 0.9
+      };
+  }
+}
 
 // ======================================
 // TRAÇAR ROTA
@@ -360,10 +438,44 @@ async function traceRoute(
       "Mapa ou routeLayer não encontrado"
     );
 
-    return;
+    return false;
   }
 
-  // cancela request anterior
+  const fromLat =
+    Number(from?.lat);
+
+  const fromLng =
+    Number(from?.lng);
+
+  const toLat =
+    Number(to?.lat);
+
+  const toLng =
+    Number(to?.lng);
+
+  if (
+    !isValidCoordinate(
+      fromLat,
+      fromLng
+    ) ||
+
+    !isValidCoordinate(
+      toLat,
+      toLng
+    )
+  ) {
+
+    alert(
+      "Coordenadas inválidas"
+    );
+
+    return false;
+  }
+
+  // ======================================
+  // CANCELA REQUEST ANTERIOR
+  // ======================================
+
   if (
     currentRouteController
   ) {
@@ -383,8 +495,10 @@ async function traceRoute(
 
   const url =
     `https://router.project-osrm.org/route/v1/${profile}/` +
-    `${from.lng},${from.lat};${to.lng},${to.lat}` +
-    `?overview=full&geometries=geojson`;
+    `${fromLng},${fromLat};${toLng},${toLat}` +
+    `?overview=full` +
+    `&geometries=geojson` +
+    `&steps=true`;
 
   try {
 
@@ -393,7 +507,7 @@ async function traceRoute(
 
         currentRouteController.abort();
 
-      }, 12000);
+      }, 15000);
 
     const response =
       await fetch(url, {
@@ -414,7 +528,7 @@ async function traceRoute(
         "Erro ao buscar rota"
       );
 
-      return;
+      return false;
     }
 
     const data =
@@ -429,7 +543,7 @@ async function traceRoute(
         "Rota não encontrada"
       );
 
-      return;
+      return false;
     }
 
     clearRoute();
@@ -445,14 +559,32 @@ async function traceRoute(
       L.geoJSON(
         route.geometry,
         {
-          style: {
-            weight: 6,
-            opacity: 0.9
-          }
+          style:
+            getRouteStyle(
+              mode
+            )
         }
       );
 
     geo.addTo(
+      window.routeLayer
+    );
+
+    // ======================================
+    // MARCADORES
+    // ======================================
+
+    L.marker([
+      fromLat,
+      fromLng
+    ]).addTo(
+      window.routeLayer
+    );
+
+    L.marker([
+      toLat,
+      toLng
+    ]).addTo(
       window.routeLayer
     );
 
@@ -463,7 +595,7 @@ async function traceRoute(
     window.map.fitBounds(
       geo.getBounds(),
       {
-        padding: [40, 40]
+        padding: [50, 50]
       }
     );
 
@@ -478,24 +610,47 @@ async function traceRoute(
 
     if (info) {
 
+      info.style.display =
+        "block";
+
       info.innerHTML = `
-        📏 ${formatDistance(route.distance)}
-        <br>
-        ⏱ ${formatTime(route.distance, mode)}
+        <div style="
+          display:flex;
+          flex-direction:column;
+          gap:6px;
+        ">
+
+          <div>
+            📏 ${formatDistance(
+              route.distance
+            )}
+          </div>
+
+          <div>
+            ⏱ ${formatTime(
+              route.distance,
+              mode
+            )}
+          </div>
+
+        </div>
       `;
     }
+
+    return true;
 
   } catch (err) {
 
     if (
-      err.name === "AbortError"
+      err.name ===
+      "AbortError"
     ) {
 
       console.log(
         "Rota cancelada"
       );
 
-      return;
+      return false;
     }
 
     console.error(
@@ -506,6 +661,8 @@ async function traceRoute(
     alert(
       "Erro ao criar rota"
     );
+
+    return false;
   }
 }
 
@@ -534,24 +691,29 @@ async function createRoute(
     originText.trim() === ""
   ) {
 
-    if (
-      !window.userMarker
-    ) {
+    const pos =
+      window.locationEngine?.
+        getPosition?.();
+
+    if (!pos) {
 
       alert(
         "GPS indisponível"
       );
 
-      return;
+      return false;
     }
-
-    const pos =
-      window.userMarker.getLatLng();
 
     from = {
 
-      lat: pos.lat,
-      lng: pos.lng
+      lat:
+        Number(pos.lat),
+
+      lng:
+        Number(pos.lng),
+
+      name:
+        "Minha localização"
     };
 
   } else {
@@ -581,7 +743,7 @@ async function createRoute(
       "Origem inválida"
     );
 
-    return;
+    return false;
   }
 
   if (!to) {
@@ -590,14 +752,14 @@ async function createRoute(
       "Destino inválido"
     );
 
-    return;
+    return false;
   }
 
   // ======================================
   // TRACE
   // ======================================
 
-  await traceRoute(
+  return await traceRoute(
     from,
     to,
     mode
@@ -613,12 +775,15 @@ window.createRoute =
 
 async function routeToPlace(
   lat,
-  lng
+  lng,
+  mode = "car"
 ) {
 
-  if (
-    !window.userMarker
-  ) {
+  const pos =
+    window.locationEngine?.
+      getPosition?.();
+
+  if (!pos) {
 
     alert(
       "GPS indisponível"
@@ -627,8 +792,37 @@ async function routeToPlace(
     return;
   }
 
-  const pos =
-    window.userMarker.getLatLng();
+  if (
+    typeof window.closePanels ===
+    "function"
+  ) {
+
+    window.closePanels(
+      "route-panel"
+    );
+  }
+
+  const panel =
+    document.getElementById(
+      "route-panel"
+    );
+
+  if (panel) {
+
+    panel.style.display =
+      "flex";
+  }
+
+  const destinationInput =
+    document.getElementById(
+      "route-destination"
+    );
+
+  if (destinationInput) {
+
+    destinationInput.value =
+      `${lat}, ${lng}`;
+  }
 
   await traceRoute(
     {
@@ -639,19 +833,8 @@ async function routeToPlace(
       lat,
       lng
     },
-    "car"
+    mode
   );
-
-  const routePanel =
-    document.getElementById(
-      "route-panel"
-    );
-
-  if (routePanel) {
-
-    routePanel.style.display =
-      "flex";
-  }
 }
 
 window.routeToPlace =
@@ -743,7 +926,7 @@ document.addEventListener(
 
         if (
           !destination ||
-          destination.trim() === ""
+          !destination.trim()
         ) {
 
           alert(
@@ -754,6 +937,12 @@ document.addEventListener(
         }
 
         btn.disabled = true;
+
+        const originalText =
+          btn.innerHTML;
+
+        btn.innerHTML =
+          "Calculando...";
 
         try {
 
@@ -766,6 +955,9 @@ document.addEventListener(
         } finally {
 
           btn.disabled = false;
+
+          btn.innerHTML =
+            originalText;
         }
       }
     );
