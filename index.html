@@ -590,5 +590,51 @@ body {
 <!-- MAPA -->
 <script src="js/mapa.js"></script>
 
+<!-- ====================================== -->
+<!-- CHAT DO ASURA (COPILOTO) -->
+<!-- ====================================== -->
+
+<div id="asura-chat" class="asura-chat collapsed">
+  <div class="chat-header" id="chatHeader">
+    <div class="chat-header-info">
+      <div class="chat-avatar" id="chatAvatar">🤖</div>
+      <div>
+        <h4 id="chatAsuraName">DIVA</h4>
+        <div class="chat-status" id="chatStatus">🟢 online</div>
+      </div>
+    </div>
+    <div class="chat-controls">
+      <button class="chat-minimize" id="chatMinimizeBtn">−</button>
+      <button class="chat-close" id="chatCloseBtn">✕</button>
+    </div>
+  </div>
+  
+  <div class="chat-body" id="chatBody">
+    <div class="chat-messages" id="chatMessages">
+      <div class="message asura">
+        <div class="message-avatar">🤖</div>
+        <div class="message-content">
+          ✨ Olá! Sou sua assistente. Posso te ajudar a encontrar lugares no mapa!
+          <div class="message-time">Agora</div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <select id="asuraSelector" class="asura-selector">
+        <option value="diva">🤖 DIVA (Automação)</option>
+        <option value="astreia">👁️ ASTREIA (Segurança)</option>
+        <option value="siria">🌳 SIRIA (Financeiro)</option>
+      </select>
+      <input type="text" id="chatInput" placeholder="Digite seu comando...">
+      <button id="sendChatBtn">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- Botão flutuante para abrir o chat -->
+<button id="openChatBtn" class="open-chat-btn" title="Abrir Assistente">
+  💬
+</button>
+
 </body>
 </html>
