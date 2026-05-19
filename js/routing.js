@@ -963,3 +963,189 @@ document.addEventListener(
     );
   }
 );
+
+// ======================================
+// ROTA INTELIGENTE COM ALTERNATIVAS
+// ======================================
+
+async function getSmartRoute(originLat, originLng, destLat, destLng, mode = "car") {
+  const profile = mode === "foot" ? "walking" : mode === "bike" ? "cycling" : "driving";
+  const url = `https://router.project-osrm.org/route/v1/${profile}/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+  
+  try {
+    console.log(`🔄 Buscando rotas de ${mode}...`);
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (!data.routes || data.routes.length === 0) return null;
+    
+    const routes = data.routes.map(route => ({
+      distance: (route.distance / 1000).toFixed(1),
+      duration: Math.round(route.duration / 60),
+      geometry: route.geometry,
+      steps: route.legs[0]?.steps || [],
+      mode: mode
+    }));
+    
+    return routes;
+  } catch (error) {
+    console.error(`Erro na rota ${mode}:`, error);
+    return null;
+  }
+}
+
+window.getSmartRoute = getSmartRoute;
+
+// ======================================
+// MOSTRAR MÚLTIPLAS ROTAS NO MAPA
+// ======================================
+
+async function showMultipleRoutes(destLat, destLng) {
+  const pos = window.locationEngine?.getPosition();
+  if (!pos) {
+    alert("GPS indisponível");
+    return;
+  }
+  
+  const modes = ["car", "foot", "bike"];
+  const allRoutes = [];
+  
+  for (const mode of modes) {
+    const routes = await getSmartRoute(pos.lat, pos.lng, destLat, destLng, mode);
+    if (routes && routes.length > 0) {
+      allRoutes.push({ mode, routes });
+    }
+  }
+  
+  if (allRoutes.length === 0) {
+    alert("Nenhuma rota encontrada");
+    return;
+  }
+  
+  // Limpar rotas anteriores
+  if (window.routeLayer) window.routeLayer.clearLayers();
+  
+  const colors = { car: "#ef4444", foot: "#10b981", bike: "#3b82f6" };
+  const icons = { car: "🚗", foot: "🚶", bike: "🚴" };
+  const modeNames = { car: "Carro", foot: "A pé", bike: "Bicicleta" };
+  
+  let bestRoute = null;
+  let bestDuration = Infinity;
+  
+  allRoutes.forEach(({ mode, routes }) => {
+    const bestOfMode = routes[0];
+    if (bestOfMode.duration < bestDuration) {
+      bestDuration = bestOfMode.duration;
+      bestRoute = { mode, route: bestOfMode };
+    }
+    
+    routes.forEach((route, idx) => {
+      const isBest = idx === 0;
+      L.geoJSON(route.geometry, {
+        color: colors[mode],
+        weight: isBest ? 4 : 2,
+        opacity: isBest ? 0.9 : 0.5,
+        dashArray: isBest ? null : "5, 10"
+      }).addTo(window.routeLayer);
+    });
+  });
+  
+  // Marcadores
+  L.marker([pos.lat, pos.lng], {
+    icon: L.divIcon({ html: "🚀", className: "custom-marker", iconSize: [20, 20] })
+  }).addTo(window.routeLayer);
+  
+  L.marker([destLat, destLng], {
+    icon: L.divIcon({ html: "🏁", className: "custom-marker", iconSize: [20, 20] })
+  }).addTo(window.routeLayer);
+  
+  // Ajustar zoom
+  const bounds = L.latLngBounds([[pos.lat, pos.lng], [destLat, destLng]]);
+  window.map.fitBounds(bounds, { padding: [50, 50] });
+  
+  // Mostrar comparação
+  const infoDiv = document.getElementById("route-info");
+  if (infoDiv) {
+    let html = `<div style="font-weight: bold; margin-bottom: 8px;">📋 COMPARAÇÃO DE ROTAS</div><div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">`;
+    
+    allRoutes.forEach(({ mode, routes }) => {
+      const route = routes[0];
+      const isBest = bestRoute && bestRoute.mode === mode;
+      html += `
+        <div style="
+          background: ${colors[mode]}22;
+          border-radius: 12px;
+          padding: 6px 12px;
+          text-align: center;
+          border: 2px solid ${isBest ? colors[mode] : colors[mode] + "66"};
+          cursor: pointer;
+        " onclick="selectRoute('${mode}', ${destLat}, ${destLng})">
+          <div style="font-size: 20px;">${icons[mode]}</div>
+          <div style="font-size: 11px; font-weight: bold;">${modeNames[mode]}</div>
+          <div style="font-size: 10px;">${route.distance}km • ${route.duration}min</div>
+          ${isBest ? '<div style="font-size: 9px; color: #ffaa44;">⭐ Melhor</div>' : ''}
+        </div>
+      `;
+    });
+    
+    html += `</div>`;
+    infoDiv.innerHTML = html;
+    infoDiv.style.display = "block";
+  }
+  
+  return allRoutes;
+}
+
+window.showMultipleRoutes = showMultipleRoutes;
+
+// ======================================
+// SELECIONAR ROTA ESPECÍFICA
+// ======================================
+
+async function selectRoute(mode, destLat, destLng) {
+  const pos = window.locationEngine?.getPosition();
+  if (!pos) return;
+  
+  const routes = await getSmartRoute(pos.lat, pos.lng, destLat, destLng, mode);
+  if (!routes || routes.length === 0) return;
+  
+  // Limpar e mostrar apenas a rota selecionada
+  if (window.routeLayer) window.routeLayer.clearLayers();
+  
+  const colors = { car: "#ef4444", foot: "#10b981", bike: "#3b82f6" };
+  
+  L.geoJSON(routes[0].geometry, {
+    color: colors[mode],
+    weight: 5,
+    opacity: 0.9
+  }).addTo(window.routeLayer);
+  
+  L.marker([pos.lat, pos.lng], {
+    icon: L.divIcon({ html: "🚀", className: "custom-marker", iconSize: [20, 20] })
+  }).addTo(window.routeLayer);
+  
+  L.marker([destLat, destLng], {
+    icon: L.divIcon({ html: "🏁", className: "custom-marker", iconSize: [20, 20] })
+  }).addTo(window.routeLayer);
+  
+  const infoDiv = document.getElementById("route-info");
+  if (infoDiv) {
+    const modeNames = { car: "Carro", foot: "A pé", bike: "Bicicleta" };
+    infoDiv.innerHTML = `
+      <div style="font-weight: bold;">✅ Rota de ${modeNames[mode]}</div>
+      <div>📏 ${routes[0].distance} km • ⏱️ ${routes[0].duration} min</div>
+      <button onclick="showMultipleRoutes(${destLat}, ${destLng})" style="
+        margin-top: 8px;
+        background: #333;
+        border: none;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 11px;
+      ">↺ Ver outras rotas</button>
+    `;
+  }
+}
+
+window.selectRoute = selectRoute;
