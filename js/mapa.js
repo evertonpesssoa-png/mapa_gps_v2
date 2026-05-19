@@ -1,3 +1,7 @@
+// ======================================
+// MAPA.JS - INICIALIZAÇÃO PRINCIPAL
+// ======================================
+
 window.poiIndex = window.poiIndex || [];
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -125,7 +129,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function animatedSetView(coords, zoom = null) {
     if (!coords) return;
     
-    // Cancela animação anterior
     if (animationTimeout) {
       clearTimeout(animationTimeout);
       animationTimeout = null;
@@ -187,10 +190,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // =====================================
 
   async function loadNearbyPOIs(lat, lng) {
-    // Evita reloads desnecessários
     if (lastPOILoad) {
       const dist = distanceInMeters(lat, lng, lastPOILoad.lat, lastPOILoad.lng);
-      if (dist < 500) return; // Reduzido para 500m para melhor experiência
+      if (dist < 500) return;
     }
     
     lastPOILoad = { lat, lng };
@@ -227,7 +229,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     console.log("📍 Nova posição:", lat, lng);
     
-    // Primeira posição
     if (!userMarker) {
       userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 9999 }).addTo(window.userLayer);
       userCircle = L.circle([lat, lng], {
@@ -249,19 +250,16 @@ document.addEventListener("DOMContentLoaded", () => {
       userCircle.setLatLng([lat, lng]);
       userCircle.setRadius(accuracy);
       
-      // Auto follow (apenas se não estiver animando)
       if (autoFollowUser && !isAnimatingMap) {
         animatedSetView([lat, lng]);
       }
     }
     
-    // Rotação
     const el = userMarker.getElement();
     if (el && !isNaN(heading)) {
       el.style.transform += ` rotate(${heading}deg)`;
     }
     
-    // Carrega POIs
     loadNearbyPOIs(lat, lng);
   }
 
@@ -344,6 +342,19 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }, 800);
   };
+
+  // =====================================
+  // CARREGAR POIs MANUAIS (INTEGRAÇÃO)
+  // =====================================
+
+  setTimeout(() => {
+    if (typeof loadManualPOIs === "function") {
+      console.log("🟢 Carregando POIs manuais...");
+      loadManualPOIs(window.poiLayer);
+    } else {
+      console.warn("⚠️ loadManualPOIs não encontrada");
+    }
+  }, 500);
 
   // =====================================
   // RESIZE (CORRIGIDO - SEM TREMOR)
