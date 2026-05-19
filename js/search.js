@@ -949,3 +949,267 @@ document.addEventListener(
     );
   }
 );
+
+// ======================================
+// PESQUISA INTELIGENTE POR CATEGORIA (PARA ASURAS)
+// ======================================
+
+function searchByCategory(category, query = "") {
+  if (!window.poiIndex) return [];
+  
+  const normalizedQuery = normalizeText(query);
+  
+  return window.poiIndex.filter(poi => {
+    const matchesCategory = poi.category === category || poi.type === category;
+    const matchesQuery = normalizedQuery === "" || normalizeText(poi.name).includes(normalizedQuery);
+    return matchesCategory && matchesQuery;
+  });
+}
+
+window.searchByCategory = searchByCategory;
+
+// ======================================
+// PESQUISA PRÓXIMO (RAIO)
+// ======================================
+
+function searchNearby(lat, lng, radius = 1000, category = null) {
+  if (!window.poiIndex) return [];
+  
+  const results = [];
+  
+  window.poiIndex.forEach(poi => {
+    const poiLat = Number(poi.lat);
+    const poiLng = Number(poi.lng ?? poi.lon);
+    
+    if (isNaN(poiLat) || isNaN(poiLng)) return;
+    
+    const distance = distanceInMeters(lat, lng, poiLat, poiLng);
+    
+    if (distance <= radius) {
+      if (category === null || poi.category === category || poi.type === category) {
+        results.push({ ...poi, distance: Math.round(distance) });
+      }
+    }
+  });
+  
+  // Ordenar por distância
+  results.sort((a, b) => (a.distance || 99999) - (b.distance || 99999));
+  
+  return results;
+}
+
+window.searchNearby = searchNearby;
+
+// ======================================
+// FUNÇÃO DE DISTÂNCIA (COPIA DO MAPA.JS)
+// ======================================
+
+function distanceInMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// ======================================
+// ROTA INTELIGENTE (COM MÚLTIPLAS OPÇÕES)
+// ======================================
+
+async function smartRoute(originLat, originLng, destLat, destLng, mode = "car") {
+  const profile = mode === "foot" ? "walking" : mode === "bike" ? "cycling" : "driving";
+  const url = `https://router.project-osrm.org/route/v1/${profile}/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (!data.routes || data.routes.length === 0) return null;
+    
+    const routes = data.routes.map(route => ({
+      distance: (route.distance / 1000).toFixed(1),
+      duration: Math.round(route.duration / 60),
+      geometry: route.geometry,
+      steps: route.legs[0]?.steps || []
+    }));
+    
+    // Ordenar por duração
+    routes.sort((a, b) => a.duration - b.duration);
+    
+    return routes;
+  } catch (error) {
+    console.error("Erro na rota:", error);
+    return null;
+  }
+}
+
+window.smartRoute = smartRoute;
+
+// ======================================
+// MOSTRAR ROTAS NO MAPA (MÚLTIPLAS OPÇÕES)
+// ======================================
+
+async function showSmartRoute(destLat, destLng, mode = "car") {
+  const pos = window.locationEngine?.getPosition();
+  if (!pos) {
+    alert("GPS indisponível");
+    return;
+  }
+  
+  const routes = await smartRoute(pos.lat, pos.lng, destLat, destLng, mode);
+  
+  if (!routes || routes.length === 0) {
+    alert("Nenhuma rota encontrada");
+    return;
+  }
+  
+  // Limpar rotas anteriores
+  if (window.routeLayer) window.routeLayer.clearLayers();
+  
+  // Cores para diferentes rotas
+  const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
+  
+  routes.forEach((route, index) => {
+    const geojson = L.geoJSON(route.geometry, {
+      color: colors[index % colors.length],
+      weight: index === 0 ? 5 : 3,
+      opacity: index === 0 ? 0.9 : 0.6,
+      dashArray: index === 0 ? null : "5, 10"
+    }).addTo(window.routeLayer);
+    
+    // Adicionar marcadores de início e fim (apenas na primeira rota)
+    if (index === 0) {
+      L.marker([pos.lat, pos.lng], {
+        icon: L.divIcon({ html: "🚀", className: "custom-marker", iconSize: [20, 20] })
+      }).addTo(window.routeLayer);
+      
+      L.marker([destLat, destLng], {
+        icon: L.divIcon({ html: "🏁", className: "custom-marker", iconSize: [20, 20] })
+      }).addTo(window.routeLayer);
+    }
+  });
+  
+  // Ajustar zoom
+  const bounds = L.latLngBounds([[pos.lat, pos.lng], [destLat, destLng]]);
+  window.map.fitBounds(bounds, { padding: [50, 50] });
+  
+  // Mostrar informações
+  const best = routes[0];
+  showRouteComparison(routes, destLat, destLng);
+  
+  return routes;
+}
+
+window.showSmartRoute = showSmartRoute;
+
+// ======================================
+// MOSTRAR COMPARAÇÃO DE ROTAS
+// ======================================
+
+function showRouteComparison(routes, destLat, destLng) {
+  const infoDiv = document.getElementById("route-info");
+  if (!infoDiv) return;
+  
+  if (!routes || routes.length === 0) {
+    infoDiv.style.display = "none";
+    return;
+  }
+  
+  let html = `
+    <div style="font-weight: bold; margin-bottom: 8px;">📋 MÚLTIPLAS ROTAS</div>
+    <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+  `;
+  
+  const icons = { car: "🚗", foot: "🚶", bike: "🚴" };
+  const modeNames = { car: "Carro", foot: "A pé", bike: "Bicicleta" };
+  const colors = { car: "#ef4444", foot: "#10b981", bike: "#3b82f6" };
+  
+  // Por enquanto só uma rota, mas estrutura pronta para múltiplos modos
+  routes.forEach((route, idx) => {
+    const mode = idx === 0 ? "car" : idx === 1 ? "foot" : "bike";
+    html += `
+      <div style="
+        background: ${colors[mode]}22;
+        border-radius: 12px;
+        padding: 6px 12px;
+        text-align: center;
+        border: 1px solid ${colors[mode]};
+        cursor: pointer;
+      " onclick="selectRouteAndZoom(${destLat}, ${destLng}, '${mode}')">
+        <div style="font-size: 20px;">${icons[mode]}</div>
+        <div style="font-size: 11px; font-weight: bold;">${modeNames[mode]}</div>
+        <div style="font-size: 10px;">${route.distance}km • ${route.duration}min</div>
+      </div>
+    `;
+  });
+  
+  html += `</div>`;
+  infoDiv.innerHTML = html;
+  infoDiv.style.display = "block";
+}
+
+window.showRouteComparison = showRouteComparison;
+
+// ======================================
+// SELECIONAR ROTA E ZOOM
+// ======================================
+
+async function selectRouteAndZoom(destLat, destLng, mode) {
+  await showSmartRoute(destLat, destLng, mode);
+}
+
+window.selectRouteAndZoom = selectRouteAndZoom;
+
+// ======================================
+// PESQUISA PARA ASURAS (DIVA, ASTREIA, SIRIA)
+// ======================================
+
+async function searchForAsura(asuraName, query, lat, lng) {
+  const asuraCategories = {
+    diva: ["pharmacy", "supermarket", "restaurant", "cafe", "gas_station", "bakery"],
+    astreia: ["police", "police_station", "security", "government"],
+    siria: ["bank", "atm", "finance", "exchange"]
+  };
+  
+  const categories = asuraCategories[asuraName] || [];
+  
+  if (categories.length === 0) {
+    return searchPlace(query);
+  }
+  
+  // Busca local nos POIs por categoria
+  let results = [];
+  categories.forEach(cat => {
+    const categoryResults = searchByCategory(cat, query);
+    results.push(...categoryResults);
+  });
+  
+  // Busca por texto normal também
+  if (typeof searchPlace === "function") {
+    // A função searchPlace já existe e faz a busca completa
+    await searchPlace(query);
+  }
+  
+  // Se tiver coordenadas, filtrar por proximidade
+  if (lat && lng) {
+    const nearby = searchNearby(lat, lng, 2000);
+    results = [...results, ...nearby];
+  }
+  
+  // Remover duplicados
+  const uniqueResults = [];
+  results.forEach(r => {
+    if (!uniqueResults.some(u => u.name === r.name && u.lat === r.lat)) {
+      uniqueResults.push(r);
+    }
+  });
+  
+  renderResults(uniqueResults);
+  
+  return uniqueResults;
+}
+
+window.searchForAsura = searchForAsura;
