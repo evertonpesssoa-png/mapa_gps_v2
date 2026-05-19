@@ -1,47 +1,38 @@
-window.poiIndex =
-  window.poiIndex || [];
+// ======================================
+// POIs.js - SISTEMA DE PONTOS DE INTERESSE
+// ======================================
 
-window.autoPOIsReady =
-  false;
+window.poiIndex = window.poiIndex || [];
+window.autoPOIsReady = false;
 
 // ======================================
 // LAYER AUTO POIs
 // ======================================
 
-window.autoPOILayer =
-  window.autoPOILayer ||
-  L.layerGroup();
+window.autoPOILayer = window.autoPOILayer || L.layerGroup();
 
 // ======================================
 // CACHE DE ÁREAS
 // ======================================
 
-window.loadedPOIAreas =
-  window.loadedPOIAreas || {};
+window.loadedPOIAreas = window.loadedPOIAreas || {};
 
 // ======================================
 // CONTROLLER OVERPASS
 // ======================================
 
-window.currentPOIController =
-  null;
+window.currentPOIController = null;
 
 // ======================================
 // NORMALIZE
 // ======================================
 
-function normalizeText(
-  text
-) {
-
+function normalizeText(text) {
   return (text || "")
     .toString()
     .toLowerCase()
     .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
+    .replace(/[\u0300-\u036f]/g, "")
     .trim();
 }
 
@@ -49,54 +40,22 @@ function normalizeText(
 // ESCAPE HTML
 // ======================================
 
-function escapeHTML(
-  text
-) {
-
-  return String(
-    text || ""
-  )
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
-    )
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-    .replace(
-      /'/g,
-      "&#039;"
-    );
+function escapeHTML(text) {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 // ======================================
 // HASH DE ÁREA
 // ======================================
 
-function createAreaKey(
-  lat,
-  lng
-) {
-
-  const latKey =
-    Math.floor(
-      Number(lat) * 100
-    );
-
-  const lngKey =
-    Math.floor(
-      Number(lng) * 100
-    );
-
+function createAreaKey(lat, lng) {
+  const latKey = Math.floor(Number(lat) * 100);
+  const lngKey = Math.floor(Number(lng) * 100);
   return `${latKey}:${lngKey}`;
 }
 
@@ -104,11 +63,7 @@ function createAreaKey(
 // VALIDAR COORDENADAS
 // ======================================
 
-function isValidCoordinate(
-  lat,
-  lng
-) {
-
+function isValidCoordinate(lat, lng) {
   return (
     !isNaN(lat) &&
     !isNaN(lng) &&
@@ -118,349 +73,236 @@ function isValidCoordinate(
 }
 
 // ======================================
-// REGISTRO
+// ÍCONES POR CATEGORIA (CORRIGIDO)
 // ======================================
 
-function registerPOI(
-  poi
-) {
+function getIconByCategory(category) {
+  const icons = {
+    hospital: "🏥",
+    pharmacy: "💊",
+    police: "👮",
+    policeman: "👮",
+    gas_station: "⛽",
+    gas: "⛽",
+    supermarket: "🛒",
+    restaurant: "🍽️",
+    bank: "🏦",
+    school: "🏫",
+    cafe: "☕",
+    tourism: "🏛️",
+    generic: "📍",
+    home: "🏠",
+    mechanic: "🔧",
+    medical: "🏥"
+  };
+  
+  return icons[category] || icons.generic;
+}
 
-  if (!poi) {
+// ======================================
+// ÍCONE SAFE (CORRIGIDO)
+// ======================================
 
+function safeIcon(category) {
+  const iconEmoji = getIconByCategory(category);
+  
+  return L.divIcon({
+    html: `<div style="
+      background: white;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      border: 2px solid #4a90e2;
+      cursor: pointer;
+      transition: transform 0.2s;
+    ">${iconEmoji}</div>`,
+    iconSize: [32, 32],
+    popupAnchor: [0, -16],
+    className: "custom-poi-marker"
+  });
+}
+
+// ======================================
+// REGISTRO DE POI
+// ======================================
+
+function registerPOI(poi) {
+  if (!poi) return null;
+  
+  poi.lng = poi.lng ?? poi.lon;
+  poi.lat = Number(poi.lat);
+  poi.lng = Number(poi.lng);
+  
+  // Validação
+  if (!isValidCoordinate(poi.lat, poi.lng)) {
+    console.warn("POI inválido:", poi);
     return null;
   }
-
-  poi.lng =
-    poi.lng ?? poi.lon;
-
-  poi.lat =
-    Number(poi.lat);
-
-  poi.lng =
-    Number(poi.lng);
-
-  // ======================================
-  // VALIDAÇÃO
-  // ======================================
-
-  if (
-    !isValidCoordinate(
-      poi.lat,
-      poi.lng
-    )
-  ) {
-
-    console.warn(
-      "POI inválido:",
-      poi
-    );
-
-    return null;
-  }
-
-  // ======================================
-  // GARANTE NOME
-  // ======================================
-
-  if (
-    !poi.name ||
-    !String(
-      poi.name
-    ).trim()
-  ) {
-
+  
+  // Garante nome
+  if (!poi.name || !String(poi.name).trim()) {
     poi.name = "Local";
   }
-
-  poi.name =
-    String(
-      poi.name
-    ).trim();
-
-  poi.category =
-    poi.category ||
-    "generic";
-
-  // ======================================
-  // REMOVE DUPLICADOS
-  // ======================================
-
-  const exists =
-    window.poiIndex.find(
-      p => {
-
-        const sameName =
-
-          normalizeText(
-            p.name
-          ) ===
-
-          normalizeText(
-            poi.name
-          );
-
-        const sameLat =
-
-          Math.abs(
-            Number(p.lat) -
-            poi.lat
-          ) < 0.00001;
-
-        const sameLng =
-
-          Math.abs(
-            Number(
-              p.lng ??
-              p.lon
-            ) - poi.lng
-          ) < 0.00001;
-
-        return (
-          sameName &&
-          sameLat &&
-          sameLng
-        );
-      }
-    );
-
-  if (exists) {
-
-    return exists;
-  }
-
-  const normalizedPOI = {
-
-    ...poi,
-
-    lat: poi.lat,
-    lng: poi.lng
-  };
-
-  window.poiIndex.push(
-    normalizedPOI
-  );
-
-  console.log(
-    "POI registrado:",
-    normalizedPOI.name
-  );
-
+  poi.name = String(poi.name).trim();
+  poi.category = poi.category || "generic";
+  
+  // Remove duplicados
+  const exists = window.poiIndex.find(p => {
+    const sameName = normalizeText(p.name) === normalizeText(poi.name);
+    const sameLat = Math.abs(Number(p.lat) - poi.lat) < 0.00001;
+    const sameLng = Math.abs(Number(p.lng ?? p.lon) - poi.lng) < 0.00001;
+    return sameName && sameLat && sameLng;
+  });
+  
+  if (exists) return exists;
+  
+  const normalizedPOI = { ...poi, lat: poi.lat, lng: poi.lng };
+  window.poiIndex.push(normalizedPOI);
+  
+  console.log("📌 POI registrado:", normalizedPOI.name);
   return normalizedPOI;
 }
 
-window.registerPOI =
-  registerPOI;
+window.registerPOI = registerPOI;
 
 // ======================================
-// BUSCA
+// BUSCA POR NOME
 // ======================================
 
-function findPlacesByName(
-  query
-) {
-
-  if (!query) {
-
-    return {
-      results: []
-    };
-  }
-
-  const normalizedQuery =
-    normalizeText(query);
-
-  const results =
-    window.poiIndex.filter(
-      poi =>
-
-        normalizeText(
-          poi.name
-        ).includes(
-          normalizedQuery
-        )
-    );
-
+function findPlacesByName(query) {
+  if (!query) return { results: [] };
+  
+  const normalizedQuery = normalizeText(query);
+  const results = window.poiIndex.filter(poi =>
+    normalizeText(poi.name).includes(normalizedQuery)
+  );
+  
   return { results };
 }
 
-window.findPlacesByName =
-  findPlacesByName;
+window.findPlacesByName = findPlacesByName;
 
 // ======================================
-// POPUP
+// POPUP DO MARCADOR
 // ======================================
 
-function createPopupContent(
-  poi
-) {
-
-  const safeName =
-    escapeHTML(
-      poi.name
-    );
-
-  const lat =
-    Number(poi.lat);
-
-  const lng =
-    Number(
-      poi.lng ??
-      poi.lon
-    );
-
+function createPopupContent(poi) {
+  const safeName = escapeHTML(poi.name);
+  const lat = Number(poi.lat);
+  const lng = Number(poi.lng ?? poi.lon);
+  const iconEmoji = getIconByCategory(poi.category);
+  
   return `
-    <div style="
-      min-width:180px;
-    ">
-
+    <div style="min-width: 200px; font-family: Arial, sans-serif;">
       <div style="
-        font-weight:bold;
-        margin-bottom:10px;
+        font-weight: bold;
+        font-size: 14px;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
       ">
-        ${safeName}
+        <span style="font-size: 18px;">${iconEmoji}</span>
+        <span>${safeName}</span>
       </div>
-
-      <div style="
-        display:flex;
-        flex-direction:column;
-        gap:8px;
-      ">
-
+      <div style="font-size: 11px; color: #666; margin-bottom: 12px;">
+        📍 ${poi.category || "local"}
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         <button onclick="
-          routeToPlace(
-            ${lat},
-            ${lng}
-          )
+          routeToPlace(${lat}, ${lng}, 'foot')
+        " style="
+          background: #10b981;
+          border: none;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 20px;
+          cursor: pointer;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
         ">
-          🧭 Rota direta
+          🚶 Ir a pé
         </button>
-
         <button onclick="
-          viewOnMap(
-            ${lat},
-            ${lng}
-          )
+          routeToPlace(${lat}, ${lng}, 'car')
+        " style="
+          background: #ef4444;
+          border: none;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 20px;
+          cursor: pointer;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        ">
+          🚗 Ir de carro
+        </button>
+        <button onclick="
+          viewOnMap(${lat}, ${lng}, 17)
+        " style="
+          background: #3b82f6;
+          border: none;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 20px;
+          cursor: pointer;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
         ">
           📍 Ver no mapa
         </button>
-
       </div>
-
     </div>
   `;
-}
-
-// ======================================
-// ICON SAFE
-// ======================================
-
-function safeIcon(
-  category
-) {
-
-  try {
-
-    if (
-      typeof getIcon ===
-      "function"
-    ) {
-
-      return getIcon(
-        category
-      );
-    }
-
-  } catch (err) {
-
-    console.warn(
-      "Erro ícone:",
-      err
-    );
-  }
-
-  return new L.Icon.Default();
 }
 
 // ======================================
 // CRIAR MARCADOR
 // ======================================
 
-function createMarker(
-  poi,
-  layer
-) {
-
-  if (!layer || !poi) {
-
+function createMarker(poi, layer) {
+  if (!layer || !poi) return null;
+  
+  const lat = Number(poi.lat);
+  const lng = Number(poi.lng ?? poi.lon);
+  
+  if (!isValidCoordinate(lat, lng)) {
+    console.warn("POI inválido para marcador:", poi);
     return null;
   }
-
-  const lat =
-    Number(poi.lat);
-
-  const lng =
-    Number(
-      poi.lng ??
-      poi.lon
-    );
-
-  if (
-    !isValidCoordinate(
-      lat,
-      lng
-    )
-  ) {
-
-    console.warn(
-      "POI inválido:",
-      poi
-    );
-
-    return null;
-  }
-
+  
   try {
-
-    const marker =
-      L.marker(
-        [lat, lng],
-        {
-          icon: safeIcon(
-            poi.category
-          )
-        }
-      );
-
-    marker.bindPopup(
-      createPopupContent(
-        poi
-      )
-    );
-
-    // ======================================
-    // FLAGS
-    // ======================================
-
-    marker._poiData =
-      poi;
-
-    marker._autoPOI =
-      Boolean(
-        poi.auto
-      );
-
+    const marker = L.marker([lat, lng], {
+      icon: safeIcon(poi.category),
+      riseOnHover: true
+    });
+    
+    marker.bindPopup(createPopupContent(poi), {
+      maxWidth: 260,
+      minWidth: 200
+    });
+    
+    // Armazenar dados no marcador
+    marker._poiData = poi;
+    marker._autoPOI = Boolean(poi.auto);
+    
     marker.addTo(layer);
-
     return marker;
-
+    
   } catch (err) {
-
-    console.error(
-      "Erro marker:",
-      err,
-      poi
-    );
-
+    console.error("Erro ao criar marcador:", err, poi);
     return null;
   }
 }
@@ -470,165 +312,63 @@ function createMarker(
 // ======================================
 
 function clearAutoPOIs() {
-
-  // remove markers
   window.autoPOILayer.clearLayers();
-
-  // remove index
-  window.poiIndex =
-    window.poiIndex.filter(
-      poi => !poi.auto
-    );
-
-  // limpa cache áreas
-  window.loadedPOIAreas =
-    {};
-
-  console.log(
-    "Auto POIs limpos"
-  );
+  window.poiIndex = window.poiIndex.filter(poi => !poi.auto);
+  window.loadedPOIAreas = {};
+  console.log("🗑️ Auto POIs limpos");
 }
 
-window.clearAutoPOIs =
-  clearAutoPOIs;
+window.clearAutoPOIs = clearAutoPOIs;
 
 // ======================================
-// POIs MANUAIS
+// CARREGAR POIs MANUAIS (CORRIGIDO)
 // ======================================
 
-function loadManualPOIs(
-  layer
-) {
-
-  if (
-    !Array.isArray(
-      window.manualPOIs
-    )
-  ) {
-
-    console.warn(
-      "manualPOIs não encontrado"
-    );
-
+function loadManualPOIs(layer) {
+  if (!Array.isArray(window.manualPOIs)) {
+    console.warn("⚠️ manualPOIs não encontrado ou vazio");
     return;
   }
-
-  console.log(
-    "Carregando POIs manuais:",
-    window.manualPOIs.length
-  );
-
-  window.manualPOIs.forEach(
-    poi => {
-
-      const registered =
-        registerPOI(poi);
-
-      if (registered) {
-
-        createMarker(
-          registered,
-          layer
-        );
-      }
+  
+  console.log(`🟢 Carregando ${window.manualPOIs.length} POIs manuais...`);
+  
+  let count = 0;
+  window.manualPOIs.forEach(poi => {
+    const registered = registerPOI(poi);
+    if (registered) {
+      const marker = createMarker(registered, layer);
+      if (marker) count++;
     }
-  );
-
-  console.log(
-    "INDEX APÓS MANUAIS:",
-    window.poiIndex.length
-  );
+  });
+  
+  console.log(`✅ ${count} POIs manuais carregados com sucesso!`);
 }
 
-window.loadManualPOIs =
-  loadManualPOIs;
+window.loadManualPOIs = loadManualPOIs;
 
 // ======================================
 // DETECTAR CATEGORIA
 // ======================================
 
-function detectCategory(
-  tags
-) {
-
-  if (!tags) {
-
-    return "generic";
-  }
-
-  // ======================================
-  // AMENITIES
-  // ======================================
-
-  switch (
-    tags.amenity
-  ) {
-
-    case "hospital":
-
-      return "hospital";
-
-    case "pharmacy":
-
-      return "pharmacy";
-
-    case "police":
-
-      return "police";
-
-    case "restaurant":
-
-      return "restaurant";
-
-    case "fuel":
-
-      return "gas_station";
-
-    case "school":
-
-      return "school";
-
-    case "bank":
-
-      return "bank";
-
-    case "cafe":
-
-      return "cafe";
-  }
-
-  // ======================================
-  // SHOPS
-  // ======================================
-
-  switch (
-    tags.shop
-  ) {
-
-    case "supermarket":
-
-      return "supermarket";
-
-    case "mall":
-
-      return "mall";
-
-    case "bakery":
-
-      return "bakery";
-  }
-
-  // ======================================
-  // TOURISM
-  // ======================================
-
-  if (
-    tags.tourism
-  ) {
-
-    return "tourism";
-  }
-
+function detectCategory(tags) {
+  if (!tags) return "generic";
+  
+  const amenityMap = {
+    hospital: "hospital",
+    pharmacy: "pharmacy",
+    police: "police",
+    restaurant: "restaurant",
+    fuel: "gas_station",
+    school: "school",
+    bank: "bank",
+    cafe: "cafe"
+  };
+  
+  if (amenityMap[tags.amenity]) return amenityMap[tags.amenity];
+  if (tags.shop === "supermarket") return "supermarket";
+  if (tags.shop === "mall") return "mall";
+  if (tags.tourism) return "tourism";
+  
   return "generic";
 }
 
@@ -636,15 +376,9 @@ function detectCategory(
 // QUERY OVERPASS
 // ======================================
 
-function buildOverpassQuery(
-  lat,
-  lng,
-  radius
-) {
-
+function buildOverpassQuery(lat, lng, radius) {
   return `
     [out:json][timeout:15];
-
     (
       node["amenity"="hospital"](around:${radius},${lat},${lng});
       node["amenity"="pharmacy"](around:${radius},${lat},${lng});
@@ -656,273 +390,112 @@ function buildOverpassQuery(
       node["amenity"="school"](around:${radius},${lat},${lng});
       node["amenity"="cafe"](around:${radius},${lat},${lng});
     );
-
     out body;
   `;
 }
 
 // ======================================
-// POIs AUTOMÁTICOS
+// CARREGAR POIs AUTOMÁTICOS (OVERPass)
 // ======================================
 
-async function loadAutoPOIs(
-  lat,
-  lng,
-  radius = 3000,
-  layer
-) {
-
-  window.autoPOIsReady =
-    false;
-
+async function loadAutoPOIs(lat, lng, radius = 3000, layer) {
+  window.autoPOIsReady = false;
+  
   lat = Number(lat);
   lng = Number(lng);
-
-  if (
-    !isValidCoordinate(
-      lat,
-      lng
-    )
-  ) {
-
-    console.warn(
-      "Coords inválidas"
-    );
-
+  
+  if (!isValidCoordinate(lat, lng)) {
+    console.warn("Coordenadas inválidas para Overpass");
     return [];
   }
-
-  // ======================================
-  // CACHE ÁREA
-  // ======================================
-
-  const areaKey =
-    createAreaKey(
-      lat,
-      lng
-    );
-
-  if (
-    window.loadedPOIAreas[
-      areaKey
-    ]
-  ) {
-
-    console.log(
-      "Área já carregada:",
-      areaKey
-    );
-
+  
+  // Cache por área
+  const areaKey = createAreaKey(lat, lng);
+  if (window.loadedPOIAreas[areaKey]) {
+    console.log("📦 Área já carregada:", areaKey);
     return [];
   }
-
-  window.loadedPOIAreas[
-    areaKey
-  ] = true;
-
-  // ======================================
-  // GARANTE LAYER
-  // ======================================
-
-  if (
-    layer &&
-    !layer.hasLayer(
-      window.autoPOILayer
-    )
-  ) {
-
-    layer.addLayer(
-      window.autoPOILayer
-    );
+  
+  window.loadedPOIAreas[areaKey] = true;
+  
+  // Garantir layer
+  if (layer && !layer.hasLayer(window.autoPOILayer)) {
+    layer.addLayer(window.autoPOILayer);
   }
-
-  // ======================================
-  // LIMITA RADIUS
-  // ======================================
-
-  radius =
-    Math.min(
-      Math.max(
-        Number(radius) || 3000,
-        500
-      ),
-      5000
-    );
-
-  // ======================================
-  // CANCELA REQUEST ANTERIOR
-  // ======================================
-
-  if (
-    window.currentPOIController
-  ) {
-
+  
+  radius = Math.min(Math.max(Number(radius) || 3000, 500), 5000);
+  
+  // Cancela request anterior
+  if (window.currentPOIController) {
     window.currentPOIController.abort();
   }
-
-  const controller =
-    new AbortController();
-
-  window.currentPOIController =
-    controller;
-
-  const query =
-    buildOverpassQuery(
-      lat,
-      lng,
-      radius
-    );
-
+  
+  const controller = new AbortController();
+  window.currentPOIController = controller;
+  
+  const query = buildOverpassQuery(lat, lng, radius);
+  
   try {
-
-    const timeout =
-      setTimeout(() => {
-
-        controller.abort();
-
-      }, 15000);
-
-    console.log(
-      "Buscando Overpass..."
-    );
-
-    const res =
-      await fetch(
-        "https://overpass-api.de/api/interpreter",
-        {
-          method: "POST",
-
-          body: query,
-
-          signal:
-            controller.signal
-        }
-      );
-
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    
+    console.log("🌐 Buscando POIs no Overpass...");
+    
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      body: query,
+      signal: controller.signal
+    });
+    
     clearTimeout(timeout);
-
+    
     if (!res.ok) {
-
-      console.error(
-        "Erro Overpass:",
-        res.status
-      );
-
+      console.error("Erro Overpass:", res.status);
       return [];
     }
-
-    const data =
-      await res.json();
-
-    if (
-      !data ||
-      !Array.isArray(
-        data.elements
-      )
-    ) {
-
-      console.error(
-        "Resposta inválida"
-      );
-
+    
+    const data = await res.json();
+    
+    if (!data || !Array.isArray(data.elements)) {
+      console.error("Resposta inválida do Overpass");
       return [];
     }
-
-    console.log(
-      "POIs recebidos:",
-      data.elements.length
-    );
-
-    const addedPOIs =
-      [];
-
-    data.elements.forEach(
-      el => {
-
-        const poi = {
-
-          name:
-            el.tags?.name
-              ? String(
-                  el.tags.name
-                )
-              : `POI ${el.id}`,
-
-          fullName:
-            el.tags?.name ||
-            "",
-
-          lat:
-            Number(el.lat),
-
-          lng:
-            Number(el.lon),
-
-          category:
-            detectCategory(
-              el.tags
-            ),
-
-          auto: true,
-
-          osmId:
-            el.id,
-
-          source:
-            "overpass"
-        };
-
-        const registered =
-          registerPOI(
-            poi
-          );
-
-        if (registered) {
-
-          createMarker(
-            registered,
-            window.autoPOILayer
-          );
-
-          addedPOIs.push(
-            registered
-          );
-        }
+    
+    console.log(`📡 POIs recebidos: ${data.elements.length}`);
+    
+    const addedPOIs = [];
+    
+    data.elements.forEach(el => {
+      const poi = {
+        name: el.tags?.name ? String(el.tags.name) : `POI ${el.id}`,
+        fullName: el.tags?.name || "",
+        lat: Number(el.lat),
+        lng: Number(el.lon),
+        category: detectCategory(el.tags),
+        auto: true,
+        osmId: el.id,
+        source: "overpass"
+      };
+      
+      const registered = registerPOI(poi);
+      if (registered) {
+        const marker = createMarker(registered, window.autoPOILayer);
+        if (marker) addedPOIs.push(registered);
       }
-    );
-
-    console.log(
-      "INDEX FINAL:",
-      window.poiIndex.length
-    );
-
-    window.autoPOIsReady =
-      true;
-
+    });
+    
+    window.autoPOIsReady = true;
+    console.log(`✅ ${addedPOIs.length} auto POIs carregados`);
+    
     return addedPOIs;
-
+    
   } catch (err) {
-
-    if (
-      err.name ===
-      "AbortError"
-    ) {
-
-      console.warn(
-        "Overpass cancelado"
-      );
-
+    if (err.name === "AbortError") {
+      console.warn("⏹️ Overpass cancelado");
       return [];
     }
-
-    console.error(
-      "Erro Overpass:",
-      err
-    );
-
+    console.error("❌ Erro Overpass:", err);
     return [];
   }
 }
 
-window.loadAutoPOIs =
-  loadAutoPOIs;
+window.loadAutoPOIs = loadAutoPOIs;
