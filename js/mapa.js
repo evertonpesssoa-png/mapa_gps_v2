@@ -1,3 +1,7 @@
+// ======================================
+// MAPA.JS - INICIALIZAÇÃO DO MAPA
+// ======================================
+
 window.poiIndex = window.poiIndex || [];
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -20,8 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const lightLayer = L.tileLayer(
     "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
-      attribution:
-        "&copy; OpenStreetMap contributors",
+      attribution: "&copy; OpenStreetMap contributors",
       maxZoom: 19
     }
   );
@@ -29,8 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const satelliteLayer = L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     {
-      attribution:
-        "Tiles © Esri",
+      attribution: "Tiles © Esri",
       maxZoom: 19
     }
   );
@@ -42,36 +44,24 @@ document.addEventListener("DOMContentLoaded", () => {
   // =====================================
 
   L.control.layers(
-    {
-      "🌎 Mapa": lightLayer,
-      "🛰 Satélite": satelliteLayer
-    },
+    { "🌎 Mapa": lightLayer, "🛰 Satélite": satelliteLayer },
     {},
-    {
-      position: "topright"
-    }
+    { position: "topright" }
   ).addTo(map);
 
   // =====================================
   // ZOOM
   // =====================================
 
-  L.control.zoom({
-    position: "bottomright"
-  }).addTo(map);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
 
   // =====================================
   // LAYERS
   // =====================================
 
-  window.poiLayer =
-    L.layerGroup().addTo(map);
-
-  window.routeLayer =
-    L.layerGroup().addTo(map);
-
-  window.userLayer =
-    L.layerGroup().addTo(map);
+  window.poiLayer = L.layerGroup().addTo(map);
+  window.routeLayer = L.layerGroup().addTo(map);
+  window.userLayer = L.layerGroup().addTo(map);
 
   // =====================================
   // USER
@@ -79,7 +69,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let userMarker = null;
   let userCircle = null;
-
   let firstFix = true;
 
   // =====================================
@@ -87,14 +76,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // =====================================
 
   let lastPOILoad = null;
-
-  // =====================================
-  // UX CONTROLE CAMERA
-  // =====================================
-
   let autoFollowUser = true;
-
   let isAnimatingMap = false;
+  let animationTimeout = null;
 
   // =====================================
   // ÍCONE USUÁRIO
@@ -102,16 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const userIcon = L.divIcon({
     className: "user-marker",
-    html: `
-      <div style="
-        width:18px;
-        height:18px;
-        background:#2196f3;
-        border:3px solid white;
-        border-radius:50%;
-        box-shadow:0 0 10px rgba(0,0,0,0.35);
-      "></div>
-    `,
+    html: `<div style="width:18px;height:18px;background:#2196f3;border:3px solid white;border-radius:50%;box-shadow:0 0 10px rgba(0,0,0,0.35);"></div>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9]
   });
@@ -120,10 +95,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // EVENTOS MAPA
   // =====================================
 
-  map.on("dragstart zoomstart", () => {
-
+  map.on("dragstart", () => {
     if (!isAnimatingMap) {
+      autoFollowUser = false;
+    }
+  });
 
+  map.on("zoomstart", () => {
+    if (!isAnimatingMap) {
       autoFollowUser = false;
     }
   });
@@ -132,201 +111,102 @@ document.addEventListener("DOMContentLoaded", () => {
   // DISTÂNCIA
   // =====================================
 
-  function distanceInMeters(
-    lat1,
-    lng1,
-    lat2,
-    lng2
-  ) {
-
+  function distanceInMeters(lat1, lng1, lat2, lng2) {
     const R = 6371000;
-
-    const dLat =
-      (lat2 - lat1) *
-      Math.PI / 180;
-
-    const dLng =
-      (lng2 - lng1) *
-      Math.PI / 180;
-
-    const a =
-
-      Math.sin(dLat / 2) *
-      Math.sin(dLat / 2) +
-
-      Math.cos(lat1 * Math.PI / 180) *
-      Math.cos(lat2 * Math.PI / 180) *
-
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-
-    const c =
-
-      2 *
-      Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1 - a)
-      );
-
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
 
   // =====================================
-  // ANIMAÇÃO SAFE
+  // ANIMAÇÃO SEGURA
   // =====================================
 
-  function animatedSetView(
-    coords,
-    zoom = null
-  ) {
-
+  function animatedSetView(coords, zoom = null) {
     if (!coords) return;
-
-    isAnimatingMap = true;
-
-    if (zoom !== null) {
-
-      map.flyTo(coords, zoom, {
-        duration: 1.2,
-        easeLinearity: 0.25
-      });
-
-    } else {
-
-      map.flyTo(coords, map.getZoom(), {
-        duration: 1.2,
-        easeLinearity: 0.25
-      });
+    
+    if (animationTimeout) {
+      clearTimeout(animationTimeout);
+      animationTimeout = null;
     }
-
-    setTimeout(() => {
-
+    
+    isAnimatingMap = true;
+    
+    const targetZoom = zoom !== null ? zoom : map.getZoom();
+    
+    map.flyTo(coords, targetZoom, {
+      duration: 0.8,
+      easeLinearity: 0.3
+    });
+    
+    animationTimeout = setTimeout(() => {
       isAnimatingMap = false;
-
-    }, 1500);
+      animationTimeout = null;
+    }, 1000);
   }
 
   // =====================================
   // FIT BOUNDS UX
   // =====================================
 
-  window.smartFitBounds =
-    function (
-      bounds,
-      options = {}
-    ) {
-
-      if (!bounds) return;
-
-      isAnimatingMap = true;
-
-      map.flyToBounds(bounds, {
-        padding: options.padding || [60, 60],
-        maxZoom: options.maxZoom || 17,
-        duration: 1.3,
-        easeLinearity: 0.2
-      });
-
-      setTimeout(() => {
-
-        isAnimatingMap = false;
-
-      }, 1800);
-    };
+  window.smartFitBounds = function(bounds, options = {}) {
+    if (!bounds) return;
+    
+    if (animationTimeout) clearTimeout(animationTimeout);
+    
+    isAnimatingMap = true;
+    
+    map.flyToBounds(bounds, {
+      padding: options.padding || [60, 60],
+      maxZoom: options.maxZoom || 17,
+      duration: 1,
+      easeLinearity: 0.25
+    });
+    
+    animationTimeout = setTimeout(() => {
+      isAnimatingMap = false;
+      animationTimeout = null;
+    }, 1300);
+  };
 
   // =====================================
   // LIMPAR APENAS POIs AUTOMÁTICOS
   // =====================================
 
   function clearAutoPOIs() {
-
     if (!window.autoPOILayer) return;
-
     window.autoPOILayer.clearLayers();
-
-    window.poiIndex =
-      window.poiIndex.filter(
-        poi => !poi.auto
-      );
+    window.poiIndex = window.poiIndex.filter(poi => !poi.auto);
   }
 
   // =====================================
   // CARREGAR POIs PRÓXIMOS
   // =====================================
 
-  async function loadNearbyPOIs(
-    lat,
-    lng
-  ) {
-
-    // =====================================
-    // EVITA RELOADS PEQUENOS
-    // =====================================
-
+  async function loadNearbyPOIs(lat, lng) {
     if (lastPOILoad) {
-
-      const dist =
-        distanceInMeters(
-          lat,
-          lng,
-          lastPOILoad.lat,
-          lastPOILoad.lng
-        );
-
-      // recarrega só se mover > 700m
-      if (dist < 700) {
-
-        return;
-      }
+      const dist = distanceInMeters(lat, lng, lastPOILoad.lat, lastPOILoad.lng);
+      if (dist < 500) return;
     }
-
-    lastPOILoad = {
-      lat,
-      lng
-    };
-
-    // =====================================
-    // VALIDAÇÃO
-    // =====================================
-
-    if (
-      typeof loadAutoPOIs !==
-      "function"
-    ) {
-
-      console.warn(
-        "loadAutoPOIs não encontrado"
-      );
-
+    
+    lastPOILoad = { lat, lng };
+    
+    if (typeof loadAutoPOIs !== "function") {
+      console.warn("loadAutoPOIs não encontrado");
       return;
     }
-
+    
     try {
-
-      console.log(
-        "Atualizando POIs..."
-      );
-
+      console.log("🔄 Atualizando POIs...");
       clearAutoPOIs();
-
-      await loadAutoPOIs(
-        lat,
-        lng,
-        2500,
-        window.poiLayer
-      );
-
-      console.log(
-        "POIs carregados:",
-        window.poiIndex.length
-      );
-
+      await loadAutoPOIs(lat, lng, 2000, window.poiLayer);
+      console.log(`✅ POIs carregados: ${window.poiIndex.length}`);
     } catch (err) {
-
-      console.error(
-        "Erro loadNearbyPOIs:",
-        err
-      );
+      console.error("Erro loadNearbyPOIs:", err);
     }
   }
 
@@ -335,351 +215,333 @@ document.addEventListener("DOMContentLoaded", () => {
   // =====================================
 
   function handlePosition(position) {
-
-    const lat =
-      Number(position.lat);
-
-    const lng =
-      Number(position.lng);
-
-    const accuracy =
-      Number(
-        position.accuracy || 0
-      );
-
-    const heading =
-      Number(
-        position.heading || 0
-      );
-
-    if (
-      isNaN(lat) ||
-      isNaN(lng)
-    ) {
-
-      console.warn(
-        "Posição inválida"
-      );
-
+    const lat = Number(position.lat);
+    const lng = Number(position.lng);
+    const accuracy = Number(position.accuracy || 0);
+    const heading = Number(position.heading || 0);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      console.warn("Posição inválida");
       return;
     }
-
-    console.log(
-      "Nova posição:",
-      lat,
-      lng
-    );
-
-    // =====================================
-    // PRIMEIRA POSIÇÃO
-    // =====================================
-
+    
+    console.log("📍 Nova posição:", lat, lng);
+    
     if (!userMarker) {
-
-      userMarker =
-        L.marker(
-          [lat, lng],
-          {
-            icon: userIcon,
-            zIndexOffset: 9999
-          }
-        ).addTo(
-          window.userLayer
-        );
-
-      userCircle =
-        L.circle(
-          [lat, lng],
-          {
-            radius: accuracy,
-            color: "#2196f3",
-            fillColor: "#2196f3",
-            fillOpacity: 0.12,
-            weight: 1
-          }
-        ).addTo(
-          window.userLayer
-        );
-
-      window.userMarker =
-        userMarker;
-
+      userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 9999 }).addTo(window.userLayer);
+      userCircle = L.circle([lat, lng], {
+        radius: accuracy,
+        color: "#2196f3",
+        fillColor: "#2196f3",
+        fillOpacity: 0.12,
+        weight: 1
+      }).addTo(window.userLayer);
+      
+      window.userMarker = userMarker;
+      
       if (firstFix) {
-
-        animatedSetView(
-          [lat, lng],
-          16
-        );
-
+        animatedSetView([lat, lng], 16);
         firstFix = false;
       }
-
     } else {
-
-      userMarker.setLatLng(
-        [lat, lng]
-      );
-
-      userCircle.setLatLng(
-        [lat, lng]
-      );
-
-      userCircle.setRadius(
-        accuracy
-      );
-
-      // =====================================
-      // AUTO FOLLOW SUAVE
-      // =====================================
-
-      if (
-        autoFollowUser
-      ) {
-
-        animatedSetView(
-          [lat, lng]
-        );
+      userMarker.setLatLng([lat, lng]);
+      userCircle.setLatLng([lat, lng]);
+      userCircle.setRadius(accuracy);
+      
+      if (autoFollowUser && !isAnimatingMap) {
+        animatedSetView([lat, lng]);
       }
     }
-
-    // =====================================
-    // ROTAÇÃO USER
-    // =====================================
-
-    const el =
-      userMarker.getElement();
-
-    if (
-      el &&
-      !isNaN(heading)
-    ) {
-
-      el.style.transform +=
-        ` rotate(${heading}deg)`;
+    
+    const el = userMarker.getElement();
+    if (el && !isNaN(heading)) {
+      el.style.transform += ` rotate(${heading}deg)`;
     }
-
-    // =====================================
-    // CARREGA POIs DINÂMICOS
-    // =====================================
-
-    loadNearbyPOIs(
-      lat,
-      lng
-    );
+    
+    loadNearbyPOIs(lat, lng);
   }
 
   // =====================================
   // LOCATION ENGINE
   // =====================================
 
-  if (
-    window.locationEngine
-  ) {
-
-    window.locationEngine.subscribe(
-      handlePosition
-    );
-
-    console.log(
-      "Mapa conectado ao LocationEngine"
-    );
-
+  if (window.locationEngine) {
+    window.locationEngine.subscribe(handlePosition);
+    console.log("✅ Mapa conectado ao LocationEngine");
   } else {
-
-    console.error(
-      "locationEngine não encontrado"
-    );
+    console.error("❌ locationEngine não encontrado");
   }
 
   // =====================================
   // CENTRALIZAR USUÁRIO
   // =====================================
 
-  window.centerOnUser =
-    function () {
-
-      const pos =
-        window.locationEngine?.
-          getPosition();
-
-      if (!pos) {
-
-        alert(
-          "GPS ainda não disponível"
-        );
-
-        return;
-      }
-
-      autoFollowUser = true;
-
-      animatedSetView(
-        [pos.lat, pos.lng],
-        17
-      );
-    };
+  window.centerOnUser = function() {
+    const pos = window.locationEngine?.getPosition();
+    if (!pos) {
+      alert("GPS ainda não disponível");
+      return;
+    }
+    autoFollowUser = true;
+    animatedSetView([pos.lat, pos.lng], 17);
+  };
 
   // =====================================
   // PARAR FOLLOW
   // =====================================
 
-  window.stopFollowingUser =
-    function () {
-
-      autoFollowUser = false;
-    };
+  window.stopFollowingUser = function() {
+    autoFollowUser = false;
+  };
 
   // =====================================
   // RECARREGAR POIs
   // =====================================
 
-  window.reloadNearbyPOIs =
-    async function () {
-
-      const pos =
-        window.locationEngine?.
-          getPosition();
-
-      if (!pos) {
-
-        alert(
-          "GPS indisponível"
-        );
-
-        return;
-      }
-
-      lastPOILoad = null;
-
-      await loadNearbyPOIs(
-        pos.lat,
-        pos.lng
-      );
-    };
+  window.reloadNearbyPOIs = async function() {
+    const pos = window.locationEngine?.getPosition();
+    if (!pos) {
+      alert("GPS indisponível");
+      return;
+    }
+    lastPOILoad = null;
+    await loadNearbyPOIs(pos.lat, pos.lng);
+  };
 
   // =====================================
   // VIEW ON MAP GLOBAL
   // =====================================
 
-  window.viewOnMap =
-    function (
-      lat,
-      lng,
-      zoom = 16
-    ) {
-
-      if (
-        isNaN(lat) ||
-        isNaN(lng)
-      ) {
-
-        return;
-      }
-
-      animatedSetView(
-        [lat, lng],
-        zoom
-      );
-    };
+  window.viewOnMap = function(lat, lng, zoom = 16) {
+    if (isNaN(lat) || isNaN(lng)) return;
+    animatedSetView([lat, lng], zoom);
+  };
 
   // =====================================
   // FOCUS POI
   // =====================================
 
-  window.focusPOI =
-    function (
-      poi,
-      zoom = 17
-    ) {
-
-      if (!poi) return;
-
-      const lat =
-        Number(poi.lat);
-
-      const lng =
-        Number(
-          poi.lng ??
-          poi.lon
-        );
-
-      if (
-        isNaN(lat) ||
-        isNaN(lng)
-      ) {
-
-        return;
-      }
-
-      animatedSetView(
-        [lat, lng],
-        zoom
-      );
-
-      // tenta abrir popup
-      setTimeout(() => {
-
-        window.poiLayer.eachLayer(layer => {
-
-          if (
-            layer.getLatLng
-          ) {
-
-            const p =
-              layer.getLatLng();
-
-            const sameLat =
-              Math.abs(
-                p.lat - lat
-              ) < 0.00001;
-
-            const sameLng =
-              Math.abs(
-                p.lng - lng
-              ) < 0.00001;
-
-            if (
-              sameLat &&
-              sameLng &&
-              layer.openPopup
-            ) {
-
-              layer.openPopup();
-            }
+  window.focusPOI = function(poi, zoom = 17) {
+    if (!poi) return;
+    const lat = Number(poi.lat);
+    const lng = Number(poi.lng ?? poi.lon);
+    if (isNaN(lat) || isNaN(lng)) return;
+    
+    animatedSetView([lat, lng], zoom);
+    
+    setTimeout(() => {
+      window.poiLayer.eachLayer(layer => {
+        if (layer.getLatLng) {
+          const p = layer.getLatLng();
+          if (Math.abs(p.lat - lat) < 0.00001 && Math.abs(p.lng - lng) < 0.00001 && layer.openPopup) {
+            layer.openPopup();
           }
-        });
-
-      }, 800);
-    };
+        }
+      });
+    }, 800);
+  };
 
   // =====================================
-  // FIX LEAFLET
+  // CARREGAR POIs MANUAIS
   // =====================================
 
   setTimeout(() => {
-
-    map.invalidateSize();
-
+    if (typeof loadManualPOIs === "function") {
+      console.log("🟢 Carregando POIs manuais...");
+      loadManualPOIs(window.poiLayer);
+    } else {
+      console.warn("⚠️ loadManualPOIs não encontrada");
+    }
   }, 500);
 
   // =====================================
-  // RESIZE
+  // RESIZE (CORRIGIDO - SEM TREMOR)
   // =====================================
-
-  window.addEventListener(
-    "resize",
-    () => {
-
+  
+  let resizeTimeout = null;
+  
+  window.addEventListener("resize", () => {
+    if (resizeTimeout) clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
       map.invalidateSize();
+      resizeTimeout = null;
+    }, 200);
+  });
+
+  // =====================================
+  // BOTÕES DE CONTROLE INTEGRADOS
+  // =====================================
+  
+  // Criar container personalizado para botões
+  const customControls = L.control({ position: 'topleft' });
+  
+  customControls.onAdd = function() {
+    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    div.style.display = 'flex';
+    div.style.flexDirection = 'column';
+    div.style.gap = '8px';
+    div.innerHTML = `
+      <div style="
+        background: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.2s;
+      " id="search-button-integrated" title="Buscar lugares">
+        🔍
+      </div>
+      <div style="
+        background: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.2s;
+      " id="route-button-integrated" title="Traçar rota">
+        ➜
+      </div>
+      <div style="
+        background: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.2s;
+      " id="gps-button-integrated" title="Minha localização">
+        📍
+      </div>
+    `;
+    
+    div.querySelector('#search-button-integrated').onclick = () => {
+      const panel = document.getElementById('search-panel');
+      if (panel) {
+        if (panel.style.display === 'block') {
+          panel.style.display = 'none';
+        } else {
+          if (typeof window.closePanels === 'function') window.closePanels('search-panel');
+          panel.style.display = 'block';
+          document.getElementById('search-input')?.focus();
+        }
+      }
+    };
+    
+    div.querySelector('#route-button-integrated').onclick = () => {
+      const panel = document.getElementById('route-panel');
+      if (panel) {
+        if (panel.style.display === 'flex') {
+          panel.style.display = 'none';
+        } else {
+          if (typeof window.closePanels === 'function') window.closePanels('route-panel');
+          panel.style.display = 'flex';
+        }
+      }
+    };
+    
+    div.querySelector('#gps-button-integrated').onclick = () => {
+      window.centerOnUser();
+    };
+    
+    return div;
+  };
+  
+  customControls.addTo(map);
+
+  // =====================================
+  // FUNÇÃO AUXILIAR closePanels
+  // =====================================
+  
+  function closePanels(except = null) {
+    const panels = ['search-panel', 'action-panel', 'route-panel'];
+    panels.forEach(id => {
+      if (id === except) return;
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+  
+  window.closePanels = closePanels;
+
+  // =====================================
+  // RENDER RESULTS
+  // =====================================
+  
+  window.renderResults = function(results) {
+    const container = document.getElementById('search-results');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!results || results.length === 0) {
+      container.innerHTML = '<div style="padding:12px; color:#666;">Nenhum resultado encontrado</div>';
+      return;
     }
-  );
+    
+    function escapeHTML(text) {
+      return String(text || '').replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+      });
+    }
+    
+    results.slice(0, 15).forEach(poi => {
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:12px; border-bottom:1px solid #eee; cursor:pointer; background:white; transition:0.2s;';
+      div.innerHTML = `
+        <div style="font-weight:bold;">${escapeHTML(poi.name || 'Local')}</div>
+        <div style="font-size:11px; color:#666;">📌 ${escapeHTML(poi.category || 'ponto de interesse')}</div>
+        ${poi.distance ? `<div style="font-size:10px; color:#999;">📏 ${poi.distance}m de você</div>` : ''}
+      `;
+      
+      div.onclick = () => {
+        if (poi.lat && poi.lng) {
+          window.viewOnMap(poi.lat, poi.lng, 17);
+          if (typeof window.showActionPanel === 'function') {
+            window.showActionPanel(poi);
+          }
+        }
+      };
+      
+      div.onmouseenter = () => { div.style.background = '#f5f5f5'; };
+      div.onmouseleave = () => { div.style.background = 'white'; };
+      
+      container.appendChild(div);
+    });
+    
+    const searchPanel = document.getElementById('search-panel');
+    if (searchPanel) searchPanel.style.display = 'block';
+  };
 
-  // =====================================
-  // DEBUG
-  // =====================================
+  window.escapeHTML = function(text) {
+    return String(text || '').replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
+  };
 
-  console.log(
-    "Mapa inicializado"
-  );
+  // Pequeno delay para garantir renderização
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 300);
 
+  console.log("🗺️ Mapa inicializado com sucesso!");
 });
