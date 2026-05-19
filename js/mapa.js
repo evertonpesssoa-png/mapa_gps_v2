@@ -1,640 +1,685 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
+window.poiIndex = window.poiIndex || [];
+
+document.addEventListener("DOMContentLoaded", () => {
 
-<meta charset="UTF-8" />
-
-<meta
-  name="viewport"
-  content="
-    width=device-width,
-    initial-scale=1.0,
-    maximum-scale=1.0,
-    user-scalable=no
-  "
-/>
-
-<title>Mapa Inteligente</title>
-
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
-
-<style>
-
-/* ====================================== */
-/* BASE */
-/* ====================================== */
-
-html,
-body {
-
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-
-  overflow: hidden;
-
-  font-family:
-    Arial,
-    sans-serif;
-
-  background:
-    #f2f2f2;
-}
-
-* {
-
-  box-sizing:
-    border-box;
-}
-
-#map {
-
-  width: 100%;
-  height: 100%;
-}
-
-/* ====================================== */
-/* PAINÉIS */
-/* ====================================== */
-
-#search-panel,
-#action-panel,
-#route-panel {
-
-  position: absolute;
-
-  background:
-    white;
-
-  border-radius:
-    14px;
-
-  box-shadow:
-    0 4px 18px
-    rgba(0,0,0,.22);
-
-  z-index: 9999;
-}
-
-/* ====================================== */
-/* SEARCH PANEL */
-/* ====================================== */
-
-#search-panel {
-
-  top: 10px;
-  left: 10px;
-
-  width:
-    min(320px, calc(100vw - 20px));
-
-  padding: 10px;
-
-  display: none;
-}
-
-#search-input,
-#route-origin,
-#route-destination {
-
-  width: 100%;
-
-  padding: 10px;
-
-  margin-bottom: 8px;
-
-  border:
-    1px solid #ccc;
-
-  border-radius: 8px;
-
-  outline: none;
-
-  font-size: 15px;
-}
-
-#search-input:focus,
-#route-origin:focus,
-#route-destination:focus {
-
-  border-color:
-    #555;
-}
-
-/* ====================================== */
-/* SEARCH RESULTS */
-/* ====================================== */
-
-#search-results {
-
-  max-height: 280px;
-
-  overflow-y: auto;
-
-  border-radius: 8px;
-}
-
-/* ====================================== */
-/* ACTION PANEL */
-/* ====================================== */
-
-#action-panel {
-
-  bottom: 20px;
-  left: 10px;
-
-  width:
-    min(320px, calc(100vw - 20px));
-
-  padding: 12px;
-
-  display: none;
-}
-
-/* ====================================== */
-/* ROUTE PANEL */
-/* ====================================== */
-
-#route-panel {
-
-  top: 70px;
-  left: 50%;
-
-  transform:
-    translateX(-50%);
-
-  width:
-    min(360px, calc(100vw - 20px));
-
-  padding: 12px;
-
-  display: none;
-
-  flex-direction: column;
-
-  gap: 8px;
-}
-
-/* ====================================== */
-/* MODOS */
-/* ====================================== */
-
-.mode-container {
-
-  display: flex;
-
-  gap: 8px;
-}
-
-.mode-btn {
-
-  flex: 1;
-
-  padding: 10px;
-
-  border: none;
-
-  border-radius: 10px;
-
-  background:
-    #f2f2f2;
-
-  cursor: pointer;
-
-  font-size: 18px;
-
-  transition: .2s;
-}
-
-.mode-btn:hover {
-
-  background:
-    #e6e6e6;
-}
-
-.mode-btn.active {
-
-  outline:
-    2px solid black;
-
-  background:
-    #ddd;
-}
-
-/* ====================================== */
-/* BOTÃO ROTA */
-/* ====================================== */
-
-#createRouteBtn {
-
-  padding: 12px;
-
-  border: none;
-
-  border-radius: 10px;
-
-  background:
-    black;
-
-  color:
-    white;
-
-  font-weight: bold;
-
-  cursor: pointer;
-
-  transition: .2s;
-}
-
-#createRouteBtn:hover {
-
-  opacity: .9;
-}
-
-/* ====================================== */
-/* CONTROLES MAPA */
-/* ====================================== */
-
-.map-controls {
-
-  position: absolute;
-
-  right: 12px;
-  bottom: 20px;
-
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 10px;
-
-  z-index: 9999;
-}
-
-.control-btn {
-
-  width: 52px;
-  height: 52px;
-
-  border-radius: 50%;
-
-  border: none;
-
-  background:
-    white;
-
-  box-shadow:
-    0 2px 10px
-    rgba(0,0,0,.28);
-
-  font-size: 18px;
-
-  cursor: pointer;
-
-  transition: .2s;
-}
-
-.control-btn:hover {
-
-  transform:
-    scale(1.05);
-}
-
-/* ====================================== */
-/* ROUTE INFO */
-/* ====================================== */
-
-#route-info {
-
-  position: absolute;
-
-  bottom: 160px;
-  left: 50%;
-
-  transform:
-    translateX(-50%);
-
-  background:
-    white;
-
-  padding:
-    10px 14px;
-
-  border-radius:
-    12px;
-
-  z-index: 9998;
-
-  font-weight: bold;
-
-  box-shadow:
-    0 2px 10px
-    rgba(0,0,0,.2);
-
-  display: none;
-
-  text-align:center;
-
-  min-width:140px;
-}
-
-@media (max-width: 600px) {
-
-  #route-info {
-
-    bottom: 240px;
-  }
-}
-
-/* ====================================== */
-/* SUGESTÕES */
-/* ====================================== */
-
-.suggestions {
-
-  max-height: 120px;
-
-  overflow-y: auto;
-
-  border-radius: 8px;
-}
-
-.suggestions div {
-
-  padding: 8px;
-
-  cursor: pointer;
-
-  border-radius: 6px;
-
-  transition: .15s;
-}
-
-.suggestions div:hover {
-
-  background:
-    #eee;
-}
-
-/* ====================================== */
-/* SCROLL */
-/* ====================================== */
-
-::-webkit-scrollbar {
-
-  width: 8px;
-}
-
-::-webkit-scrollbar-thumb {
-
-  background:
-    rgba(0,0,0,.25);
-
-  border-radius: 20px;
-}
-
-/* ====================================== */
-/* MOBILE */
-/* ====================================== */
-
-@media (max-width: 600px) {
-
-  #route-panel {
-
-    top: auto;
-
-    bottom: 80px;
+  // =====================================
+  // MAPA
+  // =====================================
+
+  const map = L.map("map", {
+    zoomControl: false,
+    preferCanvas: true
+  }).setView([-8.0400, -34.8761], 13);
+
+  window.map = map;
+
+  // =====================================
+  // CAMADAS BASE
+  // =====================================
+
+  const lightLayer = L.tileLayer(
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution:
+        "&copy; OpenStreetMap contributors",
+      maxZoom: 19
+    }
+  );
+
+  const satelliteLayer = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      attribution:
+        "Tiles © Esri",
+      maxZoom: 19
+    }
+  );
+
+  lightLayer.addTo(map);
+
+  // =====================================
+  // CONTROLE CAMADAS
+  // =====================================
+
+  L.control.layers(
+    {
+      "🌎 Mapa": lightLayer,
+      "🛰 Satélite": satelliteLayer
+    },
+    {},
+    {
+      position: "topright"
+    }
+  ).addTo(map);
+
+  // =====================================
+  // ZOOM
+  // =====================================
+
+  L.control.zoom({
+    position: "bottomright"
+  }).addTo(map);
+
+  // =====================================
+  // LAYERS
+  // =====================================
+
+  window.poiLayer =
+    L.layerGroup().addTo(map);
+
+  window.routeLayer =
+    L.layerGroup().addTo(map);
+
+  window.userLayer =
+    L.layerGroup().addTo(map);
+
+  // =====================================
+  // USER
+  // =====================================
+
+  let userMarker = null;
+  let userCircle = null;
+
+  let firstFix = true;
+
+  // =====================================
+  // CONTROLE POIs
+  // =====================================
+
+  let lastPOILoad = null;
+
+  // =====================================
+  // UX CONTROLE CAMERA
+  // =====================================
+
+  let autoFollowUser = true;
+
+  let isAnimatingMap = false;
+
+  // =====================================
+  // ÍCONE USUÁRIO
+  // =====================================
+
+  const userIcon = L.divIcon({
+    className: "user-marker",
+    html: `
+      <div style="
+        width:18px;
+        height:18px;
+        background:#2196f3;
+        border:3px solid white;
+        border-radius:50%;
+        box-shadow:0 0 10px rgba(0,0,0,0.35);
+      "></div>
+    `,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
+  });
+
+  // =====================================
+  // EVENTOS MAPA
+  // =====================================
+
+  map.on("dragstart zoomstart", () => {
+
+    if (!isAnimatingMap) {
+
+      autoFollowUser = false;
+    }
+  });
+
+  // =====================================
+  // DISTÂNCIA
+  // =====================================
+
+  function distanceInMeters(
+    lat1,
+    lng1,
+    lat2,
+    lng2
+  ) {
+
+    const R = 6371000;
+
+    const dLat =
+      (lat2 - lat1) *
+      Math.PI / 180;
+
+    const dLng =
+      (lng2 - lng1) *
+      Math.PI / 180;
+
+    const a =
+
+      Math.sin(dLat / 2) *
+      Math.sin(dLat / 2) +
+
+      Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+    const c =
+
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      );
+
+    return R * c;
   }
 
-  .control-btn {
+  // =====================================
+  // ANIMAÇÃO SAFE
+  // =====================================
 
-    width: 50px;
-    height: 50px;
+  function animatedSetView(
+    coords,
+    zoom = null
+  ) {
+
+    if (!coords) return;
+
+    isAnimatingMap = true;
+
+    if (zoom !== null) {
+
+      map.flyTo(coords, zoom, {
+        duration: 1.2,
+        easeLinearity: 0.25
+      });
+
+    } else {
+
+      map.flyTo(coords, map.getZoom(), {
+        duration: 1.2,
+        easeLinearity: 0.25
+      });
+    }
+
+    setTimeout(() => {
+
+      isAnimatingMap = false;
+
+    }, 1500);
   }
-}
 
-</style>
-</head>
+  // =====================================
+  // FIT BOUNDS UX
+  // =====================================
 
-<body>
+  window.smartFitBounds =
+    function (
+      bounds,
+      options = {}
+    ) {
 
-<!-- ====================================== -->
-<!-- SEARCH PANEL -->
-<!-- ====================================== -->
+      if (!bounds) return;
 
-<div id="search-panel">
+      isAnimatingMap = true;
 
-  <input
-    id="search-input"
-    autocomplete="off"
-    placeholder="Buscar cidade, rua, mercado..."
-  />
+      map.flyToBounds(bounds, {
+        padding: options.padding || [60, 60],
+        maxZoom: options.maxZoom || 17,
+        duration: 1.3,
+        easeLinearity: 0.2
+      });
 
-  <div id="search-results"></div>
+      setTimeout(() => {
 
-</div>
+        isAnimatingMap = false;
 
-<!-- ====================================== -->
-<!-- ROUTE PANEL -->
-<!-- ====================================== -->
+      }, 1800);
+    };
 
-<div id="route-panel">
+  // =====================================
+  // LIMPAR APENAS POIs AUTOMÁTICOS
+  // =====================================
 
-  <input
-    id="route-origin"
-    autocomplete="off"
-    placeholder="Origem (vazio = GPS)"
-  />
+  function clearAutoPOIs() {
 
-  <div
-    id="origin-suggestions"
-    class="suggestions"
-  ></div>
+    if (!window.autoPOILayer) return;
 
-  <input
-    id="route-destination"
-    autocomplete="off"
-    placeholder="Destino"
-  />
+    window.autoPOILayer.clearLayers();
 
-  <div
-    id="dest-suggestions"
-    class="suggestions"
-  ></div>
+    window.poiIndex =
+      window.poiIndex.filter(
+        poi => !poi.auto
+      );
+  }
 
-  <div class="mode-container">
+  // =====================================
+  // CARREGAR POIs PRÓXIMOS
+  // =====================================
 
-    <button
-      class="mode-btn active"
-      data-mode="foot"
-    >
-      🚶
-    </button>
+  async function loadNearbyPOIs(
+    lat,
+    lng
+  ) {
 
-    <button
-      class="mode-btn"
-      data-mode="bike"
-    >
-      🚴
-    </button>
+    // =====================================
+    // EVITA RELOADS PEQUENOS
+    // =====================================
 
-    <button
-      class="mode-btn"
-      data-mode="car"
-    >
-      🚗
-    </button>
+    if (lastPOILoad) {
 
-  </div>
+      const dist =
+        distanceInMeters(
+          lat,
+          lng,
+          lastPOILoad.lat,
+          lastPOILoad.lng
+        );
 
-  <button id="createRouteBtn">
-    Criar rota
-  </button>
+      // recarrega só se mover > 700m
+      if (dist < 700) {
 
-</div>
+        return;
+      }
+    }
 
-<!-- ====================================== -->
-<!-- ACTION PANEL -->
-<!-- ====================================== -->
+    lastPOILoad = {
+      lat,
+      lng
+    };
 
-<div id="action-panel"></div>
+    // =====================================
+    // VALIDAÇÃO
+    // =====================================
 
-<!-- ====================================== -->
-<!-- ROUTE INFO -->
-<!-- ====================================== -->
+    if (
+      typeof loadAutoPOIs !==
+      "function"
+    ) {
 
-<div id="route-info"></div>
+      console.warn(
+        "loadAutoPOIs não encontrado"
+      );
 
-<!-- ====================================== -->
-<!-- MAP -->
-<!-- ====================================== -->
+      return;
+    }
 
-<div id="map"></div>
+    try {
 
-<!-- ====================================== -->
-<!-- MAP CONTROLS -->
-<!-- ====================================== -->
+      console.log(
+        "Atualizando POIs..."
+      );
 
-<div class="map-controls">
+      clearAutoPOIs();
 
-  <button
-    class="control-btn"
-    onclick="toggleSearch()"
-    title="Buscar"
-  >
-    🔎
-  </button>
+      await loadAutoPOIs(
+        lat,
+        lng,
+        2500,
+        window.poiLayer
+      );
 
-  <button
-    class="control-btn"
-    onclick="centerOnUser()"
-    title="Minha localização"
-  >
-    📍
-  </button>
+      console.log(
+        "POIs carregados:",
+        window.poiIndex.length
+      );
 
-  <button
-    class="control-btn"
-    onclick="toggleRoute()"
-    title="Rotas"
-  >
-    ➜
-  </button>
+    } catch (err) {
 
-  <button
-    class="control-btn"
-    onclick="reloadNearbyPOIs()"
-    title="Recarregar POIs"
-  >
-    🔄
-  </button>
+      console.error(
+        "Erro loadNearbyPOIs:",
+        err
+      );
+    }
+  }
 
-</div>
+  // =====================================
+  // HANDLE POSITION
+  // =====================================
 
-<!-- ====================================== -->
-<!-- LEAFLET -->
-<!-- ====================================== -->
+  function handlePosition(position) {
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    const lat =
+      Number(position.lat);
 
-<!-- ====================================== -->
-<!-- APP -->
-<!-- ====================================== -->
+    const lng =
+      Number(position.lng);
 
-<!-- ORDEM IMPORTA MUITO -->
+    const accuracy =
+      Number(
+        position.accuracy || 0
+      );
 
-<script src="js/icons.js"></script>
+    const heading =
+      Number(
+        position.heading || 0
+      );
 
-<!-- GPS CENTRAL -->
-<script src="js/locationEngine.js"></script>
+    if (
+      isNaN(lat) ||
+      isNaN(lng)
+    ) {
 
-<!-- GEOCODING -->
-<script src="js/geocoding.js"></script>
+      console.warn(
+        "Posição inválida"
+      );
 
-<!-- POIs -->
-<script src="js/pois.js"></script>
+      return;
+    }
 
-<!-- DADOS -->
-<script src="data/manual_pois.js"></script>
+    console.log(
+      "Nova posição:",
+      lat,
+      lng
+    );
 
-<!-- ROTA -->
-<script src="js/routing.js"></script>
+    // =====================================
+    // PRIMEIRA POSIÇÃO
+    // =====================================
 
-<!-- SEARCH -->
-<script src="js/search.js"></script>
+    if (!userMarker) {
 
-<!-- MAPA -->
-<script src="js/mapa.js"></script>
+      userMarker =
+        L.marker(
+          [lat, lng],
+          {
+            icon: userIcon,
+            zIndexOffset: 9999
+          }
+        ).addTo(
+          window.userLayer
+        );
 
-<!-- ====================================== -->
-<!-- CHAT DO ASURA (COPILOTO) -->
-<!-- ====================================== -->
+      userCircle =
+        L.circle(
+          [lat, lng],
+          {
+            radius: accuracy,
+            color: "#2196f3",
+            fillColor: "#2196f3",
+            fillOpacity: 0.12,
+            weight: 1
+          }
+        ).addTo(
+          window.userLayer
+        );
 
-<div id="asura-chat" class="asura-chat collapsed">
-  <div class="chat-header" id="chatHeader">
-    <div class="chat-header-info">
-      <div class="chat-avatar" id="chatAvatar">🤖</div>
-      <div>
-        <h4 id="chatAsuraName">DIVA</h4>
-        <div class="chat-status" id="chatStatus">🟢 online</div>
-      </div>
-    </div>
-    <div class="chat-controls">
-      <button class="chat-minimize" id="chatMinimizeBtn">−</button>
-      <button class="chat-close" id="chatCloseBtn">✕</button>
-    </div>
-  </div>
-  
-  <div class="chat-body" id="chatBody">
-    <div class="chat-messages" id="chatMessages">
-      <div class="message asura">
-        <div class="message-avatar">🤖</div>
-        <div class="message-content">
-          ✨ Olá! Sou sua assistente. Posso te ajudar a encontrar lugares no mapa!
-          <div class="message-time">Agora</div>
-        </div>
-      </div>
-    </div>
-    <div class="chat-input-area">
-      <select id="asuraSelector" class="asura-selector">
-        <option value="diva">🤖 DIVA (Automação)</option>
-        <option value="astreia">👁️ ASTREIA (Segurança)</option>
-        <option value="siria">🌳 SIRIA (Financeiro)</option>
-      </select>
-      <input type="text" id="chatInput" placeholder="Digite seu comando...">
-      <button id="sendChatBtn">➤</button>
-    </div>
-  </div>
-</div>
+      window.userMarker =
+        userMarker;
 
-<!-- Botão flutuante para abrir o chat -->
-<button id="openChatBtn" class="open-chat-btn" title="Abrir Assistente">
-  💬
-</button>
+      if (firstFix) {
 
-</body>
-</html>
+        animatedSetView(
+          [lat, lng],
+          16
+        );
+
+        firstFix = false;
+      }
+
+    } else {
+
+      userMarker.setLatLng(
+        [lat, lng]
+      );
+
+      userCircle.setLatLng(
+        [lat, lng]
+      );
+
+      userCircle.setRadius(
+        accuracy
+      );
+
+      // =====================================
+      // AUTO FOLLOW SUAVE
+      // =====================================
+
+      if (
+        autoFollowUser
+      ) {
+
+        animatedSetView(
+          [lat, lng]
+        );
+      }
+    }
+
+    // =====================================
+    // ROTAÇÃO USER
+    // =====================================
+
+    const el =
+      userMarker.getElement();
+
+    if (
+      el &&
+      !isNaN(heading)
+    ) {
+
+      el.style.transform +=
+        ` rotate(${heading}deg)`;
+    }
+
+    // =====================================
+    // CARREGA POIs DINÂMICOS
+    // =====================================
+
+    loadNearbyPOIs(
+      lat,
+      lng
+    );
+  }
+
+  // =====================================
+  // LOCATION ENGINE
+  // =====================================
+
+  if (
+    window.locationEngine
+  ) {
+
+    window.locationEngine.subscribe(
+      handlePosition
+    );
+
+    console.log(
+      "Mapa conectado ao LocationEngine"
+    );
+
+  } else {
+
+    console.error(
+      "locationEngine não encontrado"
+    );
+  }
+
+  // =====================================
+  // CENTRALIZAR USUÁRIO
+  // =====================================
+
+  window.centerOnUser =
+    function () {
+
+      const pos =
+        window.locationEngine?.
+          getPosition();
+
+      if (!pos) {
+
+        alert(
+          "GPS ainda não disponível"
+        );
+
+        return;
+      }
+
+      autoFollowUser = true;
+
+      animatedSetView(
+        [pos.lat, pos.lng],
+        17
+      );
+    };
+
+  // =====================================
+  // PARAR FOLLOW
+  // =====================================
+
+  window.stopFollowingUser =
+    function () {
+
+      autoFollowUser = false;
+    };
+
+  // =====================================
+  // RECARREGAR POIs
+  // =====================================
+
+  window.reloadNearbyPOIs =
+    async function () {
+
+      const pos =
+        window.locationEngine?.
+          getPosition();
+
+      if (!pos) {
+
+        alert(
+          "GPS indisponível"
+        );
+
+        return;
+      }
+
+      lastPOILoad = null;
+
+      await loadNearbyPOIs(
+        pos.lat,
+        pos.lng
+      );
+    };
+
+  // =====================================
+  // VIEW ON MAP GLOBAL
+  // =====================================
+
+  window.viewOnMap =
+    function (
+      lat,
+      lng,
+      zoom = 16
+    ) {
+
+      if (
+        isNaN(lat) ||
+        isNaN(lng)
+      ) {
+
+        return;
+      }
+
+      animatedSetView(
+        [lat, lng],
+        zoom
+      );
+    };
+
+  // =====================================
+  // FOCUS POI
+  // =====================================
+
+  window.focusPOI =
+    function (
+      poi,
+      zoom = 17
+    ) {
+
+      if (!poi) return;
+
+      const lat =
+        Number(poi.lat);
+
+      const lng =
+        Number(
+          poi.lng ??
+          poi.lon
+        );
+
+      if (
+        isNaN(lat) ||
+        isNaN(lng)
+      ) {
+
+        return;
+      }
+
+      animatedSetView(
+        [lat, lng],
+        zoom
+      );
+
+      // tenta abrir popup
+      setTimeout(() => {
+
+        window.poiLayer.eachLayer(layer => {
+
+          if (
+            layer.getLatLng
+          ) {
+
+            const p =
+              layer.getLatLng();
+
+            const sameLat =
+              Math.abs(
+                p.lat - lat
+              ) < 0.00001;
+
+            const sameLng =
+              Math.abs(
+                p.lng - lng
+              ) < 0.00001;
+
+            if (
+              sameLat &&
+              sameLng &&
+              layer.openPopup
+            ) {
+
+              layer.openPopup();
+            }
+          }
+        });
+
+      }, 800);
+    };
+
+  // =====================================
+  // FIX LEAFLET
+  // =====================================
+
+  setTimeout(() => {
+
+    map.invalidateSize();
+
+  }, 500);
+
+  // =====================================
+  // RESIZE
+  // =====================================
+
+  window.addEventListener(
+    "resize",
+    () => {
+
+      map.invalidateSize();
+    }
+  );
+
+  // =====================================
+  // DEBUG
+  // =====================================
+
+  console.log(
+    "Mapa inicializado"
+  );
+
+});
