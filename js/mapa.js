@@ -370,10 +370,186 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 200);
   });
 
+  // =====================================
+  // BOTÃO DE BUSCA INTEGRADO (CANTO SUPERIOR ESQUERDO)
+  // =====================================
+  
+  // Criar container personalizado para botões
+  const customControls = L.control({ position: 'topleft' });
+  
+  customControls.onAdd = function() {
+    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    div.style.display = 'flex';
+    div.style.flexDirection = 'column';
+    div.style.gap = '8px';
+    div.innerHTML = `
+      <div style="
+        background: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.2s;
+      " id="search-button-integrated" title="Buscar lugares">
+        🔍
+      </div>
+      <div style="
+        background: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.2s;
+      " id="route-button-integrated" title="Traçar rota">
+        ➜
+      </div>
+      <div style="
+        background: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        transition: all 0.2s;
+      " id="gps-button-integrated" title="Minha localização">
+        📍
+      </div>
+    `;
+    
+    div.querySelector('#search-button-integrated').onclick = () => {
+      const panel = document.getElementById('search-panel');
+      if (panel) {
+        if (panel.style.display === 'block') {
+          panel.style.display = 'none';
+        } else {
+          if (typeof window.closePanels === 'function') {
+            window.closePanels('search-panel');
+          }
+          panel.style.display = 'block';
+          document.getElementById('search-input')?.focus();
+        }
+      }
+    };
+    
+    div.querySelector('#route-button-integrated').onclick = () => {
+      const panel = document.getElementById('route-panel');
+      if (panel) {
+        if (panel.style.display === 'flex') {
+          panel.style.display = 'none';
+        } else {
+          if (typeof window.closePanels === 'function') {
+            window.closePanels('route-panel');
+          }
+          panel.style.display = 'flex';
+        }
+      }
+    };
+    
+    div.querySelector('#gps-button-integrated').onclick = () => {
+      window.centerOnUser();
+    };
+    
+    return div;
+  };
+  
+  customControls.addTo(map);
+
+  // =====================================
+  // FUNÇÃO AUXILIAR closePanels
+  // =====================================
+  
+  function closePanels(except = null) {
+    const panels = ['search-panel', 'action-panel', 'route-panel'];
+    panels.forEach(id => {
+      if (id === except) return;
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+  
+  window.closePanels = closePanels;
+
+  // =====================================
+  // INTEGRAÇÃO COM O CHAT DO ASURA
+  // =====================================
+
+  // Função para renderizar resultados no painel de busca (usada pelo chat)
+  window.renderResults = function(results) {
+    const container = document.getElementById('search-results');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!results || results.length === 0) {
+      container.innerHTML = '<div style="padding:12px; color:#666;">Nenhum resultado encontrado</div>';
+      return;
+    }
+    
+    function escapeHTML(text) {
+      return String(text || '').replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+      });
+    }
+    
+    results.slice(0, 15).forEach(poi => {
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:12px; border-bottom:1px solid #eee; cursor:pointer; background:white; transition:0.2s;';
+      div.innerHTML = `
+        <div style="font-weight:bold;">${escapeHTML(poi.name || 'Local')}</div>
+        <div style="font-size:11px; color:#666;">📌 ${escapeHTML(poi.category || 'ponto de interesse')}</div>
+      `;
+      
+      div.onclick = () => {
+        if (poi.lat && poi.lng) {
+          window.map.setView([poi.lat, poi.lng], 16);
+          if (typeof window.showActionPanel === 'function') {
+            window.showActionPanel(poi);
+          }
+        }
+      };
+      
+      div.onmouseenter = () => { div.style.background = '#f5f5f5'; };
+      div.onmouseleave = () => { div.style.background = 'white'; };
+      
+      container.appendChild(div);
+    });
+    
+    // Abrir o painel de busca automaticamente
+    const searchPanel = document.getElementById('search-panel');
+    if (searchPanel) searchPanel.style.display = 'block';
+  };
+
+  // Função de escape para HTML (global)
+  window.escapeHTML = function(text) {
+    return String(text || '').replace(/[&<>]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      return m;
+    });
+  };
+
   // Pequeno delay para garantir renderização
   setTimeout(() => {
     map.invalidateSize();
   }, 300);
 
-  console.log("🗺️ Mapa inicializado com sucesso!");
+  console.log("🗺️ Mapa inicializado com sucesso! Use os botões 🔍 ➜ 📍 para navegar.");
 });
