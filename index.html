@@ -204,49 +204,6 @@ html, body {
 /* BOTÕES FLUTUANTES */
 /* ====================================== */
 
-.route-smart-btn {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid #ff4db8;
-  border-radius: 50%;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 1.8rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  color: #ff4db8;
-}
-
-.route-smart-btn:hover {
-  transform: scale(1.05);
-  background: rgba(255, 77, 184, 0.2);
-}
-
-.clear-route-btn {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid #ff4444;
-  border-radius: 50%;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 1.5rem;
-  transition: all 0.3s ease;
-  color: #ff4444;
-}
-
-.clear-route-btn:hover {
-  transform: scale(1.05);
-  background: rgba(255, 68, 68, 0.2);
-}
-
 .open-chat-btn {
   background: linear-gradient(135deg, #ff4db8, #ff88dd);
   border: none;
@@ -576,7 +533,7 @@ html, body {
   .asura-chat .chat-body {
     height: 350px;
   }
-  .route-smart-btn, .open-chat-btn, .clear-route-btn {
+  .open-chat-btn {
     width: 48px;
     height: 48px;
     font-size: 1.5rem;
@@ -655,12 +612,10 @@ html, body {
 </div>
 
 <!-- ====================================== -->
-<!-- BOTÕES FLUTUANTES -->
+<!-- BOTÃO FLUTUANTE (APENAS CHAT) -->
 <!-- ====================================== -->
 
 <div style="position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999;">
-  <button id="routeSmartBtn" class="route-smart-btn" title="Rota Inteligente">🗺️</button>
-  <button id="clearRouteBtn" class="clear-route-btn" title="Limpar rotas">🗑️</button>
   <button id="openChatBtn" class="open-chat-btn" title="Abrir Assistente">💬</button>
 </div>
 
@@ -747,6 +702,7 @@ if (!MAPBOX_TOKEN || MAPBOX_TOKEN === '') {
 <script src="js/routing.js"></script>
 <script src="js/mapa.js"></script>
 <script src="js/chat.js"></script>
+<script src="js/pois.js"></script>
 
 <!-- ====================================== -->
 <!-- FUNÇÕES ADICIONAIS -->
@@ -761,24 +717,16 @@ window.toggleRoute = function() {
   }
 };
 
-// Clear route button
-document.getElementById('clearRouteBtn')?.addEventListener('click', () => {
+// Função para fechar o card de rota (adicionada)
+window.closeRouteCard = function() {
+  const routeInfo = document.getElementById('route-info');
+  if (routeInfo) {
+    routeInfo.style.display = 'none';
+  }
   if (window.clearAllRoutes) {
     window.clearAllRoutes();
   }
-  if (window.clearApiPOIs) {
-    window.clearApiPOIs();
-  }
-  console.log('🗑️ Rotas e POIs da API limpos');
-});
-
-// Open route smart button
-document.getElementById('routeSmartBtn')?.addEventListener('click', () => {
-  const dest = prompt('🗺️ Para onde você quer ir?\n\nDigite o endereço ou nome do lugar:', '');
-  if (dest?.trim() && window.createSmartRoute) {
-    window.createSmartRoute('', dest.trim());
-  }
-});
+};
 
 // Garantir que o mapa seja redimensionado corretamente
 window.addEventListener('load', () => {
