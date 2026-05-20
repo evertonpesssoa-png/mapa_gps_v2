@@ -1,3 +1,7 @@
+// ======================================
+// SEARCH.JS - SISTEMA DE BUSCA (CORRIGIDO)
+// ======================================
+
 let searchOpen = false;
 let currentSearchId = 0;
 window.searchCache = window.searchCache || {};
@@ -39,7 +43,29 @@ function showActionPanel(poi) {
 }
 window.showActionPanel = showActionPanel;
 
-async function searchPlace(query) {
+// ======================================
+// ESPERAR POIs CARREGAREM
+// ======================================
+function waitForPOIIndex(callback, maxWait = 3000) {
+  const startTime = Date.now();
+  function check() {
+    if (window.poiIndex && window.poiIndex.length > 0) {
+      console.log(`✅ POI Index pronto: ${window.poiIndex.length} POIs`);
+      callback();
+    } else if (Date.now() - startTime < maxWait) {
+      setTimeout(check, 200);
+    } else {
+      console.warn("⚠️ POI Index não carregou a tempo, tentando busca mesmo assim");
+      callback();
+    }
+  }
+  check();
+}
+
+// ======================================
+// FUNÇÃO DE BUSCA ORIGINAL
+// ======================================
+async function searchPlaceOriginal(query) {
   const container = document.getElementById("search-results");
   if (!container) return;
   query = query?.trim();
@@ -49,10 +75,19 @@ async function searchPlace(query) {
   const normalizedQuery = normalizeText(query);
   let results = [];
   
-  if (Array.isArray(window.poiIndex)) {
-    results.push(...window.poiIndex.filter(poi => normalizeText(poi.name).includes(normalizedQuery)));
+  console.log(`🔍 Buscando: "${query}" - POI Index: ${window.poiIndex?.length || 0} itens`);
+  
+  if (Array.isArray(window.poiIndex) && window.poiIndex.length > 0) {
+    const matches = window.poiIndex.filter(poi => normalizeText(poi.name).includes(normalizedQuery));
+    console.log(`📌 Encontrados ${matches.length} POIs locais`);
+    results.push(...matches);
+  } else {
+    console.warn("⚠️ POI Index vazio ou não disponível");
   }
-  if (window.searchCache[normalizedQuery]) results.push(...window.searchCache[normalizedQuery]);
+  
+  if (window.searchCache[normalizedQuery]) {
+    results.push(...window.searchCache[normalizedQuery]);
+  }
   
   renderResults(results);
   
@@ -72,13 +107,27 @@ async function searchPlace(query) {
     } catch (err) { console.error("Erro search:", err); }
   }
 }
-window.searchPlace = searchPlace;
 
+// ======================================
+// WRAPPER QUE ESPERA OS POIs
+// ======================================
+window.searchPlace = function(query) {
+  waitForPOIIndex(() => {
+    searchPlaceOriginal(query);
+  });
+};
+
+// ======================================
+// RENDERIZAR RESULTADOS
+// ======================================
 function renderResults(results) {
   const container = document.getElementById("search-results");
   if (!container) return;
   container.innerHTML = "";
-  if (!results?.length) { container.innerHTML = "<div style='padding:12px; color:#666;'>Nenhum resultado</div>"; return; }
+  if (!results?.length) { 
+    container.innerHTML = "<div style='padding:12px; color:#666;'>Nenhum resultado encontrado</div>"; 
+    return; 
+  }
   
   const unique = [];
   results.forEach(poi => {
@@ -88,10 +137,12 @@ function renderResults(results) {
     }
   });
   
+  console.log(`📋 Renderizando ${unique.length} resultados únicos`);
+  
   unique.slice(0, 25).forEach(poi => {
     const div = document.createElement("div");
     div.style.cssText = "padding:12px; border-bottom:1px solid #eee; cursor:pointer; background:white;";
-    div.innerHTML = `<div style="font-weight:bold;">${escapeHTML(poi.name)}</div>${poi.fullName ? `<div style="font-size:12px; color:#666;">${escapeHTML(poi.fullName)}</div>` : ""}<div style="font-size:11px; color:#999;">📍 local</div>`;
+    div.innerHTML = `<div style="font-weight:bold;">${escapeHTML(poi.name)}</div>${poi.fullName ? `<div style="font-size:12px; color:#666;">${escapeHTML(poi.fullName)}</div>` : ""}<div style="font-size:11px; color:#999;">📍 ${poi.category || "local"}</div>`;
     div.onclick = () => { viewOnMap(poi.lat, poi.lng, 17); showActionPanel(poi); };
     div.onmouseenter = () => div.style.background = "#f5f5f5";
     div.onmouseleave = () => div.style.background = "white";
@@ -100,14 +151,21 @@ function renderResults(results) {
 }
 window.renderResults = renderResults;
 
+// ======================================
+// INICIALIZAÇÃO
+// ======================================
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("search-input");
   if (!input) return;
-  const debouncedSearch = debounce(value => searchPlace(value), 350);
+  const debouncedSearch = debounce(value => window.searchPlace(value), 350);
   input.addEventListener("input", e => debouncedSearch(e.target.value));
-  input.addEventListener("keydown", e => { if (e.key === "Enter") searchPlace(input.value); });
+  input.addEventListener("keydown", e => { if (e.key === "Enter") window.searchPlace(input.value); });
+  console.log("🔍 Sistema de busca inicializado");
 });
 
+// ======================================
+// FUNÇÕES AUXILIARES
+// ======================================
 window.searchByCategory = function(category, query = "") {
   if (!window.poiIndex) return [];
   const normalizedQuery = normalizeText(query);
@@ -121,3 +179,5 @@ window.searchNearby = function(lat, lng, radius = 1000, category = null) {
     return dist <= radius && (category === null || poi.category === category || poi.type === category);
   }).sort((a,b) => (a.distance||0) - (b.distance||0));
 };
+
+console.log("✅ search.js carregado com correção de espera do POI Index");
