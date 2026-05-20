@@ -1,5 +1,5 @@
 // ======================================
-// MAPA.JS - INICIALIZAÇÃO DO MAPA
+// MAPA.JS - INICIALIZAÇÃO DO MAPA (CORRIGIDO - SEM TREMOR)
 // ======================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -23,20 +23,32 @@ document.addEventListener("DOMContentLoaded", () => {
   map.on("dragstart", () => { if (!isAnimatingMap) autoFollowUser = false; });
   map.on("zoomstart", () => { if (!isAnimatingMap) autoFollowUser = false; });
 
+  // ======================================
+  // ANIMAÇÃO CORRIGIDA (SEM TREMOR)
+  // ======================================
   function animatedSetView(coords, zoom = null) {
     if (!coords) return;
+    if (isAnimatingMap) return; // ← IMPEDE animação duplicada
+    
     if (animationTimeout) clearTimeout(animationTimeout);
     isAnimatingMap = true;
-    map.flyTo(coords, zoom !== null ? zoom : map.getZoom(), { duration: 0.8 });
-    animationTimeout = setTimeout(() => { isAnimatingMap = false; }, 1000);
+    
+    const targetZoom = zoom !== null ? zoom : map.getZoom();
+    map.flyTo(coords, targetZoom, { duration: 0.6 });
+    
+    animationTimeout = setTimeout(() => { 
+      isAnimatingMap = false; 
+    }, 800);
   }
   window.animatedSetView = animatedSetView;
 
   window.smartFitBounds = function(bounds, options = {}) {
     if (!bounds) return;
+    if (isAnimatingMap) return; // ← IMPEDE animação duplicada
+    
     isAnimatingMap = true;
-    map.flyToBounds(bounds, { padding: options.padding || [60, 60], maxZoom: options.maxZoom || 17, duration: 1 });
-    setTimeout(() => { isAnimatingMap = false; }, 1300);
+    map.flyToBounds(bounds, { padding: options.padding || [60, 60], maxZoom: options.maxZoom || 17, duration: 0.8 });
+    setTimeout(() => { isAnimatingMap = false; }, 1000);
   };
 
   function distanceInMeters(lat1, lng1, lat2, lng2) {
@@ -120,10 +132,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof loadManualPOIs === "function") loadManualPOIs(window.poiLayer);
   }, 500);
 
+  // ======================================
+  // RESIZE CORRIGIDO (SEM TREMOR)
+  // ======================================
   let resizeTimeout = null;
   window.addEventListener("resize", () => {
     if (resizeTimeout) clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => { map.invalidateSize(); resizeTimeout = null; }, 200);
+    resizeTimeout = setTimeout(() => { 
+      map.invalidateSize(); 
+      resizeTimeout = null; 
+    }, 300);
   });
 
   function closePanels(except = null) {
@@ -142,5 +160,5 @@ document.addEventListener("DOMContentLoaded", () => {
     else { closePanels('search-panel'); panel.style.display = 'block'; document.getElementById('search-input')?.focus(); }
   };
 
-  console.log("🗺️ Mapa inicializado com sucesso!");
+  console.log("🗺️ Mapa inicializado com sucesso (tremedeira corrigida)!");
 });
