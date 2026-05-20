@@ -128,17 +128,14 @@ function drawRoutes(routes, selectedIndex = 0) {
 // EXIBIR COMPARAÇÃO DE ROTAS
 // ======================================
 function showRoutesComparison(routes, origin, destination) {
-    const container = document.getElementById('route-comparison');
-    if (!container) {
-        // Criar container se não existir
+    let comparisonDiv = document.getElementById('route-comparison');
+    if (!comparisonDiv) {
         const newContainer = document.createElement('div');
         newContainer.id = 'route-comparison';
         newContainer.className = 'route-comparison';
         document.body.appendChild(newContainer);
+        comparisonDiv = newContainer;
     }
-    
-    const comparisonDiv = document.getElementById('route-comparison');
-    if (!comparisonDiv) return;
     
     if (!routes || routes.length === 0) {
         comparisonDiv.style.display = 'none';
@@ -149,7 +146,7 @@ function showRoutesComparison(routes, origin, destination) {
     
     let html = `
         <div class="route-comparison-header">
-            <span>📋 ${routes.length} rotas encontradas</span>
+            <span>📋 ${routes.length} rota(s) encontrada(s)</span>
             <button onclick="closeRouteComparison()" class="close-comparison">✕</button>
         </div>
         <div class="route-options">
@@ -216,8 +213,8 @@ window.closeRouteComparison = function() {
 // ======================================
 window.startNavigation = function() {
     const selectedRoute = currentRoutes[selectedRouteIndex];
-    if (!selectedRoute || !selectedRoute.steps) {
-        alert('Navegação passo a passo disponível em breve!');
+    if (!selectedRoute) {
+        alert('Nenhuma rota selecionada.');
         return;
     }
     
@@ -226,10 +223,14 @@ window.startNavigation = function() {
     instructions += `📏 ${selectedRoute.distance} km • ⏱️ ${selectedRoute.duration} min\n\n`;
     instructions += `📋 Instruções:\n`;
     
-    selectedRoute.steps.forEach((step, idx) => {
-        const instruction = step.instructions || step.name || `Siga em frente`;
-        instructions += `${idx + 1}. ${instruction}\n`;
-    });
+    if (selectedRoute.steps && selectedRoute.steps.length > 0) {
+        selectedRoute.steps.forEach((step, idx) => {
+            const instruction = step.instructions || step.name || `Siga em frente`;
+            instructions += `${idx + 1}. ${instruction}\n`;
+        });
+    } else {
+        instructions += `Siga a rota destacada no mapa até seu destino.`;
+    }
     
     alert(instructions);
 };
@@ -238,6 +239,8 @@ window.startNavigation = function() {
 // FUNÇÃO PRINCIPAL - CRIAR ROTA INTELIGENTE
 // ======================================
 window.createSmartRoute = async function(originText, destinationText) {
+    console.log("🚀 createSmartRoute chamado com:", { originText, destinationText });
+    
     // Resolver origem
     let origin = null;
     let destination = null;
@@ -246,16 +249,18 @@ window.createSmartRoute = async function(originText, destinationText) {
     if (!originText || originText.trim() === '') {
         const pos = window.locationEngine?.getPosition();
         if (!pos) {
-            alert('GPS indisponível. Digite uma origem.');
-            return;
+            alert('📍 GPS indisponível. Digite uma origem ou ative o GPS.');
+            return null;
         }
         origin = { lat: pos.lat, lng: pos.lng, name: 'Minha localização' };
+        console.log("📍 Origem: GPS", origin);
     } else {
         // Usar geocoding para resolver origem
         if (typeof window.geocode === 'function') {
             const results = await window.geocode(originText);
             if (results && results.length > 0) {
                 origin = { lat: results[0].lat, lng: results[0].lng, name: results[0].name };
+                console.log("📍 Origem: geocode", origin);
             }
         }
     }
@@ -265,21 +270,40 @@ window.createSmartRoute = async function(originText, destinationText) {
         const results = await window.geocode(destinationText);
         if (results && results.length > 0) {
             destination = { lat: results[0].lat, lng: results[0].lng, name: results[0].name };
+            console.log("📍 Destino: geocode", destination);
         }
     }
     
-    if (!origin || !destination) {
-        alert('Não foi possível encontrar a origem ou destino.');
-        return;
+    if (!origin) {
+        alert('❌ Não foi possível encontrar a origem.');
+        return null;
     }
+    
+    if (!destination) {
+        alert(`❌ Não foi possível encontrar o destino: "${destinationText}"`);
+        return null;
+    }
+    
+    // Mostrar loading
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'route-loading';
+    loadingDiv.innerHTML = `
+        <div style="position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 30px; color: white; z-index: 10002;">
+            🗺️ Calculando rotas...
+        </div>
+    `;
+    document.body.appendChild(loadingDiv);
     
     // Calcular todas as rotas
     const routes = await calculateAllRoutes(origin, destination);
     currentRoutes = routes;
     
+    // Remover loading
+    if (loadingDiv) loadingDiv.remove();
+    
     if (routes.length === 0) {
-        alert('Nenhuma rota encontrada.');
-        return;
+        alert('❌ Nenhuma rota encontrada. Verifique as coordenadas ou tente outro destino.');
+        return null;
     }
     
     // Desenhar rotas
@@ -298,13 +322,26 @@ window.createSmartRoute = async function(originText, destinationText) {
     
     startMarker = L.marker([origin.lat, origin.lng], {
         icon: L.divIcon({ html: '🚀', className: 'custom-marker', iconSize: [24, 24] })
-    }).addTo(window.map).bindPopup(`<b>Origem</b><br>${origin.name}`);
+    }).addTo(window.map).bindPopup(`<b>📍 Origem</b><br>${origin.name}`);
     
     endMarker = L.marker([destination.lat, destination.lng], {
         icon: L.divIcon({ html: '🏁', className: 'custom-marker', iconSize: [24, 24] })
-    }).addTo(window.map).bindPopup(`<b>Destino</b><br>${destination.name}`);
+    }).addTo(window.map).bindPopup(`<b>🏁 Destino</b><br>${destination.name}`);
     
+    console.log(`✅ ${routes.length} rotas calculadas com sucesso!`);
     return routes;
+};
+
+// ======================================
+// FUNÇÃO PARA ABRIR MODAL DE ROTA
+// ======================================
+window.openRouteDialog = function() {
+    const destination = prompt('🗺️ Para onde você quer ir?\n\nDigite o endereço ou nome do lugar:', '');
+    if (destination && destination.trim()) {
+        createSmartRoute('', destination.trim());
+    } else if (destination !== null) {
+        alert('Digite um destino válido.');
+    }
 };
 
 // ======================================
@@ -328,25 +365,26 @@ window.clearRoutes = function() {
 };
 
 // ======================================
-// ESTILOS CSS (adicionar no index.html)
+// ESTILOS CSS
 // ======================================
 const routeStyles = `
 <style>
 .route-comparison {
     position: fixed;
-    bottom: 20px;
+    bottom: 100px;
     left: 20px;
     right: 20px;
     max-width: 400px;
-    background: rgba(0,0,0,0.9);
+    background: rgba(0,0,0,0.95);
     backdrop-filter: blur(15px);
     border-radius: 20px;
     padding: 15px;
     z-index: 10001;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
     font-family: Arial, sans-serif;
     color: white;
     pointer-events: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
 .route-comparison-header {
@@ -355,6 +393,7 @@ const routeStyles = `
     align-items: center;
     margin-bottom: 12px;
     font-weight: bold;
+    font-size: 0.9rem;
 }
 
 .close-comparison {
@@ -364,6 +403,11 @@ const routeStyles = `
     font-size: 1.2rem;
     cursor: pointer;
     opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.close-comparison:hover {
+    opacity: 1;
 }
 
 .route-options {
@@ -371,6 +415,8 @@ const routeStyles = `
     flex-direction: column;
     gap: 8px;
     margin-bottom: 12px;
+    max-height: 250px;
+    overflow-y: auto;
 }
 
 .route-option {
@@ -387,6 +433,7 @@ const routeStyles = `
 
 .route-option:hover {
     background: rgba(255,255,255,0.15);
+    transform: translateX(5px);
 }
 
 .route-option.selected {
@@ -404,7 +451,7 @@ const routeStyles = `
 
 .route-name {
     font-weight: bold;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .route-details {
@@ -419,11 +466,16 @@ const routeStyles = `
     padding: 5px 12px;
     color: white;
     cursor: pointer;
+    transition: background 0.2s;
+}
+
+.route-select-btn:hover {
+    background: rgba(255,255,255,0.4);
 }
 
 .route-summary {
-    font-size: 0.75rem;
-    padding: 10px;
+    font-size: 0.7rem;
+    padding: 8px;
     background: rgba(255,255,255,0.05);
     border-radius: 12px;
     margin-bottom: 12px;
@@ -450,9 +502,18 @@ const routeStyles = `
     transform: scale(1.02);
 }
 
+#route-loading {
+    animation: fadeInOut 0.3s ease;
+}
+
+@keyframes fadeInOut {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 @media (max-width: 600px) {
     .route-comparison {
-        bottom: 100px;
+        bottom: 80px;
         left: 10px;
         right: 10px;
         max-width: none;
@@ -468,5 +529,22 @@ if (!document.querySelector('#route-styles')) {
     styleTag.textContent = routeStyles;
     document.head.appendChild(styleTag);
 }
+
+// ======================================
+// CONECTAR BOTÃO DO MAPA
+// ======================================
+document.addEventListener('DOMContentLoaded', () => {
+    const routeSmartBtn = document.getElementById('routeSmartBtn');
+    if (routeSmartBtn) {
+        console.log('✅ Botão de rota inteligente encontrado!');
+        routeSmartBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('🔘 Botão de rota clicado!');
+            window.openRouteDialog();
+        });
+    } else {
+        console.warn('⚠️ Botão #routeSmartBtn não encontrado no DOM');
+    }
+});
 
 console.log('✅ Sistema de Rotas Inteligentes carregado!');
