@@ -1,11 +1,13 @@
 // ======================================
-// CHAT DO ASURA - COPILOTO DO MAPA
+// CHAT DO ASURA - COPILOTO DO MAPA COM MODO JARVIS
 // ======================================
 
 class AsuraChat {
   constructor() {
     this.currentAsura = 'diva';
     this.isOpen = true;
+    this.isListening = false;      // Modo Jarvis ativado?
+    this.recognition = null;
     this.messages = [];
     
     // ======================================
@@ -18,7 +20,7 @@ class AsuraChat {
         icon: '🤖',
         color: '#ff4db8',
         gradient: 'linear-gradient(135deg, #ff4db8, #ff88dd)',
-        welcome: '✨ Olá! Sou DIVA, sua assistente de automação. Posso te ajudar a encontrar farmácias, mercados, restaurantes e muito mais!',
+        welcome: '✨ Olá! Sou DIVA. Clique no microfone 🎤 para ativar o MODO JARVIS (escuta contínua) ou digite sua mensagem.',
         categories: ['pharmacy', 'supermarket', 'restaurant', 'cafe', 'gas_station', 'bakery', 'mall']
       },
       siria: {
@@ -27,7 +29,7 @@ class AsuraChat {
         icon: '🌳',
         color: '#35ff9c',
         gradient: 'linear-gradient(135deg, #35ff9c, #00cc66)',
-        welcome: '🌳 Sou SIRIA, especialista em finanças. Posso te ajudar a encontrar bancos, caixas eletrônicos e agências.',
+        welcome: '🌳 Sou SIRIA. Clique no microfone 🎤 para ativar o MODO JARVIS e falar sobre finanças!',
         categories: ['bank', 'atm', 'finance', 'exchange']
       },
       merlim: {
@@ -36,7 +38,7 @@ class AsuraChat {
         icon: '🔧',
         color: '#00d9ff',
         gradient: 'linear-gradient(135deg, #00d9ff, #00aaff)',
-        welcome: '🔧 Aqui é MERLIM! Especialista em tecnologia. Posso encontrar lojas de informática, assistência técnica e coworking.',
+        welcome: '🔧 MERLIM aqui. Ative o modo Jarvis 🎤 para comandos de voz sobre tecnologia!',
         categories: ['electronics', 'computer', 'tech', 'coworking']
       },
       astreia: {
@@ -45,7 +47,7 @@ class AsuraChat {
         icon: '👁️',
         color: '#287bff',
         gradient: 'linear-gradient(135deg, #287bff, #44aaff)',
-        welcome: '👁️ ASTREIA online. Monitoro segurança. Posso mostrar delegacias, hospitais e áreas seguras.',
+        welcome: '👁️ ASTREIA online. Ative o microfone 🎤 para falar sobre segurança no mapa!',
         categories: ['police', 'hospital', 'medical', 'security']
       },
       umbra: {
@@ -54,7 +56,7 @@ class AsuraChat {
         icon: '🕵️',
         color: '#8b2fff',
         gradient: 'linear-gradient(135deg, #8b2fff, #aa55ff)',
-        welcome: '🕵️ Umbra aqui. Investigação e rastreamento. Posso ajudar a localizar locais específicos.',
+        welcome: '🕵️ Umbra aqui. Use o microfone 🎤 para comandos de voz sobre investigação!',
         categories: ['detective', 'investigation', 'private']
       },
       atena: {
@@ -63,7 +65,7 @@ class AsuraChat {
         icon: '🦉',
         color: '#ffd700',
         gradient: 'linear-gradient(135deg, #ffd700, #ffaa33)',
-        welcome: '🦉 Atena, a mestra do conhecimento. Posso ajudar a encontrar escolas, bibliotecas e livrarias.',
+        welcome: '🦉 Atena, a mestra do conhecimento. Ative o modo Jarvis 🎤 para aprender!',
         categories: ['school', 'university', 'library', 'bookstore']
       },
       victoria: {
@@ -72,7 +74,7 @@ class AsuraChat {
         icon: '🏅',
         color: '#ff0000',
         gradient: 'linear-gradient(135deg, #ff0000, #cc0000)',
-        welcome: '🏅 Victoria aqui. Emergências e situações críticas. Posso mostrar hospitais, bombeiros e defesa civil.',
+        welcome: '🏅 Victoria aqui. Use o microfone 🎤 para emergências e comandos de voz!',
         categories: ['hospital', 'fire_station', 'emergency', 'civil_defense']
       },
       hestia: {
@@ -81,7 +83,7 @@ class AsuraChat {
         icon: '🔮',
         color: '#fff0b3',
         gradient: 'linear-gradient(135deg, #fff0b3, #ffddaa)',
-        welcome: '🔮 Hestia, guardiã dos princípios. Posso ajudar com tribunais, cartórios e serviços jurídicos.',
+        welcome: '🔮 Hestia aqui. Ative o modo Jarvis 🎤 para falar sobre justiça e princípios!',
         categories: ['courthouse', 'lawyer', 'legal', 'notary']
       },
       daedala: {
@@ -90,7 +92,7 @@ class AsuraChat {
         icon: '⚗️',
         color: '#00ffd5',
         gradient: 'linear-gradient(135deg, #00ffd5, #00ccaa)',
-        welcome: '⚗️ Daedala, a inventora! Posso encontrar laboratórios, centros de pesquisa e inovação.',
+        welcome: '⚗️ Daedala, a inventora! Use o microfone 🎤 para comandos de voz sobre inovação!',
         categories: ['laboratory', 'research', 'science', 'innovation']
       }
     };
@@ -103,6 +105,7 @@ class AsuraChat {
     this.bindEvents();
     this.populateAsuraSelector();
     this.updateAsuraTheme();
+    this.initSpeechRecognition();
     this.addMessage(this.asuraConfig[this.currentAsura].welcome, false);
   }
   
@@ -113,6 +116,7 @@ class AsuraChat {
     this.chatMessages = document.getElementById('chatMessages');
     this.chatInput = document.getElementById('chatInput');
     this.sendBtn = document.getElementById('sendChatBtn');
+    this.micBtn = document.getElementById('micBtn');
     this.asuraSelector = document.getElementById('asuraSelector');
     this.chatAvatar = document.getElementById('chatAvatar');
     this.chatAsuraName = document.getElementById('chatAsuraName');
@@ -142,10 +146,10 @@ class AsuraChat {
   }
   
   bindEvents() {
-    // Header toggle (minimizar/expandir)
+    // Header toggle
     if (this.chatHeader) {
       this.chatHeader.addEventListener('click', (e) => {
-        if (e.target.closest('.chat-controls')) return;
+        if (e.target.closest('.chat-controls') || e.target.closest('#micBtn')) return;
         this.toggleMinimize();
       });
     }
@@ -158,7 +162,7 @@ class AsuraChat {
       });
     }
     
-    // Botão fechar (esconder completamente)
+    // Botão fechar
     if (this.chatCloseBtn) {
       this.chatCloseBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -166,7 +170,7 @@ class AsuraChat {
       });
     }
     
-    // Botão abrir (quando fechado)
+    // Botão abrir
     if (this.openChatBtn) {
       this.openChatBtn.addEventListener('click', () => {
         this.open();
@@ -182,16 +186,185 @@ class AsuraChat {
       });
     }
     
-    // Envio de mensagem
+    // Botão enviar (digitação)
     if (this.sendBtn) {
       this.sendBtn.addEventListener('click', () => this.sendMessage());
     }
     
+    // Enter no input
     if (this.chatInput) {
       this.chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') this.sendMessage();
       });
     }
+    
+    // Botão microfone (Modo Jarvis)
+    if (this.micBtn) {
+      this.micBtn.addEventListener('click', () => this.toggleJarvis());
+    }
+  }
+  
+  // ======================================
+  // MODO JARVIS - RECONHECIMENTO DE VOZ
+  // ======================================
+  
+  initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('Reconhecimento de voz não suportado');
+      if (this.micBtn) {
+        this.micBtn.style.opacity = '0.5';
+        this.micBtn.title = 'Voz não suportada';
+      }
+      return;
+    }
+    
+    this.recognition = new SpeechRecognition();
+    this.recognition.lang = 'pt-BR';
+    this.recognition.continuous = true;      // ESCUTA CONTÍNUA
+    this.recognition.interimResults = true;  // Mostra enquanto fala
+    
+    this.recognition.onstart = () => {
+      this.isListening = true;
+      if (this.micBtn) {
+        this.micBtn.classList.add('listening');
+        this.micBtn.title = 'Modo Jarvis ativo - clique para desativar';
+      }
+      this.showJarvisIndicator(true);
+      this.addMessage("🎤 Modo Jarvis ativado! Estou ouvindo...", false);
+    };
+    
+    this.recognition.onresult = (event) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+      
+      // Mostrar feedback enquanto fala (opcional)
+      if (interimTranscript) {
+        // console.log("🎤 Ouvindo:", interimTranscript);
+      }
+      
+      if (finalTranscript) {
+        console.log("🎤 Comando final:", finalTranscript);
+        
+        // Verificar comando de desativação
+        if (finalTranscript.toLowerCase().includes('parar de ouvir') || 
+            finalTranscript.toLowerCase().includes('desativar')) {
+          this.toggleJarvis();
+          this.addMessage("🔇 Modo Jarvis desativado. Fale quando precisar.", false);
+          return;
+        }
+        
+        // Processar o comando
+        this.processVoiceCommand(finalTranscript);
+      }
+    };
+    
+    this.recognition.onerror = (event) => {
+      console.error('Erro no reconhecimento:', event.error);
+      if (event.error === 'no-speech') return;
+      if (event.error === 'not-allowed') {
+        this.addMessage("⚠️ Permissão do microfone negada. Por favor, permita o acesso.", false);
+        this.toggleJarvis();
+      }
+    };
+    
+    this.recognition.onend = () => {
+      if (this.isListening) {
+        // Reinicia automaticamente se ainda estiver no modo Jarvis
+        try {
+          this.recognition.start();
+        } catch (e) {
+          console.log('Reiniciando reconhecimento...');
+        }
+      }
+    };
+  }
+  
+  toggleJarvis() {
+    if (!this.recognition) {
+      this.addMessage("⚠️ Reconhecimento de voz não suportado neste navegador.", false);
+      return;
+    }
+    
+    if (this.isListening) {
+      // Desativar modo Jarvis
+      this.isListening = false;
+      try {
+        this.recognition.stop();
+      } catch(e) {}
+      if (this.micBtn) {
+        this.micBtn.classList.remove('listening');
+        this.micBtn.title = 'Ativar Modo Jarvis (escuta contínua)';
+      }
+      this.showJarvisIndicator(false);
+    } else {
+      // Ativar modo Jarvis
+      try {
+        this.recognition.start();
+      } catch (e) {
+        console.log('Erro ao iniciar reconhecimento:', e);
+      }
+    }
+  }
+  
+  showJarvisIndicator(show) {
+    let indicator = document.getElementById('jarvisIndicator');
+    if (!indicator && show) {
+      indicator = document.createElement('div');
+      indicator.id = 'jarvisIndicator';
+      indicator.className = 'jarvis-indicator';
+      indicator.innerHTML = `
+        <div class="jarvis-dot"></div>
+        <div class="jarvis-wave"><span></span><span></span><span></span><span></span></div>
+        <span class="jarvis-text">🎤 MODO JARVIS ATIVO • Sempre ouvindo</span>
+      `;
+      document.body.appendChild(indicator);
+    }
+    if (indicator) {
+      if (show) indicator.classList.add('active');
+      else indicator.classList.remove('active');
+    }
+  }
+  
+  speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  }
+  
+  async processVoiceCommand(command) {
+    // Adicionar ao chat como se o usuário tivesse digitado
+    this.addMessage(command, true);
+    
+    // Mostrar indicador de "pensando"
+    const config = this.asuraConfig[this.currentAsura];
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.className = 'message asura';
+    thinkingDiv.innerHTML = `
+      <div class="message-avatar">${config.icon}</div>
+      <div class="message-content"><em>🧠 processando...</em></div>
+    `;
+    this.chatMessages.appendChild(thinkingDiv);
+    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+    
+    // Processar
+    setTimeout(async () => {
+      thinkingDiv.remove();
+      const response = await this.processCommand(command);
+      this.addMessage(response, false);
+      this.speak(response);
+    }, 600);
   }
   
   updateAsuraTheme() {
@@ -206,7 +379,6 @@ class AsuraChat {
     if (this.chatAsuraName) this.chatAsuraName.textContent = config.name;
     if (this.chatAvatar) this.chatAvatar.textContent = config.icon;
     
-    // Atualizar variável CSS
     document.documentElement.style.setProperty('--asura-color', config.color);
   }
   
@@ -246,7 +418,6 @@ class AsuraChat {
       this.chatMessages.appendChild(messageDiv);
       this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
       
-      // Limitar mensagens
       while (this.chatMessages.children.length > 50) {
         this.chatMessages.removeChild(this.chatMessages.firstChild);
       }
@@ -262,33 +433,20 @@ class AsuraChat {
     this.addMessage(message, true);
     if (this.chatInput) this.chatInput.value = '';
     
-    // Mostrar indicador de "pensando"
+    const config = this.asuraConfig[this.currentAsura];
     const thinkingDiv = document.createElement('div');
     thinkingDiv.className = 'message asura';
     thinkingDiv.innerHTML = `
-      <div class="message-avatar">${this.asuraConfig[this.currentAsura].icon}</div>
+      <div class="message-avatar">${config.icon}</div>
       <div class="message-content"><em>🧠 processando...</em></div>
     `;
+    this.chatMessages.appendChild(thinkingDiv);
+    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     
-    if (this.chatMessages) {
-      this.chatMessages.appendChild(thinkingDiv);
-      this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-    }
-    
-    // Processar comando
     setTimeout(async () => {
-      if (thinkingDiv) thinkingDiv.remove();
-      
+      thinkingDiv.remove();
       const response = await this.processCommand(message);
       this.addMessage(response, false);
-      
-      // Se tiver síntese de voz (opcional)
-      if (window.speechSynthesis) {
-        const utterance = new SpeechSynthesisUtterance(response.replace(/<br>/g, '. '));
-        utterance.lang = 'pt-BR';
-        utterance.rate = 0.9;
-        window.speechSynthesis.speak(utterance);
-      }
     }, 600);
   }
   
@@ -297,12 +455,10 @@ class AsuraChat {
     const config = this.asuraConfig[this.currentAsura];
     const userPos = window.locationEngine?.getPosition();
     
-    // Comandos de ajuda
     if (lower.includes('ajuda') || lower.includes('comandos')) {
       return this.getHelpMessage();
     }
     
-    // Mapeamento de palavras-chave por categoria (para todos os Asuras)
     const keywordMap = {
       'farmácia': 'pharmacy', 'farmacia': 'pharmacy', 'remédio': 'pharmacy',
       'mercado': 'supermarket', 'supermercado': 'supermarket', 'compras': 'supermarket',
@@ -321,7 +477,6 @@ class AsuraChat {
     let searchCategory = null;
     let displayTerm = null;
     
-    // Identificar a categoria da busca
     for (const [keyword, category] of Object.entries(keywordMap)) {
       if (lower.includes(keyword)) {
         searchCategory = category;
@@ -334,72 +489,58 @@ class AsuraChat {
       return await this.searchAndShow(searchCategory, displayTerm, userPos);
     }
     
-    // Comandos de localização
     if (lower.includes('onde estou') || lower.includes('minha localização')) {
       if (userPos) {
-        return `📍 Você está localizado em: latitude ${userPos.lat.toFixed(4)}, longitude ${userPos.lng.toFixed(4)}. Quer que eu mostre algo próximo?`;
+        return `📍 Você está em: latitude ${userPos.lat.toFixed(4)}, longitude ${userPos.lng.toFixed(4)}`;
       }
-      return "📍 Não consegui obter sua localização. Verifique se o GPS está ativo.";
+      return "📍 Não consegui sua localização. Verifique o GPS.";
     }
     
-    // Resposta padrão
     return this.getDefaultResponse(lower);
   }
   
   async searchAndShow(category, displayTerm, userPos) {
     if (!userPos) {
-      return `⚠️ Não consegui obter sua localização para buscar ${displayTerm}. Verifique o GPS.`;
+      return `⚠️ Não consegui sua localização para buscar ${displayTerm}.`;
     }
     
-    // Buscar no índice de POIs
     let results = [];
-    
     if (window.poiIndex) {
       results = window.poiIndex.filter(poi => 
         poi.category === category || 
         poi.type === category ||
-        poi.name?.toLowerCase().includes(category) ||
-        poi.name?.toLowerCase().includes(displayTerm)
+        poi.name?.toLowerCase().includes(category)
       );
     }
     
-    // Filtrar por proximidade
     if (results.length > 0 && window.searchNearby) {
       results = window.searchNearby(userPos.lat, userPos.lng, 3000, category);
     }
     
     if (results.length === 0) {
-      return `🔍 Não encontrei ${displayTerm} próximos a você. Tente ampliar a busca ou usar outro termo.`;
+      return `🔍 Não encontrei ${displayTerm} próximos a você.`;
     }
     
-    // Renderizar no painel de busca
     if (typeof window.renderResults === 'function') {
       window.renderResults(results.slice(0, 10));
     }
     
-    // Abrir painel de busca
     const searchPanel = document.getElementById('search-panel');
-    if (searchPanel) {
-      searchPanel.style.display = 'block';
-    }
+    if (searchPanel) searchPanel.style.display = 'block';
     
-    // Ajustar zoom para mostrar os resultados
     if (window.map && results.length > 0) {
       const bounds = L.latLngBounds(results.map(r => [r.lat, r.lng]));
       bounds.extend([userPos.lat, userPos.lng]);
       window.map.fitBounds(bounds, { padding: [50, 50] });
     }
     
-    const config = this.asuraConfig[this.currentAsura];
-    return `${config.icon} Encontrei ${results.length} ${displayTerm} próximos a você! Eles apareceram no mapa e na lista de resultados.`;
+    return `${this.asuraConfig[this.currentAsura].icon} Encontrei ${results.length} ${displayTerm} próximos! Eles apareceram no mapa.`;
   }
   
   getHelpMessage() {
     const config = this.asuraConfig[this.currentAsura];
     return `
-      📋 <strong>${config.icon} ${config.name} pode te ajudar com:</strong><br>
-      <br>
-      🗺️ <strong>Buscas no mapa:</strong><br>
+      📋 <strong>${config.icon} ${config.name} pode te ajudar:</strong><br>
       • "farmácias perto de mim"<br>
       • "mercados próximos"<br>
       • "restaurantes na região"<br>
@@ -407,75 +548,30 @@ class AsuraChat {
       • "hospitais próximos"<br>
       • "delegacias perto de mim"<br>
       • "escolas na região"<br>
-      • "bibliotecas próximas"<br>
-      • "bombeiros"<br>
-      • "cartórios"<br>
-      • "laboratórios"<br>
-      <br>
-      📍 <strong>Localização:</strong><br>
       • "onde estou"<br>
       <br>
-      💡 <strong>Dica:</strong> Você também pode clicar nos marcadores do mapa para ver mais detalhes!
+      🎤 <strong>Modo Jarvis:</strong> Clique no microfone para falar!
     `;
   }
   
   getDefaultResponse(lower) {
-    const config = this.asuraConfig[this.currentAsura];
     const responses = {
-      diva: [
-        "🤖 Como posso automatizar sua busca? Tente 'farmácias perto de mim' ou 'mercados na região'.",
-        "✨ Estou aqui para ajudar! Peça para eu encontrar lugares como restaurantes, farmácias ou mercados.",
-        "💡 Dica: Você pode me perguntar sobre lugares específicos! Exemplo: 'mostra bancos próximos'."
-      ],
-      siria: [
-        "💰 Posso te ajudar com serviços financeiros. Tente 'bancos próximos' ou 'caixas eletrônicos'.",
-        "📈 Quer encontrar agências bancárias? É só me pedir! Exemplo: 'mostra bancos perto de mim'.",
-        "💵 Estou aqui para auxiliar com suas necessidades financeiras. Que tipo de estabelecimento você procura?"
-      ],
-      merlim: [
-        "🔧 Tecnologia é minha especialidade! Tente 'lojas de informática' ou 'assistência técnica'.",
-        "💻 Posso encontrar espaços de coworking, lojas de eletrônicos e muito mais. O que você precisa?",
-        "🖥️ Que tal encontrar uma loja de tecnologia? É só me perguntar!"
-      ],
-      astreia: [
-        "👁️ Estou monitorando. Quer que eu mostre delegacias ou hospitais próximos?",
-        "🛡️ Posso te ajudar a encontrar pontos de segurança. Tente 'delegacias perto de mim'.",
-        "⚠️ Se precisar de segurança, me pergunte sobre hospitais ou bases policiais na região."
-      ],
-      umbra: [
-        "🕵️ Investigando... Que local você precisa encontrar? Posso ajudar com busca detalhada.",
-        "🔍 Me pergunte sobre lugares específicos e vou rastrear para você.",
-        "🌑 Nas sombras, encontro qualquer local. O que você procura?"
-      ],
-      atena: [
-        "🦉 O conhecimento está ao seu alcance! Quer encontrar escolas, bibliotecas ou livrarias?",
-        "📚 Educação é minha paixão. Posso ajudar a encontrar instituições de ensino na região.",
-        "🎓 Tente 'escolas perto de mim' ou 'bibliotecas próximas'."
-      ],
-      victoria: [
-        "🏅 Emergências? Posso mostrar hospitais, bombeiros e defesa civil mais próximos.",
-        "🚨 Em situações críticas, estou aqui. Tente 'hospitais perto de mim' ou 'bombeiros'.",
-        "⚡ Para situações de emergência, posso encontrar os locais mais próximos para ajudar."
-      ],
-      hestia: [
-        "⚖️ Justiça e princípios. Posso ajudar com tribunais, cartórios e serviços jurídicos.",
-        "📜 Precisa de serviços legais? Me pergunte sobre cartórios ou tribunais na região.",
-        "🔮 Como guardiã dos princípios, posso orientar sobre locais de justiça e cidadania."
-      ],
-      daedala: [
-        "⚗️ Inovação e ciência! Posso encontrar laboratórios, centros de pesquisa e inovação.",
-        "🔬 Que tal descobrir laboratórios ou centros de pesquisa na região? É só me pedir!",
-        "🧪 Tente 'laboratórios perto de mim' ou 'centros de pesquisa'."
-      ]
+      diva: ["🤖 Tente 'farmácias perto de mim' ou ative o microfone 🎤!"],
+      siria: ["🌳 Tente 'bancos próximos' ou ative o microfone 🎤!"],
+      merlim: ["🔧 Tente 'lojas de informática' ou ative o microfone 🎤!"],
+      astreia: ["👁️ Tente 'delegacias perto de mim' ou ative o microfone 🎤!"],
+      umbra: ["🕵️ Tente um comando de voz com o microfone 🎤!"],
+      atena: ["🦉 Tente 'escolas na região' ou ative o microfone 🎤!"],
+      victoria: ["🏅 Tente 'hospitais próximos' ou ative o microfone 🎤!"],
+      hestia: ["🔮 Tente 'cartórios' ou ative o microfone 🎤!"],
+      daedala: ["⚗️ Tente 'laboratórios' ou ative o microfone 🎤!"]
     };
-    
-    const asuraResponses = responses[this.currentAsura] || responses.diva;
-    return asuraResponses[Math.floor(Math.random() * asuraResponses.length)];
+    return responses[this.currentAsura]?.[0] || "🎤 Clique no microfone para falar comigo!";
   }
 }
 
-// Inicializar o chat quando o DOM estiver pronto
+// Inicializar
 document.addEventListener('DOMContentLoaded', () => {
   window.asuraChat = new AsuraChat();
-  console.log('💬 Asura Chat inicializado com 9 Asuras!');
+  console.log('💬 Asura Chat com Modo Jarvis inicializado!');
 });
