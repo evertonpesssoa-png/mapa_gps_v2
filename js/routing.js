@@ -2,6 +2,9 @@
 // SISTEMA DE ROTAS COM MAPBOX (TRÂNSITO REAL)
 // ======================================
 
+// 🔑 COLOQUE SEU TOKEN DO MAPBOX AQUI:
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiZXZlcnRvbnBlc3NvYTg4IiwiYSI6ImNtcGRmMTk5czBiYWEycG9sd2NlZ3RxdWsifQ.W7ayNU1STdXgV-cqNJ1AKA';
+
 const TRANSPORT_MODES = {
   car: { name: 'Carro', icon: '🚗', color: '#ef4444', profile: 'driving-traffic' },
   foot: { name: 'A pé', icon: '🚶', color: '#10b981', profile: 'walking' },
@@ -18,11 +21,26 @@ let currentDestination = null;
 let currentOrigin = null;
 
 // ======================================
+// FUNÇÃO DE DISTÂNCIA (Haversine)
+// ======================================
+function distanceInMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+// ======================================
 // CALCULAR ROTA COM MAPBOX (TRÂNSITO)
 // ======================================
 async function calculateRouteMapbox(origin, destination, mode = 'car') {
   if (!MAPBOX_TOKEN || MAPBOX_TOKEN === 'SEU_TOKEN_AQUI') {
     console.error('❌ MAPBOX_TOKEN não configurado!');
+    alert('⚠️ Token do Mapbox não configurado. Coloque seu token no início do routing.js');
     return null;
   }
 
@@ -173,7 +191,7 @@ window.selectRoute = function(index) {
     const bounds = L.latLngBounds(coords.map(c => [c[1], c[0]]));
     window.map.fitBounds(bounds, { padding: [50, 50] });
     
-    // Mostrar POIs na rota
+    // Mostrar POIs na rota (opcional)
     showPOIsNearRoute(coords);
   }
 };
@@ -187,7 +205,6 @@ function showPOIsNearRoute(routeCoordinates) {
   const maxDistance = 300; // metros
   const nearbyPOIs = [];
   
-  // Amostrar pontos da rota
   for (let i = 0; i < routeCoordinates.length; i += 15) {
     const coord = routeCoordinates[i];
     const routeLat = coord[1];
@@ -198,10 +215,7 @@ function showPOIsNearRoute(routeCoordinates) {
       const poiLng = Number(poi.lng ?? poi.lon);
       if (isNaN(poiLat) || isNaN(poiLng)) return;
       
-      const dist = window.locationEngine.distance(
-        { lat: routeLat, lng: routeLng },
-        { lat: poiLat, lng: poiLng }
-      );
+      const dist = distanceInMeters(routeLat, routeLng, poiLat, poiLng);
       
       if (dist <= maxDistance && !nearbyPOIs.some(p => p.name === poi.name)) {
         nearbyPOIs.push({ ...poi, distanceToRoute: Math.round(dist) });
@@ -212,14 +226,6 @@ function showPOIsNearRoute(routeCoordinates) {
   if (nearbyPOIs.length > 0) {
     nearbyPOIs.sort((a,b) => a.distanceToRoute - b.distanceToRoute);
     console.log(`📍 ${nearbyPOIs.length} POIs próximos à rota:`, nearbyPOIs.slice(0, 5));
-    
-    // Opcional: mostrar no painel de rota
-    const routeInfo = document.getElementById('route-info');
-    if (routeInfo) {
-      const topPOIs = nearbyPOIs.slice(0, 3);
-      let poiHtml = `<div style="font-size: 11px; margin-top: 8px; border-top: 1px solid #ddd; padding-top: 6px;">📍 No caminho: ${topPOIs.map(p => p.name).join(', ')}</div>`;
-      routeInfo.innerHTML += poiHtml;
-    }
   }
 }
 
@@ -229,30 +235,22 @@ function showPOIsNearRoute(routeCoordinates) {
 function startRerouteWatcher() {
   if (rerouteInterval) clearInterval(rerouteInterval);
   
-  let lastPos = window.locationEngine.getPosition();
-  
   rerouteInterval = setInterval(async () => {
-    const currentPos = window.locationEngine.getPosition();
+    const currentPos = window.locationEngine?.getPosition();
     if (!currentPos || !currentDestination || !currentRoutes.length) return;
     
-    // Verificar se desviou da rota atual
     const selectedRoute = currentRoutes[selectedRouteIndex];
     if (!selectedRoute) return;
     
     const routeCoords = selectedRoute.geometry.coordinates;
     let minDistance = Infinity;
     
-    // Amostrar pontos da rota
     for (let i = 0; i < routeCoords.length; i += 20) {
       const coord = routeCoords[i];
-      const dist = window.locationEngine.distance(
-        currentPos,
-        { lat: coord[1], lng: coord[0] }
-      );
+      const dist = distanceInMeters(currentPos.lat, currentPos.lng, coord[1], coord[0]);
       if (dist < minDistance) minDistance = dist;
     }
     
-    // Se desviou mais de 150m, recalcular
     if (minDistance > 150) {
       console.log(`🔄 Desvio detectado (${Math.round(minDistance)}m). Recalculando rota...`);
       
@@ -263,13 +261,10 @@ function startRerouteWatcher() {
         showRoutesPanel(currentRoutes, { name: 'Sua localização', lat: currentPos.lat, lng: currentPos.lng }, currentDestination);
         showPOIsNearRoute(currentRoutes[0].geometry.coordinates);
         
-        // Atualizar marcadores
         if (startMarker) startMarker.setLatLng([currentPos.lat, currentPos.lng]);
       }
     }
-    
-    lastPos = currentPos;
-  }, 8000); // Verificar a cada 8 segundos
+  }, 10000);
 }
 
 // ======================================
@@ -334,10 +329,7 @@ window.createSmartRoute = async function(originText, destinationText) {
     icon: L.divIcon({ html: '🏁', className: 'custom-marker', iconSize: [24, 24] })
   }).addTo(window.map).bindPopup(`<b>🏁 Destino</b><br>${destination.name}`);
   
-  // Iniciar re-roteamento automático
   startRerouteWatcher();
-  
-  // Mostrar POIs na rota
   showPOIsNearRoute(routes[0].geometry.coordinates);
   
   console.log(`✅ ${routes.length} rotas calculadas! Melhor: ${routes[0].duration}min (${routes[0].durationInTraffic}min com trânsito)`);
@@ -354,6 +346,10 @@ window.clearAllRoutes = function() {
   currentDestination = null;
   currentOrigin = null;
   selectedRouteIndex = 0;
+  
+  const destInput = document.getElementById('route-destination');
+  if (destInput) destInput.value = '';
+  
   console.log('🗑️ Todas as rotas foram limpas');
 };
 
@@ -366,7 +362,53 @@ window.routeToPlace = function(destLat, destLng, mode = 'car') {
   createSmartRoute('', `${destLat},${destLng}`);
 };
 
-// Estilos CSS
+// ======================================
+// EVENTOS
+// ======================================
+document.addEventListener('DOMContentLoaded', () => {
+  const createRouteBtn = document.getElementById('createRouteBtn');
+  if (createRouteBtn) {
+    createRouteBtn.addEventListener('click', () => {
+      const destInput = document.getElementById('route-destination');
+      const destination = destInput?.value.trim();
+      if (destination) {
+        window.createSmartRoute('', destination);
+      } else {
+        alert('📍 Digite um destino');
+      }
+    });
+  }
+  
+  const destInput = document.getElementById('route-destination');
+  if (destInput) {
+    destInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        window.createSmartRoute('', destInput.value.trim());
+      }
+    });
+  }
+  
+  const clearRouteBtn = document.getElementById('clearRouteBtn');
+  if (clearRouteBtn) {
+    clearRouteBtn.addEventListener('click', () => {
+      window.clearAllRoutes();
+    });
+  }
+  
+  const routeSmartBtn = document.getElementById('routeSmartBtn');
+  if (routeSmartBtn) {
+    routeSmartBtn.addEventListener('click', () => {
+      const destination = prompt('🗺️ Para onde você quer ir?', '');
+      if (destination && destination.trim()) {
+        window.createSmartRoute('', destination.trim());
+      }
+    });
+  }
+});
+
+// ======================================
+// ESTILOS CSS
+// ======================================
 const routesStyles = `
 <style>
 .routes-panel {
