@@ -246,9 +246,8 @@ class AsuraChat {
         }
       }
       
-      // Mostrar feedback enquanto fala (opcional)
       if (interimTranscript) {
-        // console.log("🎤 Ouvindo:", interimTranscript);
+        // Feedback opcional
       }
       
       if (finalTranscript) {
@@ -278,7 +277,6 @@ class AsuraChat {
     
     this.recognition.onend = () => {
       if (this.isListening) {
-        // Reinicia automaticamente se ainda estiver no modo Jarvis
         try {
           this.recognition.start();
         } catch (e) {
@@ -295,7 +293,6 @@ class AsuraChat {
     }
     
     if (this.isListening) {
-      // Desativar modo Jarvis
       this.isListening = false;
       try {
         this.recognition.stop();
@@ -306,7 +303,6 @@ class AsuraChat {
       }
       this.showJarvisIndicator(false);
     } else {
-      // Ativar modo Jarvis
       try {
         this.recognition.start();
       } catch (e) {
@@ -455,10 +451,31 @@ class AsuraChat {
     const config = this.asuraConfig[this.currentAsura];
     const userPos = window.locationEngine?.getPosition();
     
+    // ======================================
+    // 🎤 COMANDO DE VOZ: TROCAR DE ASURA
+    // ======================================
+    if (lower.includes('trocar para') || lower.includes('ativar') || lower.includes('mudar para')) {
+      for (const [id, cfg] of Object.entries(this.asuraConfig)) {
+        if (lower.includes(cfg.name.toLowerCase())) {
+          this.currentAsura = id;
+          if (this.asuraSelector) this.asuraSelector.value = id;
+          this.updateAsuraTheme();
+          return `✅ Trocando para ${cfg.name}. ${cfg.welcome}`;
+        }
+      }
+      return `🎤 Não entendi qual Asura você quer. As opções são: DIVA, SIRIA, MERLIM, ASTREIA, UMBRA, ATENA, VICTORIA, HESTIA ou DAEDALA.`;
+    }
+    
+    // ======================================
+    // COMANDOS DE AJUDA
+    // ======================================
     if (lower.includes('ajuda') || lower.includes('comandos')) {
       return this.getHelpMessage();
     }
     
+    // ======================================
+    // MAPEAMENTO DE PALAVRAS-CHAVE
+    // ======================================
     const keywordMap = {
       'farmácia': 'pharmacy', 'farmacia': 'pharmacy', 'remédio': 'pharmacy',
       'mercado': 'supermarket', 'supermercado': 'supermarket', 'compras': 'supermarket',
@@ -489,6 +506,9 @@ class AsuraChat {
       return await this.searchAndShow(searchCategory, displayTerm, userPos);
     }
     
+    // ======================================
+    // COMANDO DE LOCALIZAÇÃO
+    // ======================================
     if (lower.includes('onde estou') || lower.includes('minha localização')) {
       if (userPos) {
         return `📍 Você está em: latitude ${userPos.lat.toFixed(4)}, longitude ${userPos.lng.toFixed(4)}`;
@@ -496,6 +516,9 @@ class AsuraChat {
       return "📍 Não consegui sua localização. Verifique o GPS.";
     }
     
+    // ======================================
+    // RESPOSTA PADRÃO
+    // ======================================
     return this.getDefaultResponse(lower);
   }
   
@@ -550,28 +573,29 @@ class AsuraChat {
       • "escolas na região"<br>
       • "onde estou"<br>
       <br>
-      🎤 <strong>Modo Jarvis:</strong> Clique no microfone para falar!
+      🎤 <strong>Modo Jarvis:</strong> Clique no microfone para falar!<br>
+      🗣️ <strong>Trocar de Asura por voz:</strong> "trocar para SIRIA", "ativar ASTREIA"
     `;
   }
   
   getDefaultResponse(lower) {
     const responses = {
-      diva: ["🤖 Tente 'farmácias perto de mim' ou ative o microfone 🎤!"],
-      siria: ["🌳 Tente 'bancos próximos' ou ative o microfone 🎤!"],
-      merlim: ["🔧 Tente 'lojas de informática' ou ative o microfone 🎤!"],
-      astreia: ["👁️ Tente 'delegacias perto de mim' ou ative o microfone 🎤!"],
-      umbra: ["🕵️ Tente um comando de voz com o microfone 🎤!"],
-      atena: ["🦉 Tente 'escolas na região' ou ative o microfone 🎤!"],
-      victoria: ["🏅 Tente 'hospitais próximos' ou ative o microfone 🎤!"],
-      hestia: ["🔮 Tente 'cartórios' ou ative o microfone 🎤!"],
-      daedala: ["⚗️ Tente 'laboratórios' ou ative o microfone 🎤!"]
+      diva: ["🤖 Tente 'farmácias perto de mim' ou ative o microfone 🎤! Você também pode falar 'trocar para SIRIA'."],
+      siria: ["🌳 Tente 'bancos próximos' ou ative o microfone 🎤! Você também pode falar 'trocar para DIVA'."],
+      merlim: ["🔧 Tente 'lojas de informática' ou ative o microfone 🎤! Você também pode falar 'trocar para ASTREIA'."],
+      astreia: ["👁️ Tente 'delegacias perto de mim' ou ative o microfone 🎤! Você também pode falar 'trocar para UMBRA'."],
+      umbra: ["🕵️ Tente um comando de voz com o microfone 🎤! Você também pode falar 'trocar para ATENA'."],
+      atena: ["🦉 Tente 'escolas na região' ou ative o microfone 🎤! Você também pode falar 'trocar para VICTORIA'."],
+      victoria: ["🏅 Tente 'hospitais próximos' ou ative o microfone 🎤! Você também pode falar 'trocar para HESTIA'."],
+      hestia: ["🔮 Tente 'cartórios' ou ative o microfone 🎤! Você também pode falar 'trocar para DAEDALA'."],
+      daedala: ["⚗️ Tente 'laboratórios' ou ative o microfone 🎤! Você também pode falar 'trocar para DIVA'."]
     };
-    return responses[this.currentAsura]?.[0] || "🎤 Clique no microfone para falar comigo!";
+    return responses[this.currentAsura]?.[0] || "🎤 Clique no microfone para falar comigo! Diga 'trocar para SIRIA' para mudar de Asura.";
   }
 }
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', () => {
   window.asuraChat = new AsuraChat();
-  console.log('💬 Asura Chat com Modo Jarvis inicializado!');
+  console.log('💬 Asura Chat com Modo Jarvis e troca de Asura por voz inicializado!');
 });
