@@ -11,6 +11,17 @@ const SPEEDS = {
 let currentRouteController = null;
 
 // ======================================
+// ESTADO DAS MÚLTIPLAS ROTAS
+// ======================================
+
+let currentRoutes = [];        // Array com todas as rotas
+let activeRouteIndex = 0;      // Índice da rota selecionada
+let currentMode = "car";        // Modo atual (car/foot/bike)
+let currentFrom = null;         // Origem da rota
+let currentTo = null;           // Destino da rota
+let currentRouteLayers = [];    // Layers das rotas (para controle)
+
+// ======================================
 // TOGGLE ROUTE PANEL
 // ======================================
 
@@ -48,7 +59,7 @@ window.toggleRoute =
   toggleRoute;
 
 // ======================================
-// FECHAR CARD DE ROTA (NOVO)
+// FECHAR CARD DE ROTA
 // ======================================
 
 function closeRouteCard() {
@@ -61,23 +72,14 @@ function closeRouteCard() {
 window.closeRouteCard = closeRouteCard;
 
 // ======================================
-// SAIR DO MODO ROTA (NOVO)
+// SAIR DO MODO ROTA
 // ======================================
 
 function exitRouteMode() {
-  // Limpa a rota traçada
-  if (window.routeLayer) {
-    window.routeLayer.clearLayers();
-  }
+  // Limpa todas as rotas
+  clearAllRoutes();
   
-  // Limpa e esconde as informações da rota
-  const info = document.getElementById("route-info");
-  if (info) {
-    info.innerHTML = "";
-    info.style.display = "none";
-  }
-  
-  // Limpa os campos de origem e destino (opcional)
+  // Limpa os campos de origem e destino
   const originInput = document.getElementById("route-origin");
   const destInput = document.getElementById("route-destination");
   
@@ -88,7 +90,13 @@ function exitRouteMode() {
     destInput.value = "";
   }
   
-  // Opcional: volta o zoom para a posição atual do usuário
+  // Limpa estado
+  currentRoutes = [];
+  activeRouteIndex = 0;
+  currentFrom = null;
+  currentTo = null;
+  
+  // Volta o zoom para a posição atual do usuário
   if (window.locationEngine && window.locationEngine.getPosition) {
     const pos = window.locationEngine.getPosition();
     if (pos && window.map) {
@@ -102,127 +110,202 @@ function exitRouteMode() {
 window.exitRouteMode = exitRouteMode;
 
 // ======================================
+// LIMPAR TODAS AS ROTAS
+// ======================================
+
+function clearAllRoutes() {
+  if (window.routeLayer) {
+    window.routeLayer.clearLayers();
+  }
+  
+  // Limpar layers salvos
+  currentRouteLayers.forEach(layer => {
+    if (layer && window.routeLayer) {
+      try {
+        window.routeLayer.removeLayer(layer);
+      } catch(e) {}
+    }
+  });
+  currentRouteLayers = [];
+  
+  const info = document.getElementById("route-info");
+  if (info) {
+    info.innerHTML = "";
+    info.style.display = "none";
+  }
+}
+
+window.clearAllRoutes = clearAllRoutes;
+
+// ======================================
 // FORMATADORES
 // ======================================
 
-function formatDistance(
-  meters
-) {
-
-  meters =
-    Number(meters);
-
-  if (
-    isNaN(meters) ||
-    meters <= 0
-  ) {
-
+function formatDistance(meters) {
+  meters = Number(meters);
+  if (isNaN(meters) || meters <= 0) {
     return "0 m";
   }
-
   if (meters < 1000) {
-
     return `${meters.toFixed(0)} m`;
   }
-
-  return `${(
-    meters / 1000
-  ).toFixed(1)} km`;
+  return `${(meters / 1000).toFixed(1)} km`;
 }
 
-function formatTime(
-  distance,
-  mode
-) {
-
-  distance =
-    Number(distance);
-
-  if (
-    isNaN(distance) ||
-    distance <= 0
-  ) {
-
+function formatTime(distance, mode) {
+  distance = Number(distance);
+  if (isNaN(distance) || distance <= 0) {
     return "0 min";
   }
-
-  const speed =
-    SPEEDS[mode] ||
-    SPEEDS.car;
-
-  const km =
-    distance / 1000;
-
-  const minutes =
-    Math.max(
-      1,
-      Math.round(
-        (km / speed) * 60
-      )
-    );
-
+  const speed = SPEEDS[mode] || SPEEDS.car;
+  const km = distance / 1000;
+  const minutes = Math.max(1, Math.round((km / speed) * 60));
   if (minutes < 60) {
-
     return `${minutes} min`;
   }
-
-  const hours =
-    Math.floor(
-      minutes / 60
-    );
-
-  const rest =
-    minutes % 60;
-
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
   return `${hours}h ${rest}min`;
 }
 
 // ======================================
-// LIMPAR ROTA
+// ESTILO DA ROTA (PRINCIPAL)
 // ======================================
 
-function clearRoute() {
-
-  if (
-    window.routeLayer
-  ) {
-
-    window.routeLayer.clearLayers();
+function getRouteStyle(mode, isAlternative = false) {
+  let baseColor;
+  
+  switch (mode) {
+    case "foot":
+      baseColor = "#16a34a";
+      break;
+    case "bike":
+      baseColor = "#2563eb";
+      break;
+    default:
+      baseColor = "#ef4444";
   }
-
-  const info =
-    document.getElementById(
-      "route-info"
-    );
-
-  if (info) {
-
-    info.innerHTML = "";
-
-    info.style.display =
-      "none";
+  
+  if (isAlternative) {
+    // Estilo alternativo: cor mais clara/apagada
+    let lighterColor;
+    switch (mode) {
+      case "foot":
+        lighterColor = "#86efac";
+        break;
+      case "bike":
+        lighterColor = "#93c5fd";
+        break;
+      default:
+        lighterColor = "#fca5a5";
+    }
+    return {
+      color: lighterColor,
+      weight: 4,
+      opacity: 0.6,
+      dashArray: null
+    };
   }
+  
+  // Estilo principal
+  return {
+    color: baseColor,
+    weight: 6,
+    opacity: 0.9
+  };
 }
 
-window.clearRoute =
-  clearRoute;
+// ======================================
+// ATUALIZAR INFORMAÇÕES DA ROTA ATIVA
+// ======================================
+
+function updateRouteInfo(route, mode) {
+  const info = document.getElementById("route-info");
+  if (!info) return;
+  
+  info.style.display = "block";
+  info.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <div>📏 ${formatDistance(route.distance)}</div>
+      <div>⏱ ${formatTime(route.distance, mode)}</div>
+    </div>
+  `;
+}
+
+// ======================================
+// TROCAR ROTA ATIVA (AO CLICAR)
+// ======================================
+
+function switchToRoute(index, mode, fromLat, fromLng, toLat, toLng) {
+  if (index === activeRouteIndex) return;
+  if (!currentRoutes[index]) return;
+  
+  console.log(`🔄 Trocando para rota ${index + 1}`);
+  
+  activeRouteIndex = index;
+  const selectedRoute = currentRoutes[index];
+  
+  // Redesenhar todas as rotas com os novos estilos
+  redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng);
+  
+  // Atualizar informações
+  updateRouteInfo(selectedRoute, mode);
+}
+
+// ======================================
+// REDESENHAR TODAS AS ROTAS
+// ======================================
+
+function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
+  if (!window.routeLayer) return;
+  
+  // Limpar rotas existentes (mas manter marcadores depois)
+  window.routeLayer.clearLayers();
+  currentRouteLayers = [];
+  
+  // Desenhar cada rota
+  currentRoutes.forEach((route, idx) => {
+    const isAlternative = (idx !== activeRouteIndex);
+    const style = getRouteStyle(mode, isAlternative);
+    
+    const geo = L.geoJSON(route.geometry, { style });
+    geo.addTo(window.routeLayer);
+    currentRouteLayers.push(geo);
+    
+    // Adicionar evento de clique apenas nas alternativas
+    if (isAlternative) {
+      geo.eachLayer(layer => {
+        if (layer.feature) {
+          layer.on('click', () => {
+            console.log(`🔘 Clicou na rota alternativa ${idx + 1}`);
+            switchToRoute(idx, mode, fromLat, fromLng, toLat, toLng);
+          });
+        }
+      });
+    }
+  });
+  
+  // Re-adicionar os marcadores (sobre as rotas)
+  L.marker([fromLat, fromLng]).addTo(window.routeLayer);
+  L.marker([toLat, toLng]).addTo(window.routeLayer);
+  
+  // Ajustar o zoom para a primeira rota (bounds)
+  if (currentRoutes[activeRouteIndex]) {
+    const firstGeo = L.geoJSON(currentRoutes[activeRouteIndex].geometry);
+    window.map.fitBounds(firstGeo.getBounds(), { padding: [50, 50] });
+  }
+}
 
 // ======================================
 // NORMALIZAR TEXTO
 // ======================================
 
-function normalizeText(
-  text
-) {
-
+function normalizeText(text) {
   return (text || "")
     .toString()
     .toLowerCase()
     .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
+    .replace(/[\u0300-\u036f]/g, "")
     .trim();
 }
 
@@ -230,11 +313,7 @@ function normalizeText(
 // VALIDAR COORDENADAS
 // ======================================
 
-function isValidCoordinate(
-  lat,
-  lng
-) {
-
+function isValidCoordinate(lat, lng) {
   return (
     !isNaN(lat) &&
     !isNaN(lng) &&
@@ -247,778 +326,285 @@ function isValidCoordinate(
 // RESOLVER LOCALIZAÇÃO
 // ======================================
 
-async function resolveText(
-  text
-) {
-
-  if (
-    !text ||
-    typeof text !==
-      "string"
-  ) {
-
+async function resolveText(text) {
+  if (!text || typeof text !== "string") {
     return null;
   }
-
   text = text.trim();
-
   if (!text) {
-
     return null;
   }
-
-  const normalized =
-    normalizeText(text);
-
-  // ======================================
-  // DESTINO SELECIONADO
-  // ======================================
-
-  if (
-    window.selectedDestination &&
-    normalizeText(
-      window.selectedDestination
-        .name
-    ) === normalized
-  ) {
-
+  const normalized = normalizeText(text);
+  
+  if (window.selectedDestination &&
+    normalizeText(window.selectedDestination.name) === normalized) {
     return {
-
-      lat: Number(
-        window.selectedDestination
-          .lat
-      ),
-
-      lng: Number(
-        window.selectedDestination
-          .lng
-      ),
-
-      name:
-        window.selectedDestination
-          .name
+      lat: Number(window.selectedDestination.lat),
+      lng: Number(window.selectedDestination.lng),
+      name: window.selectedDestination.name
     };
   }
-
-  // ======================================
-  // BUSCA LOCAL
-  // ======================================
-
-  if (
-    Array.isArray(
-      window.poiIndex
-    )
-  ) {
-
-    let local =
-      window.poiIndex.find(
-        poi =>
-
-          normalizeText(
-            poi.name
-          ) === normalized
-      );
-
+  
+  if (Array.isArray(window.poiIndex)) {
+    let local = window.poiIndex.find(poi => normalizeText(poi.name) === normalized);
     if (!local) {
-
-      local =
-        window.poiIndex.find(
-          poi =>
-
-            normalizeText(
-              poi.name
-            ).includes(
-              normalized
-            )
-        );
+      local = window.poiIndex.find(poi => normalizeText(poi.name).includes(normalized));
     }
-
     if (local) {
-
-      const lat =
-        Number(local.lat);
-
-      const lng =
-        Number(
-          local.lng ??
-          local.lon
-        );
-
-      if (
-        isValidCoordinate(
-          lat,
-          lng
-        )
-      ) {
-
-        return {
-
-          lat,
-          lng,
-
-          name:
-            local.name
-        };
+      const lat = Number(local.lat);
+      const lng = Number(local.lng ?? local.lon);
+      if (isValidCoordinate(lat, lng)) {
+        return { lat, lng, name: local.name };
       }
     }
   }
-
-  // ======================================
-  // GEOCODING
-  // ======================================
-
-  if (
-    typeof window.geocode ===
-    "function"
-  ) {
-
+  
+  if (typeof window.geocode === "function") {
     try {
-
-      const results =
-        await window.geocode(
-          text
-        );
-
-      if (
-        !Array.isArray(
-          results
-        ) ||
-
-        results.length === 0
-      ) {
-
+      const results = await window.geocode(text);
+      if (!Array.isArray(results) || results.length === 0) {
         return null;
       }
-
-      const best =
-        results[0];
-
-      const lat =
-        Number(best.lat);
-
-      const lng =
-        Number(
-          best.lng ??
-          best.lon
-        );
-
-      if (
-        !isValidCoordinate(
-          lat,
-          lng
-        )
-      ) {
-
+      const best = results[0];
+      const lat = Number(best.lat);
+      const lng = Number(best.lng ?? best.lon);
+      if (!isValidCoordinate(lat, lng)) {
         return null;
       }
-
-      return {
-
-        lat,
-        lng,
-
-        name:
-          best.name ||
-          text
-      };
-
+      return { lat, lng, name: best.name || text };
     } catch (err) {
-
-      console.error(
-        "Erro geocode:",
-        err
-      );
+      console.error("Erro geocode:", err);
     }
   }
-
   return null;
 }
 
-window.resolveText =
-  resolveText;
+window.resolveText = resolveText;
 
 // ======================================
-// ESTILO DA ROTA
+// TRAÇAR ROTA (COM MÚLTIPLAS ALTERNATIVAS)
 // ======================================
 
-function getRouteStyle(
-  mode
-) {
-
-  switch (mode) {
-
-    case "foot":
-
-      return {
-        color: "#16a34a",
-        weight: 6,
-        opacity: 0.9
-      };
-
-    case "bike":
-
-      return {
-        color: "#2563eb",
-        weight: 6,
-        opacity: 0.9
-      };
-
-    default:
-
-      return {
-        color: "#ef4444",
-        weight: 6,
-        opacity: 0.9
-      };
-  }
-}
-
-// ======================================
-// TRAÇAR ROTA
-// ======================================
-
-async function traceRoute(
-  from,
-  to,
-  mode = "car"
-) {
-
-  if (
-    !window.map ||
-    !window.routeLayer
-  ) {
-
-    console.error(
-      "Mapa ou routeLayer não encontrado"
-    );
-
+async function traceRoute(from, to, mode = "car") {
+  if (!window.map || !window.routeLayer) {
+    console.error("Mapa ou routeLayer não encontrado");
     return false;
   }
-
-  const fromLat =
-    Number(from?.lat);
-
-  const fromLng =
-    Number(from?.lng);
-
-  const toLat =
-    Number(to?.lat);
-
-  const toLng =
-    Number(to?.lng);
-
-  if (
-    !isValidCoordinate(
-      fromLat,
-      fromLng
-    ) ||
-
-    !isValidCoordinate(
-      toLat,
-      toLng
-    )
-  ) {
-
-    alert(
-      "Coordenadas inválidas"
-    );
-
+  
+  const fromLat = Number(from?.lat);
+  const fromLng = Number(from?.lng);
+  const toLat = Number(to?.lat);
+  const toLng = Number(to?.lng);
+  
+  if (!isValidCoordinate(fromLat, fromLng) || !isValidCoordinate(toLat, toLng)) {
+    alert("Coordenadas inválidas");
     return false;
   }
-
-  // ======================================
-  // CANCELA REQUEST ANTERIOR
-  // ======================================
-
-  if (
-    currentRouteController
-  ) {
-
+  
+  // Salvar origem/destino para redesenho
+  currentFrom = { lat: fromLat, lng: fromLng };
+  currentTo = { lat: toLat, lng: toLng };
+  currentMode = mode;
+  
+  // Cancelar request anterior
+  if (currentRouteController) {
     currentRouteController.abort();
   }
-
-  currentRouteController =
-    new AbortController();
-
-  const profile =
-    mode === "foot"
-      ? "walking"
-      : mode === "bike"
-      ? "cycling"
-      : "driving";
-
-  const url =
-    `https://router.project-osrm.org/route/v1/${profile}/` +
+  currentRouteController = new AbortController();
+  
+  const profile = mode === "foot" ? "walking" : mode === "bike" ? "cycling" : "driving";
+  
+  // URL com alternatives=true para múltiplas rotas
+  const url = `https://router.project-osrm.org/route/v1/${profile}/` +
     `${fromLng},${fromLat};${toLng},${toLat}` +
-    `?overview=full` +
-    `&geometries=geojson` +
-    `&steps=true`;
-
+    `?alternatives=true&overview=full&geometries=geojson&steps=true`;
+  
   try {
-
-    const timeout =
-      setTimeout(() => {
-
-        currentRouteController.abort();
-
-      }, 15000);
-
-    const response =
-      await fetch(url, {
-        signal:
-          currentRouteController.signal
-      });
-
+    const timeout = setTimeout(() => {
+      currentRouteController.abort();
+    }, 15000);
+    
+    const response = await fetch(url, {
+      signal: currentRouteController.signal
+    });
+    
     clearTimeout(timeout);
-
+    
     if (!response.ok) {
-
-      console.error(
-        "Erro OSRM:",
-        response.status
-      );
-
-      alert(
-        "Erro ao buscar rota"
-      );
-
+      console.error("Erro OSRM:", response.status);
+      alert("Erro ao buscar rota");
       return false;
     }
-
-    const data =
-      await response.json();
-
-    if (
-      !data.routes ||
-      !data.routes.length
-    ) {
-
-      alert(
-        "Rota não encontrada"
-      );
-
+    
+    const data = await response.json();
+    
+    if (!data.routes || !data.routes.length) {
+      alert("Rota não encontrada");
       return false;
     }
-
-    clearRoute();
-
-    const route =
-      data.routes[0];
-
-    // ======================================
-    // LINHA
-    // ======================================
-
-    const geo =
-      L.geoJSON(
-        route.geometry,
-        {
-          style:
-            getRouteStyle(
-              mode
-            )
-        }
-      );
-
-    geo.addTo(
-      window.routeLayer
-    );
-
-    // ======================================
-    // MARCADORES
-    // ======================================
-
-    L.marker([
-      fromLat,
-      fromLng
-    ]).addTo(
-      window.routeLayer
-    );
-
-    L.marker([
-      toLat,
-      toLng
-    ]).addTo(
-      window.routeLayer
-    );
-
-    // ======================================
-    // FIT BOUNDS
-    // ======================================
-
-    window.map.fitBounds(
-      geo.getBounds(),
-      {
-        padding: [50, 50]
-      }
-    );
-
-    // ======================================
-    // INFO
-    // ======================================
-
-    const info =
-      document.getElementById(
-        "route-info"
-      );
-
-    if (info) {
-
-      info.style.display =
-        "block";
-
-      info.innerHTML = `
-        <div style="
-          display:flex;
-          flex-direction:column;
-          gap:6px;
-        ">
-
-          <div>
-            📏 ${formatDistance(
-              route.distance
-            )}
-          </div>
-
-          <div>
-            ⏱ ${formatTime(
-              route.distance,
-              mode
-            )}
-          </div>
-
-        </div>
-      `;
-    }
-
+    
+    // Limpar rotas anteriores
+    clearAllRoutes();
+    
+    // Armazenar todas as rotas
+    currentRoutes = data.routes;
+    activeRouteIndex = 0;  // A primeira é a recomendada
+    
+    console.log(`✅ Encontradas ${currentRoutes.length} rotas alternativas`);
+    currentRoutes.forEach((route, idx) => {
+      console.log(`  Rota ${idx + 1}: ${formatDistance(route.distance)} • ${formatTime(route.distance, mode)}`);
+    });
+    
+    // Redesenhar todas as rotas
+    redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng);
+    
+    // Mostrar informações da rota principal
+    updateRouteInfo(currentRoutes[0], mode);
+    
     return true;
-
+    
   } catch (err) {
-
-    if (
-      err.name ===
-      "AbortError"
-    ) {
-
-      console.log(
-        "Rota cancelada"
-      );
-
+    if (err.name === "AbortError") {
+      console.log("Rota cancelada");
       return false;
     }
-
-    console.error(
-      "Erro rota:",
-      err
-    );
-
-    alert(
-      "Erro ao criar rota"
-    );
-
+    console.error("Erro rota:", err);
+    alert("Erro ao criar rota");
     return false;
   }
 }
 
-window.traceRoute =
-  traceRoute;
+window.traceRoute = traceRoute;
 
 // ======================================
 // CREATE ROUTE
 // ======================================
 
-async function createRoute(
-  originText,
-  destinationText,
-  mode = "car"
-) {
-
+async function createRoute(originText, destinationText, mode = "car") {
   let from = null;
   let to = null;
-
-  // ======================================
+  
   // ORIGEM
-  // ======================================
-
-  if (
-    !originText ||
-    originText.trim() === ""
-  ) {
-
-    const pos =
-      window.locationEngine?.
-        getPosition?.();
-
+  if (!originText || originText.trim() === "") {
+    const pos = window.locationEngine?.getPosition?.();
     if (!pos) {
-
-      alert(
-        "GPS indisponível"
-      );
-
+      alert("GPS indisponível");
       return false;
     }
-
     from = {
-
-      lat:
-        Number(pos.lat),
-
-      lng:
-        Number(pos.lng),
-
-      name:
-        "Minha localização"
+      lat: Number(pos.lat),
+      lng: Number(pos.lng),
+      name: "Minha localização"
     };
-
   } else {
-
-    from =
-      await resolveText(
-        originText
-      );
+    from = await resolveText(originText);
   }
-
-  // ======================================
+  
   // DESTINO
-  // ======================================
-
-  to =
-    await resolveText(
-      destinationText
-    );
-
-  // ======================================
-  // VALIDAÇÃO
-  // ======================================
-
+  to = await resolveText(destinationText);
+  
   if (!from) {
-
-    alert(
-      "Origem inválida"
-    );
-
+    alert("Origem inválida");
     return false;
   }
-
   if (!to) {
-
-    alert(
-      "Destino inválido"
-    );
-
+    alert("Destino inválido");
     return false;
   }
-
-  // ======================================
-  // TRACE
-  // ======================================
-
-  return await traceRoute(
-    from,
-    to,
-    mode
-  );
+  
+  return await traceRoute(from, to, mode);
 }
 
-window.createRoute =
-  createRoute;
+window.createRoute = createRoute;
 
 // ======================================
 // ROTA DIRETA
 // ======================================
 
-async function routeToPlace(
-  lat,
-  lng,
-  mode = "car"
-) {
-
-  const pos =
-    window.locationEngine?.
-      getPosition?.();
-
+async function routeToPlace(lat, lng, mode = "car") {
+  const pos = window.locationEngine?.getPosition?.();
   if (!pos) {
-
-    alert(
-      "GPS indisponível"
-    );
-
+    alert("GPS indisponível");
     return;
   }
-
-  if (
-    typeof window.closePanels ===
-    "function"
-  ) {
-
-    window.closePanels(
-      "route-panel"
-    );
+  
+  if (typeof window.closePanels === "function") {
+    window.closePanels("route-panel");
   }
-
-  const panel =
-    document.getElementById(
-      "route-panel"
-    );
-
+  
+  const panel = document.getElementById("route-panel");
   if (panel) {
-
-    panel.style.display =
-      "flex";
+    panel.style.display = "flex";
   }
-
-  const destinationInput =
-    document.getElementById(
-      "route-destination"
-    );
-
+  
+  const destinationInput = document.getElementById("route-destination");
   if (destinationInput) {
-
-    destinationInput.value =
-      `${lat}, ${lng}`;
+    destinationInput.value = `${lat}, ${lng}`;
   }
-
+  
   await traceRoute(
-    {
-      lat: pos.lat,
-      lng: pos.lng
-    },
-    {
-      lat,
-      lng
-    },
+    { lat: pos.lat, lng: pos.lng },
+    { lat, lng },
     mode
   );
 }
 
-window.routeToPlace =
-  routeToPlace;
+window.routeToPlace = routeToPlace;
+
+// ======================================
+// LIMPAR ROTA (MANTIDO PARA COMPATIBILIDADE)
+// ======================================
+
+function clearRoute() {
+  clearAllRoutes();
+}
+
+window.clearRoute = clearRoute;
 
 // ======================================
 // EVENTS
 // ======================================
 
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
-
-    const btn =
-      document.getElementById(
-        "createRouteBtn"
-      );
-
-    const modeButtons =
-      document.querySelectorAll(
-        ".mode-btn"
-      );
-
-    let selectedMode =
-      "car";  // <- MUDADO para carro como padrão
-
-    // ======================================
-    // MODO
-    // ======================================
-
-    modeButtons.forEach(
-      button => {
-
-        button.addEventListener(
-          "click",
-          () => {
-
-            modeButtons.forEach(
-              b =>
-                b.classList.remove(
-                  "active"
-                )
-            );
-
-            button.classList.add(
-              "active"
-            );
-
-            selectedMode =
-              button.dataset.mode;
-            
-            console.log(`🚗 Modo selecionado: ${selectedMode}`);
-          }
-        );
-      }
-    );
-
-    // ======================================
-    // DEFAULT ACTIVE - CARRO
-    // ======================================
-
-    const defaultButton =
-      document.querySelector(
-        '.mode-btn[data-mode="car"]'
-      );
-
-    if (defaultButton) {
-
-      defaultButton.classList.add(
-        "active"
-      );
-      selectedMode = "car";
-    }
-
-    // ======================================
-    // CREATE ROUTE BTN
-    // ======================================
-
-    btn?.addEventListener(
-      "click",
-      async () => {
-
-        const origin =
-          document.getElementById(
-            "route-origin"
-          )?.value || "";
-
-        const destination =
-          document.getElementById(
-            "route-destination"
-          )?.value || "";
-
-        if (
-          !destination ||
-          !destination.trim()
-        ) {
-
-          alert(
-            "Digite um destino"
-          );
-
-          return;
-        }
-
-        btn.disabled = true;
-
-        const originalText =
-          btn.innerHTML;
-
-        btn.innerHTML =
-          "Calculando...";
-
-        try {
-
-          await createRoute(
-            origin,
-            destination,
-            selectedMode
-          );
-
-        } finally {
-
-          btn.disabled = false;
-
-          btn.innerHTML =
-            originalText;
-        }
-      }
-    );
-    
-    console.log("✅ Sistema de rotas OSRM carregado!");
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("createRouteBtn");
+  const modeButtons = document.querySelectorAll(".mode-btn");
+  let selectedMode = "car";
+  
+  modeButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      modeButtons.forEach(b => b.classList.remove("active"));
+      button.classList.add("active");
+      selectedMode = button.dataset.mode;
+      console.log(`🚗 Modo selecionado: ${selectedMode}`);
+    });
+  });
+  
+  const defaultButton = document.querySelector('.mode-btn[data-mode="car"]');
+  if (defaultButton) {
+    defaultButton.classList.add("active");
+    selectedMode = "car";
   }
-);
+  
+  btn?.addEventListener("click", async () => {
+    const origin = document.getElementById("route-origin")?.value || "";
+    const destination = document.getElementById("route-destination")?.value || "";
+    
+    if (!destination || !destination.trim()) {
+      alert("Digite um destino");
+      return;
+    }
+    
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "Calculando...";
+    
+    try {
+      await createRoute(origin, destination, selectedMode);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  });
+  
+  console.log("✅ Sistema de rotas OSRM com múltiplas alternativas carregado!");
+});
