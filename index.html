@@ -101,6 +101,56 @@ html, body {
   gap: 8px;
 }
 
+/* CABEÇALHO DO PAINEL DE ROTA COM BOTÕES */
+.route-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.route-panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.route-panel-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.route-panel-buttons button {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.btn-exit-route {
+  background: #f97316;
+  color: white;
+}
+
+.btn-exit-route:hover {
+  background: #ea580c;
+  transform: scale(1.02);
+}
+
+.btn-close-card {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-close-card:hover {
+  background: #dc2626;
+  transform: scale(1.02);
+}
+
 .mode-container {
   display: flex;
   gap: 8px;
@@ -566,10 +616,19 @@ html, body {
 </div>
 
 <!-- ====================================== -->
-<!-- ROUTE PANEL -->
+<!-- ROUTE PANEL COM BOTÕES DE FECHAR E SAIR -->
 <!-- ====================================== -->
 
 <div id="route-panel">
+  <!-- CABEÇALHO COM BOTÕES -->
+  <div class="route-panel-header">
+    <h3>🗺️ Traçar Rota</h3>
+    <div class="route-panel-buttons">
+      <button class="btn-exit-route" onclick="window.exitRouteMode?.()" title="Limpar rota sem fechar o card">🚫 Sair Modo</button>
+      <button class="btn-close-card" onclick="window.closeRouteCard?.()" title="Fechar card de rota">✕ Fechar</button>
+    </div>
+  </div>
+  
   <input id="route-origin" autocomplete="off" placeholder="Origem (vazio = GPS)" />
   <div id="origin-suggestions" class="suggestions"></div>
   <input id="route-destination" autocomplete="off" placeholder="Destino" />
@@ -668,6 +727,18 @@ html, body {
 </div>
 
 <!-- ====================================== -->
+<!-- JARVIS INDICATOR -->
+<!-- ====================================== -->
+
+<div id="jarvisIndicator" class="jarvis-indicator">
+  <div class="jarvis-dot"></div>
+  <span style="color: white; font-size: 12px;">🎤 Modo Jarvis ativo</span>
+  <div class="jarvis-wave">
+    <span></span><span></span><span></span><span></span>
+  </div>
+</div>
+
+<!-- ====================================== -->
 <!-- LEAFLET JS -->
 <!-- ====================================== -->
 
@@ -716,14 +787,55 @@ window.toggleRoute = function() {
   }
 };
 
-// Função para fechar o card de rota (adicionada)
+// Função para fechar o card de rota
 window.closeRouteCard = function() {
+  const panel = document.getElementById('route-panel');
+  if (panel) {
+    panel.style.display = 'none';
+  }
+  console.log('🚪 Card de rota fechado');
+};
+
+// Função para sair do modo rota (limpa sem fechar o card)
+window.exitRouteMode = function() {
+  // Limpa a camada de rota se existir
+  if (window.routeLayer) {
+    window.routeLayer.clearLayers();
+  }
+  
+  // Limpa e esconde as informações da rota
+  const routeInfo = document.getElementById('route-info');
+  if (routeInfo) {
+    routeInfo.innerHTML = '';
+    routeInfo.style.display = 'none';
+  }
+  
+  // Limpa os campos de origem e destino
+  const originInput = document.getElementById('route-origin');
+  const destInput = document.getElementById('route-destination');
+  
+  if (originInput) originInput.value = '';
+  if (destInput) destInput.value = '';
+  
+  // Centraliza na posição do usuário se disponível
+  if (window.locationEngine && window.locationEngine.getPosition) {
+    const pos = window.locationEngine.getPosition();
+    if (pos && window.map) {
+      window.map.setView([pos.lat, pos.lng], 15);
+    }
+  }
+  
+  console.log('🚫 Modo rota encerrado - rota limpa');
+};
+
+// Função para limpar todas as rotas (fallback)
+window.clearAllRoutes = function() {
+  if (window.routeLayer) {
+    window.routeLayer.clearLayers();
+  }
   const routeInfo = document.getElementById('route-info');
   if (routeInfo) {
     routeInfo.style.display = 'none';
-  }
-  if (window.clearAllRoutes) {
-    window.clearAllRoutes();
   }
 };
 
