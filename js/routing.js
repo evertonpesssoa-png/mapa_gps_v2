@@ -859,7 +859,7 @@ document.addEventListener(
       );
 
     let selectedMode =
-      "foot";
+      "car";  // <- MUDADO para carro como padrão
 
     // ======================================
     // MODO
@@ -885,25 +885,28 @@ document.addEventListener(
 
             selectedMode =
               button.dataset.mode;
+            
+            console.log(`🚗 Modo selecionado: ${selectedMode}`);
           }
         );
       }
     );
 
     // ======================================
-    // DEFAULT ACTIVE
+    // DEFAULT ACTIVE - CARRO
     // ======================================
 
-    const firstButton =
+    const defaultButton =
       document.querySelector(
-        '.mode-btn[data-mode="foot"]'
+        '.mode-btn[data-mode="car"]'
       );
 
-    if (firstButton) {
+    if (defaultButton) {
 
-      firstButton.classList.add(
+      defaultButton.classList.add(
         "active"
       );
+      selectedMode = "car";
     }
 
     // ======================================
@@ -961,5 +964,7 @@ document.addEventListener(
         }
       }
     );
+    
+    console.log("✅ Sistema de rotas OSRM carregado!");
   }
 );
