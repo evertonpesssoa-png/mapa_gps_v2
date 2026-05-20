@@ -48,6 +48,60 @@ window.toggleRoute =
   toggleRoute;
 
 // ======================================
+// FECHAR CARD DE ROTA (NOVO)
+// ======================================
+
+function closeRouteCard() {
+  const panel = document.getElementById("route-panel");
+  if (panel) {
+    panel.style.display = "none";
+  }
+}
+
+window.closeRouteCard = closeRouteCard;
+
+// ======================================
+// SAIR DO MODO ROTA (NOVO)
+// ======================================
+
+function exitRouteMode() {
+  // Limpa a rota traçada
+  if (window.routeLayer) {
+    window.routeLayer.clearLayers();
+  }
+  
+  // Limpa e esconde as informações da rota
+  const info = document.getElementById("route-info");
+  if (info) {
+    info.innerHTML = "";
+    info.style.display = "none";
+  }
+  
+  // Limpa os campos de origem e destino (opcional)
+  const originInput = document.getElementById("route-origin");
+  const destInput = document.getElementById("route-destination");
+  
+  if (originInput) {
+    originInput.value = "";
+  }
+  if (destInput) {
+    destInput.value = "";
+  }
+  
+  // Opcional: volta o zoom para a posição atual do usuário
+  if (window.locationEngine && window.locationEngine.getPosition) {
+    const pos = window.locationEngine.getPosition();
+    if (pos && window.map) {
+      window.map.setView([pos.lat, pos.lng], 15);
+    }
+  }
+  
+  console.log("🚫 Modo rota encerrado - rota limpa");
+}
+
+window.exitRouteMode = exitRouteMode;
+
+// ======================================
 // FORMATADORES
 // ======================================
 
