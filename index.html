@@ -1111,21 +1111,37 @@ console.log('✅ MAPBOX_TOKEN configurado');
 </script>
 
 <!-- ====================================== -->
-<!-- SCRIPTS DO APP -->
+<!-- SCRIPTS DO APP (ORDEM CORRETA) -->
 <!-- ====================================== -->
 
+<!-- Core -->
 <script src="js/locationEngine.js"></script>
 <script src="js/geocoding.js"></script>
+
+<!-- POIs - Sistema de 4 camadas -->
+<script src="js/pois-manager.js"></script>
+<script src="js/pois-manual.js"></script>
+<script src="js/pois-google.js"></script>
+<script src="js/pois-mapbox.js"></script>
+<script src="js/pois-osm.js"></script>
+<script src="js/pois.js"></script>
+
+<!-- Dados e funcionalidades principais -->
 <script src="data/manual_pois.js"></script>
 <script src="js/search.js"></script>
 <script src="js/routing.js"></script>
+
+<!-- Clima e Horário -->
 <script src="js/weather.js"></script>
 <script src="js/weather-ui.js"></script>
 <script src="js/timezone.js"></script>
+
+<!-- UI e Menu -->
 <script src="js/menu.js"></script>
+
+<!-- Mapa e Chat -->
 <script src="js/mapa.js"></script>
 <script src="js/chat.js"></script>
-<script src="js/pois.js"></script>
 
 <!-- ====================================== -->
 <!-- FUNÇÕES ADICIONAIS -->
@@ -1200,7 +1216,10 @@ window.addEventListener('load', () => {
   }, 100);
 });
 
-console.log('✅ Aplicação inicializada!');
+console.log('✅ Aplicação inicializada com sistema de 4 camadas!');
+console.log('📍 POIs: Manual + Google + Mapbox + OpenStreetMap');
+console.log('🌤️ Clime: OpenWeatherMap');
+console.log('🕐 Horário: TimeZoneDB');
 </script>
 
 </body>
