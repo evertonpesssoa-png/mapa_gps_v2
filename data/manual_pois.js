@@ -83,6 +83,10 @@ const MANUAL_POI_ZOOM_CONFIG = {
   maxDistance: 5000 // Distância máxima em metros (5km)
 };
 
+// Cache em memória para evitar cálculos repetidos
+const manualPOICache = new Map();
+const MANUAL_POI_CACHE_TTL = 30000; // 30 segundos
+
 // ======================================
 // FUNÇÃO PARA CALCULAR DISTÂNCIA
 // ======================================
@@ -107,12 +111,40 @@ function deveExibirPOIporZoom(zoomAtual) {
 }
 
 // ======================================
+// VERIFICAR TEMA ATUAL (CLARO/ESCURO)
+// ======================================
+
+function isDarkTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+
+// ======================================
+// LIMPAR CACHE DE POIs MANUAIS
+// ======================================
+
+function limparCacheManualPOIs() {
+  manualPOICache.clear();
+  console.log('🧹 Cache de POIs manuais limpo');
+}
+
+// ======================================
 // BUSCAR POIs MANUAIS PRÓXIMOS (COM CONTROLE DE ZOOM)
 // ======================================
 
-async function buscarPOIsManuais(lat, lng, type = 'all', radius = 2000, zoom = 15) {
+function buscarPOIsManuais(lat, lng, type = 'all', radius = 2000, zoom = 15) {
   // Se não tem coordenadas, retorna vazio
   if (!lat || !lng) return [];
+  
+  // Verificar cache
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)},${type},${radius},${zoom}`;
+  if (manualPOICache.has(cacheKey)) {
+    const cached = manualPOICache.get(cacheKey);
+    if (Date.now() - cached.timestamp < MANUAL_POI_CACHE_TTL) {
+      console.log(`📦 Cache manual hit: ${cached.data.length} POIs`);
+      return cached.data;
+    }
+    manualPOICache.delete(cacheKey);
+  }
   
   // Verificar zoom - se zoom baixo, não exibir
   if (!deveExibirPOIporZoom(zoom)) {
@@ -151,24 +183,56 @@ async function buscarPOIsManuais(lat, lng, type = 'all', radius = 2000, zoom = 1
   
   console.log(`📌 POIs manuais: ${withinRadius.length} encontrados (zoom: ${zoom}, raio: ${raioAjustado}m)`);
   
+  // Salvar no cache
+  manualPOICache.set(cacheKey, {
+    timestamp: Date.now(),
+    data: withinRadius
+  });
+  
   return withinRadius;
 }
 
 // ======================================
-// FUNÇÃO PARA ADICIONAR NOVO POI MANUAL
+// FUNÇÃO PARA ADICIONAR NOVO POI MANUAL (COM VALIDAÇÃO)
 // ======================================
 
 function adicionarPOIManual(name, lat, lon, category, icon = '📍') {
+  // Validar dados
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    console.warn('⚠️ Nome inválido para POI manual');
+    return null;
+  }
+  
+  if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+    console.warn('⚠️ Coordenadas inválidas para POI manual');
+    return null;
+  }
+  
+  // Verificar se já existe POI similar (evitar duplicatas)
+  const existe = window.manualPOIs.some(poi => 
+    poi.name === name && 
+    Math.abs(poi.lat - lat) < 0.0001 && 
+    Math.abs(poi.lon - lon) < 0.0001
+  );
+  
+  if (existe) {
+    console.warn(`⚠️ POI "${name}" já existe! Nenhuma duplicata adicionada.`);
+    return null;
+  }
+  
   const novoPOI = {
-    name,
-    lat,
-    lon,
-    category,
-    icon
+    name: name.trim(),
+    lat: Number(lat),
+    lon: Number(lon),
+    category: category || 'generic',
+    icon: icon || '📍'
   };
   
   window.manualPOIs.push(novoPOI);
   console.log(`✅ POI manual adicionado: ${name}`);
+  
+  // Limpar cache pois os dados mudaram
+  limparCacheManualPOIs();
   
   // Salvar no localStorage para persistência
   salvarPOIsManuais();
@@ -188,10 +252,44 @@ function removerPOIManual(name, lat, lon) {
   if (index !== -1) {
     const removido = window.manualPOIs.splice(index, 1)[0];
     console.log(`🗑️ POI manual removido: ${removido.name}`);
+    
+    // Limpar cache pois os dados mudaram
+    limparCacheManualPOIs();
+    
     salvarPOIsManuais();
     return removido;
   }
   
+  console.warn(`⚠️ POI não encontrado para remoção: ${name}`);
+  return null;
+}
+
+// ======================================
+// FUNÇÃO PARA EDITAR POI MANUAL
+// ======================================
+
+function editarPOIManual(oldName, oldLat, oldLon, newData) {
+  const index = window.manualPOIs.findIndex(poi => 
+    poi.name === oldName && 
+    Math.abs(poi.lat - oldLat) < 0.0001 && 
+    Math.abs(poi.lon - oldLon) < 0.0001
+  );
+  
+  if (index !== -1) {
+    window.manualPOIs[index] = {
+      ...window.manualPOIs[index],
+      ...newData
+    };
+    console.log(`✏️ POI manual editado: ${oldName} -> ${newData.name || oldName}`);
+    
+    // Limpar cache pois os dados mudaram
+    limparCacheManualPOIs();
+    
+    salvarPOIsManuais();
+    return window.manualPOIs[index];
+  }
+  
+  console.warn(`⚠️ POI não encontrado para edição: ${oldName}`);
   return null;
 }
 
@@ -240,7 +338,7 @@ function getCategoriasManuais() {
 }
 
 // ======================================
-// FUNÇÃO PARA CRIAR MARCADOR NO MAPA
+// FUNÇÃO PARA CRIAR MARCADOR NO MAPA (COM SUPORTE A TEMA ESCURO)
 // ======================================
 
 function criarMarcadorManual(poi, mapLayer) {
@@ -261,10 +359,15 @@ function criarMarcadorManual(poi, mapLayer) {
   
   const iconChar = poi.icon || iconMap[poi.category] || '📍';
   
-  // Criar ícone customizado
+  // Verificar tema atual para cores adaptativas
+  const isDark = isDarkTheme();
+  const bgColor = isDark ? '#1a1a2a' : 'white';
+  const borderColor = isDark ? '#ff66c0' : '#ff4db8';
+  
+  // Criar ícone customizado com suporte a tema escuro
   const customIcon = L.divIcon({
     className: 'custom-poi-icon manual-poi',
-    html: `<div style="background: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid #ff4db8; font-size: 16px;">${iconChar}</div>`,
+    html: `<div style="background: ${bgColor}; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid ${borderColor}; font-size: 16px; transition: all 0.2s ease;">${iconChar}</div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16],
     popupAnchor: [0, -16]
@@ -272,17 +375,44 @@ function criarMarcadorManual(poi, mapLayer) {
   
   const marker = L.marker([poi.lat, poi.lon], { icon: customIcon });
   
-  // Criar popup com informações
+  // Criar popup com informações (também adaptativo ao tema)
+  const popupBgColor = isDark ? '#1a1a2a' : 'white';
+  const popupTextColor = isDark ? 'white' : '#1a1a2e';
+  
   marker.bindPopup(`
-    <div style="min-width: 150px;">
+    <div style="min-width: 150px; background: ${popupBgColor}; color: ${popupTextColor}; border-radius: 8px; padding: 8px;">
       <strong>${poi.name}</strong><br>
-      <span style="color: #666;">📌 ${poi.category}</span><br>
-      <span style="color: #888; font-size: 11px;">📡 Fonte: Manual (permanente)</span>
-      ${poi.distance ? `<br><span style="color: #888; font-size: 11px;">📏 ${(poi.distance / 1000).toFixed(1)}km de distância</span>` : ''}
+      <span style="color: ${isDark ? '#aaa' : '#666'};">📌 ${poi.category}</span><br>
+      <span style="color: ${isDark ? '#888' : '#999'}; font-size: 11px;">📡 Fonte: Manual (permanente)</span>
+      ${poi.distance ? `<br><span style="color: ${isDark ? '#888' : '#999'}; font-size: 11px;">📏 ${(poi.distance / 1000).toFixed(1)}km de distância</span>` : ''}
     </div>
   `);
   
   return marker;
+}
+
+// ======================================
+// FUNÇÃO PARA ATUALIZAR MARCADORES MANUAIS (APÓS MUDANÇA DE TEMA)
+// ======================================
+
+function atualizarMarcadoresManuais() {
+  if (!window.poiLayer) return;
+  
+  // Re-criar marcadores manuais
+  const manualMarkers = [];
+  window.poiLayer.eachLayer(layer => {
+    if (layer._poiData && layer._poiData.source === 'manual') {
+      manualMarkers.push(layer._poiData);
+      window.poiLayer.removeLayer(layer);
+    }
+  });
+  
+  manualMarkers.forEach(poi => {
+    const marker = criarMarcadorManual(poi, window.poiLayer);
+    if (marker) marker.addTo(window.poiLayer);
+  });
+  
+  console.log(`🔄 Marcadores manuais atualizados para o tema ${isDarkTheme() ? 'escuro' : 'claro'}`);
 }
 
 // ======================================
@@ -295,15 +425,31 @@ async function carregarPOIsManuaisNoMapa(lat, lng, radius = 5000, mapLayer) {
   // Obter zoom atual do mapa
   const zoomAtual = window.map ? window.map.getZoom() : 15;
   
-  const pois = await buscarPOIsManuais(lat, lng, 'all', radius, zoomAtual);
+  const pois = buscarPOIsManuais(lat, lng, 'all', radius, zoomAtual);
   
   pois.forEach(poi => {
     const marker = criarMarcadorManual(poi, mapLayer);
-    if (marker) marker.addTo(mapLayer);
+    if (marker) {
+      marker._poiData = { ...poi, source: 'manual' };
+      marker.addTo(mapLayer);
+    }
   });
   
   console.log(`🗺️ ${pois.length} POIs manuais carregados no mapa (zoom: ${zoomAtual})`);
   return pois;
+}
+
+// ======================================
+// OBSERVAR MUDANÇAS DE TEMA PARA ATUALIZAR MARCADORES
+// ======================================
+
+function iniciarObservadorTema() {
+  const observer = new MutationObserver(() => {
+    atualizarMarcadoresManuais();
+  });
+  
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  console.log('👁️ Observador de tema iniciado para POIs manuais');
 }
 
 // ======================================
@@ -313,14 +459,22 @@ async function carregarPOIsManuaisNoMapa(lat, lng, radius = 5000, mapLayer) {
 // Carregar POIs salvos (se houver)
 carregarPOIsManuais();
 
+// Iniciar observador de tema
+setTimeout(iniciarObservadorTema, 1000);
+
 // Exportar funções para uso global
 window.buscarPOIsManuais = buscarPOIsManuais;
 window.adicionarPOIManual = adicionarPOIManual;
 window.removerPOIManual = removerPOIManual;
+window.editarPOIManual = editarPOIManual;
 window.getCategoriasManuais = getCategoriasManuais;
 window.criarMarcadorManual = criarMarcadorManual;
 window.carregarPOIsManuaisNoMapa = carregarPOIsManuaisNoMapa;
+window.limparCacheManualPOIs = limparCacheManualPOIs;
+window.atualizarMarcadoresManuais = atualizarMarcadoresManuais;
 
 console.log(`✅ POIs Manuais carregados! ${window.manualPOIs.length} locais disponíveis`);
 console.log('📌 Categorias disponíveis:', getCategoriasManuais().join(', '));
 console.log(`🔍 POIs manuais aparecem apenas com zoom >= ${MANUAL_POI_ZOOM_CONFIG.minZoom} e distância <= ${MANUAL_POI_ZOOM_CONFIG.maxDistance}m`);
+console.log('🎨 Suporte a tema claro/escuro ativado para marcadores manuais');
+console.log('💾 Cache em memória ativado (TTL: 30 segundos)');
