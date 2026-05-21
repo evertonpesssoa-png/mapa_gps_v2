@@ -168,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       poisLoadingTimeout = null;
-    }, 500); // Aguarda 500ms após última movimentação
+    }, 500);
   }
 
   // ======================================
@@ -206,9 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ======================================
   map.on('moveend', async function() {
     const center = map.getCenter();
-    // Atualizar clima e horário
     await updateWeatherFromMap();
-    // Atualizar POIs
     await loadNearbyPOIs(center.lat, center.lng);
   });
 
@@ -250,6 +248,66 @@ document.addEventListener("DOMContentLoaded", () => {
   window.switchMapLayer = switchMapLayer;
 
   // ======================================
+  // CAMADA DE TRÂNSITO
+  // ======================================
+
+  let trafficLayer = null;
+
+  function adicionarCamadaTransito() {
+    if (!window.map || !window.MAPBOX_TOKEN) {
+      console.warn('⚠️ Mapa ou token Mapbox não disponível');
+      return;
+    }
+    
+    const trafficUrl = `https://api.mapbox.com/v4/mapbox.mapbox-traffic-v1/{z}/{x}/{y}.png?access_token=${window.MAPBOX_TOKEN}`;
+    
+    trafficLayer = L.tileLayer(trafficUrl, {
+      opacity: 0.7,
+      attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+      maxZoom: 19
+    });
+    
+    console.log('✅ Camada de trânsito pronta');
+  }
+
+  function ativarTransito() {
+    if (!trafficLayer) {
+      adicionarCamadaTransito();
+    }
+    if (trafficLayer && !map.hasLayer(trafficLayer)) {
+      trafficLayer.addTo(map);
+      const btn = document.getElementById('btn-transito');
+      if (btn) btn.classList.add('active');
+      console.log('🚦 Trânsito ativado');
+      return true;
+    }
+    return false;
+  }
+
+  function desativarTransito() {
+    if (trafficLayer && map.hasLayer(trafficLayer)) {
+      map.removeLayer(trafficLayer);
+      const btn = document.getElementById('btn-transito');
+      if (btn) btn.classList.remove('active');
+      console.log('🚦 Trânsito desativado');
+      return true;
+    }
+    return false;
+  }
+
+  function toggleTransito() {
+    if (trafficLayer && map.hasLayer(trafficLayer)) {
+      return desativarTransito();
+    } else {
+      return ativarTransito();
+    }
+  }
+
+  window.ativarTransito = ativarTransito;
+  window.desativarTransito = desativarTransito;
+  window.toggleTransito = toggleTransito;
+
+  // ======================================
   // HANDLE POSITION (GPS)
   // ======================================
   function handlePosition(position) {
@@ -263,7 +321,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (firstFix) { 
         animatedSetView([lat, lng], 16); 
         firstFix = false;
-        // Atualizar clima e POIs na posição inicial
         setTimeout(() => {
           updateWeatherFromMap();
           loadNearbyPOIs(lat, lng);
@@ -321,7 +378,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // CARREGAR POIs MANUAIS INICIAIS
   // ======================================
   setTimeout(() => {
-    // Se houver POIs manuais, carregar no mapa
     if (typeof window.carregarPOIsManuaisNoMapa === 'function') {
       const center = map.getCenter();
       window.carregarPOIsManuaisNoMapa(center.lat, center.lng, 5000, window.poiLayer);
@@ -362,6 +418,23 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ======================================
+  // ADICIONAR BOTÃO DE TRÂNSITO
+  // ======================================
+  function adicionarBotaoTransito() {
+    const mapControls = document.querySelector('.map-controls');
+    if (!mapControls || document.getElementById('btn-transito')) return;
+    
+    const btn = document.createElement('button');
+    btn.id = 'btn-transito';
+    btn.className = 'control-btn';
+    btn.innerHTML = '🚦';
+    btn.title = 'Ativar/Desativar trânsito';
+    btn.onclick = () => toggleTransito();
+    mapControls.appendChild(btn);
+    console.log('✅ Botão de trânsito adicionado');
+  }
+
+  // ======================================
   // ADICIONAR EVENTOS AOS BOTÕES DE CAMADA
   // ======================================
   setTimeout(() => {
@@ -374,9 +447,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (mapBtn) {
       mapBtn.onclick = () => switchMapLayer('map');
     }
+    
+    adicionarBotaoTransito();
   }, 500);
+
+  // Inicializar camada de trânsito (sem ativar)
+  adicionarCamadaTransito();
 
   console.log("🗺️ Mapa inicializado com sucesso (tremedeira corrigida)!");
   console.log("🌤️ Sistema de clima integrado ao movimento do mapa!");
   console.log("📍 Sistema de POIs com 4 camadas integrado!");
+  console.log("🚦 Botão de trânsito disponível!");
 });
