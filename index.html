@@ -212,6 +212,26 @@ html, body {
   border-radius: 8px;
 }
 
+/* SUGESTÕES DE BUSCA NO TEMA ESCURO */
+[data-theme="dark"] #search-results div,
+[data-theme="dark"] .suggestions div {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--card-border) !important;
+}
+
+[data-theme="dark"] #search-results div:hover,
+[data-theme="dark"] .suggestions div:hover {
+    background: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] #search-results {
+    background: var(--bg-primary);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+}
+
 #action-panel {
   bottom: 20px;
   left: 10px;
@@ -323,13 +343,13 @@ html, body {
 }
 
 /* ====================================== */
-/* CONTROLES DO MAPA (DIREITA) */
+/* CONTROLES DO MAPA (DIREITA) - SUBIDOS */
 /* ====================================== */
 
 .map-controls {
   position: absolute;
   right: 12px;
-  bottom: 20px;
+  bottom: 100px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -347,6 +367,9 @@ html, body {
   cursor: pointer;
   transition: .2s;
   color: var(--text-primary);
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
 }
 
 .control-btn:hover {
@@ -1221,6 +1244,10 @@ html, body {
         font-size: 20px;
     }
     
+    .map-controls {
+        bottom: 90px;
+    }
+    
     #search-panel {
         top: 10px;
         left: 10px;
@@ -1352,6 +1379,10 @@ html, body {
         font-size: 20px;
     }
     
+    .map-controls {
+        bottom: 95px;
+    }
+    
     .side-menu {
         width: 320px;
     }
@@ -1367,6 +1398,10 @@ html, body {
         width: 56px;
         height: 56px;
         font-size: 22px;
+    }
+    
+    .map-controls {
+        bottom: 110px;
     }
     
     .side-menu {
@@ -1387,7 +1422,7 @@ html, body {
     }
     
     .map-controls {
-        bottom: 10px;
+        bottom: 15px;
         right: 10px;
     }
     
@@ -1452,7 +1487,7 @@ html, body {
     }
     
     .map-controls {
-        bottom: calc(20px + env(safe-area-inset-bottom));
+        bottom: calc(100px + env(safe-area-inset-bottom));
     }
     
     .asura-chat {
@@ -1554,7 +1589,7 @@ html, body {
 <div id="map"></div>
 
 <!-- ====================================== -->
-<!-- CONTROLES DO MAPA (DIREITA) -->
+<!-- CONTROLES DO MAPA (DIREITA) - BOTÃO TRÂNSITO INCLUÍDO -->
 <!-- ====================================== -->
 
 <div class="map-controls">
@@ -1562,6 +1597,7 @@ html, body {
   <button class="control-btn" onclick="window.centerOnUser?.()" title="Minha localização">📍</button>
   <button class="control-btn" onclick="window.toggleRoute?.()" title="Traçar rota">➜</button>
   <button class="control-btn" onclick="window.reloadNearbyPOIs?.()" title="Recarregar POIs">🔄</button>
+  <button id="btn-transito" class="control-btn" title="Trânsito (Mapbox)" onclick="window.toggleTransito?.()">🚦</button>
 </div>
 
 <!-- ====================================== -->
