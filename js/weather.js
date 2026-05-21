@@ -2,12 +2,13 @@
 // CLIMA - OpenWeatherMap API
 // ======================================
 
-const WEATHER_API_KEY = '0e2d4d8bce061df397bf00aa0e007be8';
+const WEATHER_API_KEY = '77806cce3650e9533ba2e648930466eb';
 
 // Buscar clima por coordenadas
 async function fetchWeather(lat, lng) {
-  if (!WEATHER_API_KEY || WEATHER_API_KEY === '0e2d4d8bce061df397bf00aa0e007be8') {
-    console.warn('⚠️ WEATHER_API_KEY configurada, testando...');
+  if (!WEATHER_API_KEY) {
+    console.warn('⚠️ WEATHER_API_KEY não configurada');
+    return null;
   }
   
   const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${WEATHER_API_KEY}&units=metric&lang=pt_br`;
@@ -22,10 +23,8 @@ async function fetchWeather(lat, lng) {
       console.error('Erro clima:', response.status, errorData);
       
       if (response.status === 401) {
-        console.error('❌ API Key inválida! Verifique no site do OpenWeatherMap');
-        alert('Erro: Chave da API do clima inválida. Verifique sua chave no OpenWeatherMap.');
-      } else if (response.status === 404) {
-        console.error('❌ Localização não encontrada');
+        console.error('❌ API Key inválida!');
+        alert('Erro: Chave da API do clima inválida.');
       }
       return null;
     }
@@ -77,4 +76,4 @@ window.fetchWeather = fetchWeather;
 window.updateTemperatureIndicator = updateTemperatureIndicator;
 window.getDetailedWeather = getDetailedWeather;
 
-console.log('✅ Sistema de clima carregado. Aguardando mapa...');
+console.log('✅ Sistema de clima carregado com nova chave API!');
