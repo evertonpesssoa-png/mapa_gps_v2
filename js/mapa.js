@@ -202,12 +202,20 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ======================================
-  // EVENTO DE MOVIMENTAÇÃO DO MAPA
+  // EVENTO DE MOVIMENTAÇÃO DO MAPA (COM TEMA AUTOMÁTICO)
   // ======================================
   map.on('moveend', async function() {
     const center = map.getCenter();
+    const lat = center.lat;
+    const lng = center.lng;
+    
     await updateWeatherFromMap();
-    await loadNearbyPOIs(center.lat, center.lng);
+    await loadNearbyPOIs(lat, lng);
+    
+    // ATUALIZAR TEMA AUTOMATICAMENTE BASEADO NO HORÁRIO DO SOL
+    if (typeof window.aplicarTemaPorHorario === 'function') {
+      await window.aplicarTemaPorHorario(lat, lng);
+    }
   });
 
   // ======================================
@@ -324,6 +332,10 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
           updateWeatherFromMap();
           loadNearbyPOIs(lat, lng);
+          // INICIALIZAR TEMA COM POSIÇÃO DO GPS
+          if (typeof window.aplicarTemaPorHorario === 'function') {
+            window.aplicarTemaPorHorario(lat, lng);
+          }
         }, 500);
       }
     } else {
@@ -451,6 +463,13 @@ document.addEventListener("DOMContentLoaded", () => {
     adicionarBotaoTransito();
   }, 500);
 
+  // ======================================
+  // INICIALIZAR TEMA AUTOMÁTICO
+  // ======================================
+  if (typeof window.inicializarTema === 'function') {
+    window.inicializarTema();
+  }
+
   // Inicializar camada de trânsito (sem ativar)
   adicionarCamadaTransito();
 
@@ -458,4 +477,5 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("🌤️ Sistema de clima integrado ao movimento do mapa!");
   console.log("📍 Sistema de POIs com 4 camadas integrado!");
   console.log("🚦 Botão de trânsito disponível!");
+  console.log("🌙 Modo noturno automático ativado!");
 });
