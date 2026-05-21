@@ -169,41 +169,34 @@ function formatTime(distance, mode) {
 }
 
 // ======================================
-// ESTILO DA ROTA (PRINCIPAL)
+// ESTILO DA ROTA (PRINCIPAL vs ALTERNATIVA)
 // ======================================
 
 function getRouteStyle(mode, isAlternative = false) {
-  let baseColor;
+  let baseColor, lighterColor;
   
   switch (mode) {
     case "foot":
-      baseColor = "#16a34a";
+      baseColor = "#16a34a";      // Verde forte
+      lighterColor = "#4ade80";    // Verde médio (mais visível)
       break;
     case "bike":
-      baseColor = "#2563eb";
+      baseColor = "#2563eb";      // Azul forte
+      lighterColor = "#60a5fa";    // Azul médio (mais visível)
       break;
-    default:
-      baseColor = "#ef4444";
+    default: // car
+      baseColor = "#ef4444";      // Vermelho forte
+      lighterColor = "#e57373";    // Vermelho médio (mais visível)
   }
   
   if (isAlternative) {
-    // Estilo alternativo: cor mais clara/apagada
-    let lighterColor;
-    switch (mode) {
-      case "foot":
-        lighterColor = "#86efac";
-        break;
-      case "bike":
-        lighterColor = "#93c5fd";
-        break;
-      default:
-        lighterColor = "#fca5a5";
-    }
+    // Estilo alternativo: mais visível, mais fácil de clicar
     return {
       color: lighterColor,
-      weight: 4,
-      opacity: 0.6,
-      dashArray: null
+      weight: 5.5,        // Aumentado de 4 para 5.5
+      opacity: 0.85,      // Aumentado de 0.6 para 0.85
+      interactive: true,
+      bubblingMouseEvents: true
     };
   }
   
@@ -211,7 +204,9 @@ function getRouteStyle(mode, isAlternative = false) {
   return {
     color: baseColor,
     weight: 6,
-    opacity: 0.9
+    opacity: 0.9,
+    interactive: true,
+    bubblingMouseEvents: true
   };
 }
 
@@ -268,21 +263,45 @@ function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
     const isAlternative = (idx !== activeRouteIndex);
     const style = getRouteStyle(mode, isAlternative);
     
-    const geo = L.geoJSON(route.geometry, { style });
+    const geo = L.geoJSON(route.geometry, { 
+      style,
+      interactive: true
+    });
+    
     geo.addTo(window.routeLayer);
     currentRouteLayers.push(geo);
     
-    // Adicionar evento de clique apenas nas alternativas
-    if (isAlternative) {
-      geo.eachLayer(layer => {
-        if (layer.feature) {
-          layer.on('click', () => {
-            console.log(`🔘 Clicou na rota alternativa ${idx + 1}`);
+    // Adicionar evento de clique em TODAS as rotas (inclusive na principal)
+    geo.eachLayer(layer => {
+      if (layer.feature) {
+        // Evento de clique
+        layer.on('click', (e) => {
+          // Impedir propagação para não ativar o mapa
+          L.DomEvent.stopPropagation(e);
+          console.log(`🔘 Clicou na rota ${idx + 1} (${isAlternative ? 'alternativa' : 'principal'})`);
+          if (idx !== activeRouteIndex) {
             switchToRoute(idx, mode, fromLat, fromLng, toLat, toLng);
+          }
+        });
+        
+        // Efeito de hover nas alternativas
+        if (isAlternative) {
+          layer.on('mouseover', () => {
+            layer.setStyle({
+              weight: 7,
+              opacity: 1
+            });
+          });
+          
+          layer.on('mouseout', () => {
+            layer.setStyle({
+              weight: style.weight,
+              opacity: style.opacity
+            });
           });
         }
-      });
-    }
+      }
+    });
   });
   
   // Re-adicionar os marcadores (sobre as rotas)
