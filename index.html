@@ -2,7 +2,10 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#1a1a2e" />
 <title>Mapa Inteligente • Asuras Copilotos</title>
 
 <!-- Leaflet CSS -->
@@ -10,8 +13,24 @@
 
 <style>
 /* ====================================== */
+/* VARIÁVEIS CSS */
+/* ====================================== */
+
+:root {
+    --menu-width: 360px;
+    --control-size: 52px;
+    --control-size-mobile: 44px;
+    --font-size-base: 16px;
+    --font-size-mobile: 14px;
+}
+
+/* ====================================== */
 /* BASE */
 /* ====================================== */
+
+html {
+    font-size: var(--font-size-base);
+}
 
 html, body {
   width: 100%;
@@ -25,6 +44,7 @@ html, body {
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #map {
@@ -982,37 +1002,311 @@ html, body {
   display: none;
 }
 
-@media (max-width: 600px) {
-  .asura-chat {
-    width: calc(100% - 40px);
-    right: 20px;
-    bottom: 20px;
-  }
-  .asura-chat .chat-body {
-    height: 350px;
-  }
-  .open-chat-btn {
-    width: 48px;
-    height: 48px;
-    font-size: 1.5rem;
-  }
-  .jarvis-indicator {
-    bottom: 80px;
-    padding: 6px 16px;
-  }
-  .side-menu {
-    width: 85vw;
-  }
-  .menu-area {
-    top: 70px;
-  }
-  #nav-toast {
-    bottom: 80px;
-    font-size: 12px;
-    padding: 8px 16px;
-    white-space: normal;
-    max-width: 80%;
-  }
+/* ====================================== */
+/* RESPONSIVIDADE COMPLETA */
+/* ====================================== */
+
+/* Reset para touch */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile (até 768px) */
+@media (max-width: 768px) {
+    :root {
+        --control-size: 44px;
+        --menu-width: 85vw;
+    }
+    
+    body {
+        font-size: var(--font-size-mobile);
+    }
+    
+    .control-btn {
+        width: var(--control-size);
+        height: var(--control-size);
+        font-size: 20px;
+    }
+    
+    #search-panel {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+        max-width: none;
+    }
+    
+    #search-input {
+        font-size: 16px;
+        padding: 12px;
+    }
+    
+    #route-panel {
+        top: 60px;
+        width: calc(100vw - 20px);
+        max-width: none;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .side-menu {
+        width: var(--menu-width);
+        right: -85vw;
+    }
+    
+    .mode-btn {
+        padding: 8px;
+        font-size: 16px;
+    }
+    
+    .weather-card,
+    .time-card {
+        padding: 12px;
+    }
+    
+    .weather-temp {
+        font-size: 28px;
+    }
+    
+    .time-current-value {
+        font-size: 32px;
+    }
+    
+    #route-info {
+        bottom: 140px;
+        padding: 8px 12px;
+        font-size: 12px;
+        min-width: 120px;
+    }
+    
+    #nav-toast {
+        bottom: 70px;
+        font-size: 12px;
+        padding: 8px 16px;
+        white-space: normal;
+        max-width: 85%;
+    }
+    
+    .menu-area {
+        top: 70px;
+    }
+    
+    .menu-toggle-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+    }
+    
+    #temp-indicator,
+    #clock-indicator {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    .asura-chat {
+        width: calc(100% - 20px);
+        right: 10px;
+        bottom: 10px;
+    }
+    
+    .asura-chat .chat-body {
+        height: 350px;
+    }
+    
+    .asura-chat .chat-header h4 {
+        font-size: 14px;
+    }
+    
+    .asura-chat .message-content {
+        font-size: 12px;
+        max-width: 85%;
+    }
+    
+    .asura-chat .chat-input-area {
+        flex-wrap: wrap;
+    }
+    
+    .mic-btn {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .jarvis-indicator {
+        bottom: 80px;
+        padding: 6px 16px;
+    }
+    
+    .navigation-steps,
+    .chat-messages,
+    .side-menu {
+        scrollbar-width: thin;
+    }
+    
+    button, 
+    .control-btn,
+    .mode-btn,
+    .menu-toggle-btn,
+    .nav-btn {
+        min-height: 44px;
+    }
+}
+
+/* Tablets (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .control-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+    }
+    
+    .side-menu {
+        width: 320px;
+    }
+    
+    .menu-area {
+        top: 75px;
+    }
+}
+
+/* Desktop grandes (1440px+) */
+@media (min-width: 1440px) {
+    .control-btn {
+        width: 56px;
+        height: 56px;
+        font-size: 22px;
+    }
+    
+    .side-menu {
+        width: 400px;
+    }
+    
+    #route-info {
+        bottom: 180px;
+        min-width: 180px;
+    }
+}
+
+/* Landscape (celular deitado) */
+@media (max-width: 900px) and (orientation: landscape) {
+    .side-menu {
+        width: 50vw;
+        max-height: 100vh;
+    }
+    
+    .map-controls {
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    .menu-area {
+        top: 10px;
+    }
+    
+    #route-info {
+        bottom: 120px;
+    }
+    
+    .chat-body {
+        height: 60vh !important;
+    }
+    
+    .asura-chat .chat-body {
+        height: 250px;
+    }
+    
+    .asura-chat {
+        width: 350px;
+    }
+}
+
+/* Telas pequenas (iPhone SE, 380px) */
+@media (max-width: 380px) {
+    .control-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .mode-btn {
+        font-size: 14px;
+        padding: 6px;
+    }
+    
+    .weather-temp {
+        font-size: 24px;
+    }
+    
+    .time-current-value {
+        font-size: 28px;
+    }
+    
+    .navigation-steps {
+        max-height: 200px;
+    }
+}
+
+/* Dispositivos com notch (iPhone modernos) */
+@supports (padding-top: env(safe-area-inset-top)) {
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    
+    .menu-area {
+        top: calc(80px + env(safe-area-inset-top));
+    }
+    
+    .map-controls {
+        bottom: calc(20px + env(safe-area-inset-bottom));
+    }
+    
+    .asura-chat {
+        bottom: calc(20px + env(safe-area-inset-bottom));
+        right: calc(20px + env(safe-area-inset-right));
+    }
+}
+
+/* Dark mode automático */
+@media (prefers-color-scheme: dark) {
+    .weather-card,
+    .time-card,
+    .relevo-card {
+        background: #1e1e2e;
+        color: #eee;
+    }
+    
+    .navigation-info-item {
+        background: #2a2a3a;
+        color: #eee;
+    }
+    
+    .navigation-step.active {
+        background: #2a2a4a;
+    }
+    
+    .relevo-info-item {
+        background: #2a2a3a;
+        color: #eee;
+    }
+    
+    .relevo-info-item .info-value {
+        color: #eee;
+    }
+}
+
+/* Fontes responsivas */
+@media (max-width: 768px) {
+    html {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    html {
+        font-size: 12px;
+    }
 }
 
 ::-webkit-scrollbar {
@@ -1320,15 +1614,52 @@ window.clearAllRoutes = function() {
   }
 };
 
-// Garantir resize do mapa
+// Detectar redimensionamento e orientação
+function ajustarMapaRedimensionamento() {
+    if (window.map) {
+        setTimeout(() => {
+            window.map.invalidateSize();
+            console.log('🗺️ Mapa ajustado para nova orientação');
+        }, 100);
+    }
+}
+
+window.addEventListener('orientationchange', () => {
+    setTimeout(ajustarMapaRedimensionamento, 50);
+});
+
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        ajustarMapaRedimensionamento();
+        
+        const menu = document.getElementById('side-menu');
+        if (menu && menu.classList.contains('open')) {
+            menu.style.right = '0';
+        }
+    }, 200);
+});
+
+window.addEventListener('focus', ajustarMapaRedimensionamento);
+
+// Garantir resize do mapa no load
 window.addEventListener('load', () => {
   setTimeout(() => {
     if (window.map) {
       window.map.invalidateSize();
       console.log('🗺️ Mapa redimensionado');
     }
+    ajustarZoomControles();
   }, 100);
 });
+
+function ajustarZoomControles() {
+    const mapControls = document.querySelector('.map-controls');
+    if (mapControls && window.innerWidth <= 768) {
+        console.log('📱 Modo mobile ativo');
+    }
+}
 
 console.log('✅ Aplicação inicializada com sistema de 4 camadas!');
 console.log('📍 POIs: Manual + Google + Mapbox + OpenStreetMap');
