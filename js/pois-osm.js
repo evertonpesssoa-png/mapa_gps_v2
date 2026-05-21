@@ -17,9 +17,23 @@ const OSM_CONFIG = {
 // Cache para evitar requisições repetidas
 const osmCache = new Map();
 const OSM_CACHE_TTL = 30 * 60 * 1000; // 30 minutos
+const MAX_CACHE_SIZE = 30;
 
 // Controle de rate limiting
 let lastRequestTime = 0;
+
+// Contadores para diagnóstico
+let osmRequestsCount = 0;
+let osmErrorsCount = 0;
+let osmSuccessCount = 0;
+
+// ======================================
+// FUNÇÃO PARA VERIFICAR TEMA ESCURO
+// ======================================
+
+function isDarkTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+}
 
 // ======================================
 // MAPEAMENTO DE CATEGORIAS
@@ -65,10 +79,8 @@ async function aguardarRateLimit() {
 // ======================================
 
 function buildOverpassQuery(lat, lng, radius, type) {
-    // Converter raio de metros para graus (aproximado)
     const radiusDeg = radius / 111000;
     
-    // Calcular bounding box
     const bbox = [
         lng - radiusDeg,
         lat - radiusDeg,
@@ -76,17 +88,16 @@ function buildOverpassQuery(lat, lng, radius, type) {
         lat + radiusDeg
     ].join(',');
     
-    // Obter tags baseadas no tipo
     const tags = categoryMapping[type] || categoryMapping['all'];
     
-    // Construir query completa
-    const tagQueries = tags.map(tag => `node["${tag.split('=')[0]}"="${tag.split('=')[1]}"](${bbox});`).join('\n  ');
+    const tagQueries = tags.map(tag => {
+        const [key, value] = tag.split('=');
+        return `node["${key}"="${value}"](${bbox});`;
+    }).join('\n  ');
     
     const query = `[out:json][timeout:25];
     (
       ${tagQueries}
-      way${tags.length > 1 ? 's' : ''}["name"](${bbox});
-      relation${tags.length > 1 ? 's' : ''}["name"](${bbox});
     );
     out body center;
     >;
@@ -100,20 +111,17 @@ function buildOverpassQuery(lat, lng, radius, type) {
 // ======================================
 
 function convertOSMToPOI(element, distance) {
-    // Extrair nome (priorizar name, depois name:pt, depois nome)
     let name = element.tags?.name || 
                element.tags?.['name:pt'] || 
                element.tags?.nome || 
                'Local sem nome';
     
-    // Extrair categoria principal
     let category = 'poi';
     if (element.tags?.amenity) category = element.tags.amenity;
     else if (element.tags?.shop) category = element.tags.shop;
     else if (element.tags?.tourism) category = element.tags.tourism;
     else if (element.tags?.leisure) category = element.tags.leisure;
     
-    // Mapear para categoria amigável
     const categoryMap = {
         'pharmacy': 'farmácia',
         'hospital': 'hospital',
@@ -136,9 +144,10 @@ function convertOSMToPOI(element, distance) {
     
     const friendlyCategory = categoryMap[category] || category;
     
-    // Obter coordenadas
     const lat = element.lat || element.center?.lat;
     const lon = element.lon || element.center?.lon;
+    
+    if (!lat || !lon) return null;
     
     return {
         id: `${element.type}_${element.id}`,
@@ -154,15 +163,15 @@ function convertOSMToPOI(element, distance) {
         openingHours: element.tags?.opening_hours || '',
         distance: distance,
         source: 'openstreetmap',
-        icon: getIconForCategory(category)
+        icon: getIconForCategoryOSM(category)
     };
 }
 
 // ======================================
-// ÍCONE POR CATEGORIA
+// ÍCONE POR CATEGORIA (VERSÃO OSM)
 // ======================================
 
-function getIconForCategory(category) {
+function getIconForCategoryOSM(category) {
     const icons = {
         'pharmacy': '💊',
         'hospital': '🏥',
@@ -180,9 +189,23 @@ function getIconForCategory(category) {
         'bank': '🏦',
         'atm': '💵',
         'school': '📚',
-        'parking': '🅿️'
+        'parking': '🅿️',
+        'car_repair': '🔧',
+        'vehicle_repair': '🔧'
     };
     return icons[category] || '📍';
+}
+
+// ======================================
+// ADICIONAR AO CACHE COM LIMITE
+// ======================================
+
+function addToOsmCache(key, data) {
+    if (osmCache.size >= MAX_CACHE_SIZE) {
+        const firstKey = osmCache.keys().next().value;
+        osmCache.delete(firstKey);
+    }
+    osmCache.set(key, data);
 }
 
 // ======================================
@@ -190,8 +213,17 @@ function getIconForCategory(category) {
 // ======================================
 
 async function buscarOSMPOIs(lat, lng, type = 'all', radius = 2000) {
-    // Verificar cache primeiro
-    const cacheKey = `${lat},${lng},${type},${radius}`;
+    osmRequestsCount++;
+    console.log(`🌿 OSM: Requisição #${osmRequestsCount} para ${lat},${lng}`);
+    
+    // Validar coordenadas
+    if (!lat || !lng || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+        console.warn('⚠️ OSM: Coordenadas inválidas');
+        return { success: false, data: [], error: 'invalid_coords' };
+    }
+    
+    // Verificar cache
+    const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)},${type},${radius}`;
     if (osmCache.has(cacheKey)) {
         const cached = osmCache.get(cacheKey);
         if (Date.now() - cached.timestamp < OSM_CACHE_TTL) {
@@ -204,10 +236,8 @@ async function buscarOSMPOIs(lat, lng, type = 'all', radius = 2000) {
     // Aguardar rate limiting
     await aguardarRateLimit();
     
-    // Construir query
     const query = buildOverpassQuery(lat, lng, radius, type);
     
-    // Tentar múltiplos endpoints
     for (let attempt = 0; attempt < OSM_CONFIG.maxRetries; attempt++) {
         for (const endpoint of OSM_CONFIG.endpoints) {
             try {
@@ -237,25 +267,19 @@ async function buscarOSMPOIs(lat, lng, type = 'all', radius = 2000) {
                     return { success: true, data: [] };
                 }
                 
-                // Converter elementos para POIs
                 const pois = data.elements.map(element => {
                     const distance = calcularDistanciaOSM(lat, lng, element);
                     return convertOSMToPOI(element, distance);
-                }).filter(poi => poi.lat && poi.lon);
+                }).filter(poi => poi && poi.lat && poi.lon);
                 
-                // Remover duplicatas por nome e proximidade
                 const unique = removeDuplicatasOSM(pois);
-                
-                // Ordenar por distância
                 unique.sort((a, b) => a.distance - b.distance);
-                
-                // Limitar a 50 POIs por busca
                 const limited = unique.slice(0, 50);
                 
-                console.log(`🌿 OSM: ${limited.length} POIs encontrados (${endpoint})`);
+                osmSuccessCount++;
+                console.log(`🌿 OSM: ${limited.length} POIs encontrados (✅ ${osmSuccessCount} | ❌ ${osmErrorsCount})`);
                 
-                // Salvar no cache
-                osmCache.set(cacheKey, {
+                addToOsmCache(cacheKey, {
                     timestamp: Date.now(),
                     data: limited
                 });
@@ -277,6 +301,7 @@ async function buscarOSMPOIs(lat, lng, type = 'all', radius = 2000) {
         }
     }
     
+    osmErrorsCount++;
     console.error('❌ OSM: todas as tentativas falharam');
     return { success: false, data: [], error: 'All endpoints failed' };
 }
@@ -308,22 +333,19 @@ function removeDuplicatasOSM(pois) {
     const seen = new Map();
     
     return pois.filter(poi => {
-        // Normalizar nome (minúsculo, sem acentos)
         const normalizedName = poi.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const roundedLat = Math.round(poi.lat * 1000);
         const roundedLon = Math.round(poi.lon * 1000);
         const key = `${normalizedName}|${roundedLat}|${roundedLon}`;
         
-        if (seen.has(key)) {
-            return false;
-        }
+        if (seen.has(key)) return false;
         seen.set(key, true);
         return true;
     });
 }
 
 // ======================================
-// FUNÇÃO PARA BUSCAR POR TEXTO (fallback)
+// FUNÇÃO PARA BUSCAR POR TEXTO
 // ======================================
 
 async function buscarOSMText(query, lat, lng, radius = 5000) {
@@ -363,7 +385,7 @@ async function buscarOSMText(query, lat, lng, radius = 5000) {
         if (!response.ok) return { success: false, data: [] };
         
         const data = await response.json();
-        const pois = (data.elements || []).map(element => convertOSMToPOI(element, 0));
+        const pois = (data.elements || []).map(element => convertOSMToPOI(element, 0)).filter(p => p);
         
         return { success: true, data: pois };
         
@@ -374,11 +396,41 @@ async function buscarOSMText(query, lat, lng, radius = 5000) {
 }
 
 // ======================================
+// TESTAR CONEXÃO OSM
+// ======================================
+
+async function testarOSM() {
+    console.log('🔧 TESTANDO OPENSTREETMAP OVERPASS API...');
+    
+    try {
+        const result = await buscarOSMPOIs(-23.5505, -46.6333, 'restaurant', 1000);
+        if (result.success) {
+            console.log(`✅✅✅ OSM FUNCIONANDO! Encontrou ${result.data.length} POIs`);
+            return true;
+        } else {
+            console.error('❌ OSM com problemas');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Erro no teste OSM:', error);
+        return false;
+    }
+}
+
+// ======================================
+// EXECUTAR TESTE APÓS 5 SEGUNDOS
+// ======================================
+
+setTimeout(() => {
+    testarOSM();
+}, 5000);
+
+// ======================================
 // EXPORTAR FUNÇÕES
 // ======================================
 
 window.buscarOSMPOIs = buscarOSMPOIs;
 window.buscarOSMText = buscarOSMText;
-window.getIconForCategory = getIconForCategory;
+window.getIconForCategoryOSM = getIconForCategoryOSM;
 
 console.log('✅ OpenStreetMap Overpass API - Último recurso carregado');
