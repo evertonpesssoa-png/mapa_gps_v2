@@ -115,6 +115,7 @@ function formatTime(distance, mode) {
   return `${hours}h ${rest}min`;
 }
 
+// ESTILO DA ROTA COM WEIGHT MAIOR
 function getRouteStyle(mode, isAlternative = false) {
   let baseColor, lighterColor;
   switch (mode) {
@@ -131,9 +132,10 @@ function getRouteStyle(mode, isAlternative = false) {
       lighterColor = "#e57373";
   }
   if (isAlternative) {
-    return { color: lighterColor, weight: 9, opacity: 0.85, interactive: true, bubblingMouseEvents: true };
+    return { color: lighterColor, weight: 8, opacity: 0.85, interactive: true, bubblingMouseEvents: true };
   }
-  return { color: baseColor, weight: 9, opacity: 0.9, interactive: true, bubblingMouseEvents: true };
+  // ROTA PRINCIPAL - WEIGHT MAIOR (12)
+  return { color: baseColor, weight: 12, opacity: 0.9, interactive: true, bubblingMouseEvents: true };
 }
 
 function mostrarToast(mensagem, duracao = 4000) {
@@ -259,9 +261,9 @@ function iniciarNavegacao(route, mode, fromLat, fromLng, toLat, toLng) {
   // Criar marcador do carro no início
   carMarker = L.marker([fromLat, fromLng], { icon: criarCarroIcon() }).addTo(window.map);
   
-  // Ajustar zoom para enquadrar a rota inteira (origem e destino)
+  // ZOOM MAIOR - usar fitBounds com padding reduzido e zoom máximo
   const bounds = L.latLngBounds([[fromLat, fromLng], [toLat, toLng]]);
-  window.map.fitBounds(bounds, { padding: [50, 50] });
+  window.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 });
   
   // Falar primeira instrução
   if (navigationSteps.length > 0) {
@@ -271,8 +273,8 @@ function iniciarNavegacao(route, mode, fromLat, fromLng, toLat, toLng) {
     }, 1000);
   }
   
-  // Adicionar botão de parar navegação
-  adicionarBotaoParar();
+  // Adicionar card de navegação com botão fechar
+  adicionarCardNavegacao();
   
   // Iniciar animação do carro
   iniciarAnimacaoCarro();
@@ -280,12 +282,60 @@ function iniciarNavegacao(route, mode, fromLat, fromLng, toLat, toLng) {
   console.log('🧭 Navegação iniciada');
 }
 
+function adicionarCardNavegacao() {
+  removerCardNavegacao();
+  
+  const card = document.createElement('div');
+  card.id = 'navigation-card';
+  card.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border-radius: 16px;
+    padding: 12px 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    z-index: 20001;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  `;
+  
+  card.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 20px;">🧭</span>
+      <span style="font-weight: bold; font-size: 14px;">Navegando...</span>
+    </div>
+    <button id="stop-nav-card-btn" style="
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    ">Parar</button>
+  `;
+  
+  document.body.appendChild(card);
+  
+  document.getElementById('stop-nav-card-btn').onclick = () => pararNavegacao();
+}
+
+function removerCardNavegacao() {
+  const card = document.getElementById('navigation-card');
+  if (card) card.remove();
+}
+
 function iniciarAnimacaoCarro() {
   if (!isNavigating || !carMarker || currentRoutePoints.length === 0) return;
   
   if (followCarInterval) clearInterval(followCarInterval);
   
-  let stepDuration = 2000; // 2 segundos entre pontos
+  let stepDuration = 2000;
   
   function moverProximoPonto() {
     if (!isNavigating || !carMarker) {
@@ -297,15 +347,13 @@ function iniciarAnimacaoCarro() {
       const ponto = currentRoutePoints[currentPointIndex];
       carMarker.setLatLng(ponto);
       
-      // Verificar se chegou perto de alguma instrução
       verificarProximaInstrucao(ponto);
       
-      // Mover câmera para seguir o carro
-      window.map.panTo(ponto);
+      // Câmera acompanha o carro com zoom mantido
+      window.map.setView(ponto, window.map.getZoom());
       
       currentPointIndex++;
     } else {
-      // Chegou ao destino
       finalizarNavegacao();
     }
   }
@@ -350,7 +398,7 @@ function finalizarNavegacao() {
   isNavigating = false;
   currentRoutePoints = [];
   navigationSteps = [];
-  removerBotaoParar();
+  removerCardNavegacao();
   
   console.log('🧭 Navegação finalizada');
 }
@@ -369,38 +417,9 @@ function pararNavegacao() {
   isNavigating = false;
   currentRoutePoints = [];
   navigationSteps = [];
-  removerBotaoParar();
+  removerCardNavegacao();
   
   console.log('🧭 Navegação parada');
-}
-
-function adicionarBotaoParar() {
-  removerBotaoParar();
-  const btn = document.createElement('button');
-  btn.id = 'stop-nav-btn';
-  btn.innerHTML = '⏹️ Parar Navegação';
-  btn.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    z-index: 9999;
-    background: #ef4444;
-    color: white;
-    border: none;
-    border-radius: 40px;
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-  `;
-  btn.onclick = () => pararNavegacao();
-  document.body.appendChild(btn);
-}
-
-function removerBotaoParar() {
-  const btn = document.getElementById('stop-nav-btn');
-  if (btn) btn.remove();
 }
 
 function updateRouteInfo(route, mode) {
@@ -445,7 +464,7 @@ function fitAllRoutesBounds(fromLat, fromLng, toLat, toLng) {
   });
   
   if (allBounds.isValid()) {
-    window.map.fitBounds(allBounds, { padding: [60, 60] });
+    window.map.fitBounds(allBounds, { padding: [40, 40] });
   }
 }
 
