@@ -55,15 +55,24 @@ const cache = new Map();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutos
 
 // ======================================
+// FUNÇÃO PARA OBTER ZOOM ATUAL
+// ======================================
+
+function getZoomAtual() {
+    return window.map ? window.map.getZoom() : 15;
+}
+
+// ======================================
 // FUNÇÃO PRINCIPAL DE BUSCA
 // ======================================
 
 async function searchPOIs(lat, lng, type = 'all', radius = 1000) {
     const startTime = performance.now();
     const results = [];
+    const zoomAtual = getZoomAtual();
     
     // Verificar cache primeiro
-    const cacheKey = `${lat},${lng},${type},${radius}`;
+    const cacheKey = `${lat},${lng},${type},${radius},${zoomAtual}`;
     if (cache.has(cacheKey)) {
         const cached = cache.get(cacheKey);
         if (Date.now() - cached.timestamp < CACHE_TTL) {
@@ -73,12 +82,12 @@ async function searchPOIs(lat, lng, type = 'all', radius = 1000) {
         cache.delete(cacheKey);
     }
     
-    console.log(`🔍 Buscando POIs para ${lat},${lng} - Tipo: ${type}`);
+    console.log(`🔍 Buscando POIs para ${lat},${lng} - Tipo: ${type} - Zoom: ${zoomAtual}`);
     
-    // 1. POIs MANUAIS (SEMPRE)
-    const manualPOIs = await buscarPOIsManuais(lat, lng, type, radius);
+    // 1. POIs MANUAIS (SEMPRE - com controle de zoom)
+    const manualPOIs = await buscarPOIsManuais(lat, lng, type, radius, zoomAtual);
     results.push(...manualPOIs);
-    console.log(`📌 Manuais: ${manualPOIs.length} POIs`);
+    console.log(`📌 Manuais: ${manualPOIs.length} POIs (zoom ${zoomAtual})`);
     
     // 2. GOOGLE (se ativo)
     if (apiState.google.status !== API_STATUS.BLOCKED && 
@@ -147,11 +156,13 @@ async function buscarComGoogle(lat, lng, type, radius) {
     }
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     
     try {
-        // Placeholder - você precisará da chave do Google
-        const response = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=${radius}&type=${type}`, {
+        // URL real da Google Places API
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${type}&key=${window.GOOGLE_PLACES_API_KEY}`;
+        
+        const response = await fetch(url, {
             signal: controller.signal
         });
         
@@ -163,12 +174,34 @@ async function buscarComGoogle(lat, lng, type, radius) {
         
         const data = await response.json();
         
+        if (data.status === 'REQUEST_DENIED') {
+            console.error('❌ Google Places - Chave inválida ou restrita');
+            return { success: false, data: [], error: 'invalid_key' };
+        }
+        
+        if (data.status === 'OVER_QUERY_LIMIT') {
+            console.error('❌ Google Places - Cota excedida');
+            return { success: false, quotaExceeded: true, data: [] };
+        }
+        
         apiState.google.dailyCount++;
         apiState.google.monthlyCount++;
         apiState.google.lastSuccess = Date.now();
         apiState.google.status = API_STATUS.ACTIVE;
         
-        return { success: true, data: data.results || [] };
+        const pois = (data.results || []).map(place => ({
+            id: place.place_id,
+            name: place.name,
+            lat: place.geometry.location.lat,
+            lng: place.geometry.location.lng,
+            category: place.types[0],
+            address: place.vicinity,
+            rating: place.rating,
+            userRatingsTotal: place.user_ratings_total,
+            source: 'google'
+        }));
+        
+        return { success: true, data: pois };
         
     } catch (error) {
         clearTimeout(timeoutId);
@@ -176,8 +209,6 @@ async function buscarComGoogle(lat, lng, type, radius) {
         
         if (error.name === 'AbortError') {
             console.warn('⏱️ Google timeout');
-        } else if (error.message?.includes('OVER_QUERY_LIMIT')) {
-            return { success: false, quotaExceeded: true, data: [] };
         }
         
         return { success: false, data: [], error: error.message };
@@ -193,8 +224,10 @@ async function buscarComMapbox(lat, lng, type, radius) {
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     
     try {
-        // Placeholder - você precisará da chave do Mapbox
-        const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?proximity=${lng},${lat}&types=poi&limit=20&access_token=SEU_TOKEN`, {
+        const token = window.MAPBOX_TOKEN || 'pk.eyJ1IjoiZXZlcnRvbnBlc3NvYTg4IiwiYSI6ImNtcGRmMTk5czBiYWEycG9sd2NlZ3RxdWsifQ.W7ayNU1STdXgV-cqNJ1AKA';
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?proximity=${lng},${lat}&types=poi&limit=20&access_token=${token}`;
+        
+        const response = await fetch(url, {
             signal: controller.signal
         });
         
@@ -207,7 +240,17 @@ async function buscarComMapbox(lat, lng, type, radius) {
         const data = await response.json();
         apiState.mapbox.lastSuccess = Date.now();
         
-        return { success: true, data: data.features || [] };
+        const pois = (data.features || []).map(feature => ({
+            id: feature.id,
+            name: feature.properties.name || feature.properties.address || 'Local',
+            lat: feature.geometry.coordinates[1],
+            lng: feature.geometry.coordinates[0],
+            category: feature.properties.category || 'poi',
+            address: feature.properties.address,
+            source: 'mapbox'
+        }));
+        
+        return { success: true, data: pois };
         
     } catch (error) {
         clearTimeout(timeoutId);
@@ -225,10 +268,9 @@ async function buscarComOSM(lat, lng, type, radius) {
     await new Promise(resolve => setTimeout(resolve, LIMITS.osm.rateLimitMs));
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
     try {
-        // Converter radius para graus (aprox 1km = 0.009 graus)
         const radiusDeg = radius / 111000;
         
         const bbox = [
@@ -238,7 +280,6 @@ async function buscarComOSM(lat, lng, type, radius) {
             lat + radiusDeg
         ].join(',');
         
-        // Query Overpass para buscar POIs
         const overpassQuery = `
             [out:json][timeout:25];
             (
@@ -306,7 +347,6 @@ function getNextMonthDate() {
     return date;
 }
 
-// Verificar reset do Google no início do mês
 function verificarResetMensal() {
     const hoje = new Date();
     const ultimoReset = localStorage.getItem('google_last_reset');
@@ -328,33 +368,73 @@ function verificarResetMensal() {
 async function loadPOIsToMap(lat, lng) {
     if (!window.map || !window.poiLayer) return;
     
-    // Mostrar loading
     const loadingDiv = document.getElementById('pois-loading');
     if (loadingDiv) loadingDiv.style.display = 'block';
     
     try {
+        const zoom = getZoomAtual();
         const pois = await searchPOIs(lat, lng, 'all', 2000);
         
-        // Limpar POIs existentes
         if (window.poiLayer) {
             window.poiLayer.clearLayers();
         }
         
-        // Adicionar POIs ao mapa
         pois.forEach(poi => {
-            const marker = L.marker([poi.lat, poi.lng]);
+            let iconChar = '📍';
+            let borderColor = '#ff4db8';
             
-            // Popup com informações
+            if (poi.source === 'manual') {
+                const iconMap = {
+                    'hospital': '🏥', 'police': '👮', 'policeman': '🚓',
+                    'pharmacy': '💊', 'gas': '⛽', 'supermarket': '🛒',
+                    'home': '🏠', 'mechanic': '🔧', 'medical': '🏥'
+                };
+                iconChar = poi.icon || iconMap[poi.category] || '📌';
+                borderColor = '#ff4db8';
+            } else if (poi.source === 'google') {
+                borderColor = '#4285f4';
+                iconChar = '🌎';
+            } else if (poi.source === 'mapbox') {
+                borderColor = '#3b82f6';
+                iconChar = '🗺️';
+            } else if (poi.source === 'openstreetmap') {
+                borderColor = '#22c55e';
+                iconChar = '🌿';
+            }
+            
+            const customIcon = L.divIcon({
+                className: 'poi-marker',
+                html: `<div style="background: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid ${borderColor}; font-size: 16px;">${iconChar}</div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+                popupAnchor: [0, -16]
+            });
+            
+            const marker = L.marker([poi.lat, poi.lng], { icon: customIcon });
+            
+            const distancia = poi.distance ? `${(poi.distance / 1000).toFixed(1)}km` : '';
+            const fonteText = {
+                'manual': '📌 Manual',
+                'google': '🌎 Google',
+                'mapbox': '🗺️ Mapbox',
+                'openstreetmap': '🌿 OSM'
+            };
+            
             marker.bindPopup(`
-                <strong>${poi.name}</strong><br>
-                ${poi.category ? `📌 ${poi.category}` : ''}<br>
-                <small>📡 ${poi.source || 'manual'}</small>
+                <div style="min-width: 180px;">
+                    <strong>${poi.name}</strong><br>
+                    <span style="color: #666;">📌 ${poi.category || 'Ponto de interesse'}</span><br>
+                    <span style="color: #888; font-size: 11px;">📡 ${fonteText[poi.source] || poi.source}</span>
+                    ${distancia ? `<br><span style="color: #888; font-size: 11px;">📏 ${distancia}</span>` : ''}
+                    ${poi.address ? `<br><span style="color: #888; font-size: 11px;">📍 ${poi.address}</span>` : ''}
+                    ${poi.rating ? `<br><span style="color: #f59e0b; font-size: 11px;">⭐ ${poi.rating}</span>` : ''}
+                </div>
             `);
             
             marker.addTo(window.poiLayer);
         });
         
-        console.log(`🗺️ ${pois.length} POIs carregados no mapa`);
+        console.log(`🗺️ ${pois.length} POIs carregados no mapa (zoom: ${zoom})`);
         
     } catch (error) {
         console.error('Erro ao carregar POIs:', error);
@@ -374,5 +454,7 @@ verificarResetMensal();
 window.searchPOIs = searchPOIs;
 window.loadPOIsToMap = loadPOIsToMap;
 window.apiState = apiState;
+window.getZoomAtual = getZoomAtual;
 
 console.log('✅ POIs Manager - Sistema de 4 camadas carregado');
+console.log('📍 POIs manuais integrados com controle de zoom');
