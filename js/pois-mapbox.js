@@ -4,7 +4,7 @@
 
 // Cadastre-se em: https://account.mapbox.com/auth/signup/
 // Cole seu token aqui:
-const MAPBOX_SEARCH_TOKEN = 'SEU_TOKEN_MAPBOX_AQUI';
+const MAPBOX_SEARCH_TOKEN = 'const MAPBOX_SEARCH_TOKEN = 'pk.eyJ1IjoiZXZlcnRvbnBlc3NvYTg4IiwiYSI6ImNtcGRmMTk5czBiYWEycG9sd2NlZ3RxdWsifQ.W7ayNU1STdXgV-cqNJ1AKA';
 
 async function buscarMapboxPOIs(lat, lng, type, radius) {
     if (!MAPBOX_SEARCH_TOKEN || MAPBOX_SEARCH_TOKEN === 'SEU_TOKEN_MAPBOX_AQUI') {
