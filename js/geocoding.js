@@ -56,6 +56,69 @@ function normalizePlace(place) {
   };
 }
 
+// ======================================
+// DETECTAR SE A BUSCA É ESPECÍFICA DE UM PAÍS
+// ======================================
+
+function detectCountryCode(query) {
+  // Lista de países e seus códigos comuns
+  const countryMap = {
+    'brasil': 'br', 'brazil': 'br', 'br': 'br',
+    'eua': 'us', 'usa': 'us', 'united states': 'us', 'estados unidos': 'us',
+    'portugal': 'pt', 'pt': 'pt',
+    'frança': 'fr', 'franca': 'fr', 'france': 'fr',
+    'alemanha': 'de', 'germany': 'de',
+    'espanha': 'es', 'spain': 'es',
+    'italia': 'it', 'italy': 'it',
+    'japão': 'jp', 'japao': 'jp', 'japan': 'jp',
+    'inglaterra': 'gb', 'england': 'gb', 'reino unido': 'gb', 'uk': 'gb',
+    'argentina': 'ar', 'mexico': 'mx', 'canada': 'ca'
+  };
+  
+  const queryLower = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  // Verificar se o usuário especificou um país com vírgula (ex: "Paris, França")
+  const parts = queryLower.split(/[,|]/);
+  if (parts.length > 1) {
+    const lastPart = parts[parts.length - 1].trim();
+    for (let [country, code] of Object.entries(countryMap)) {
+      if (lastPart.includes(country)) {
+        return code;
+      }
+    }
+  }
+  
+  // Verificar se a query contém nome de país
+  for (let [country, code] of Object.entries(countryMap)) {
+    if (queryLower.includes(country)) {
+      return code;
+    }
+  }
+  
+  return null; // Sem restrição de país (busca mundial)
+}
+
+// ======================================
+// CONSTRUIR URL DO NOMINATIM
+// ======================================
+
+function buildNominatimUrl(query) {
+  const countryCode = detectCountryCode(query);
+  const lang = 'pt-BR';
+  
+  // Se detectou um país específico, restringe a ele
+  if (countryCode) {
+    return `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&countrycodes=${countryCode}&accept-language=${lang}&q=${encodeURIComponent(query)}`;
+  }
+  
+  // Busca mundial (sem restrição de país)
+  return `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&accept-language=${lang}&q=${encodeURIComponent(query)}`;
+}
+
+// ======================================
+// BUSCAR NO NOMINATIM
+// ======================================
+
 async function fetchNominatim(query) {
   // Rate limiting: 1 segundo entre requests (cortesia ao Nominatim)
   const now = Date.now();
@@ -68,7 +131,8 @@ async function fetchNominatim(query) {
   if (currentGeocodeController) currentGeocodeController.abort();
   currentGeocodeController = new AbortController();
 
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&countrycodes=br&accept-language=pt-BR&q=${encodeURIComponent(query)}`;
+  const url = buildNominatimUrl(query);
+  console.log(`🌍 Geocoding URL: ${url}`);
 
   try {
     const res = await fetch(url, { signal: currentGeocodeController.signal, headers: { "Accept": "application/json" } });
@@ -91,18 +155,33 @@ async function fetchNominatim(query) {
   }
 }
 
+// ======================================
+// FUNÇÃO PRINCIPAL GEOCODE
+// ======================================
+
 async function geocode(query) {
   if (!query || typeof query !== "string") return [];
   query = query.trim();
   if (query.length < 2) return [];
 
   const normalizedQuery = normalizeText(query);
-  if (window.geoCache[normalizedQuery]) return window.geoCache[normalizedQuery];
+  
+  // Verificar cache
+  if (window.geoCache[normalizedQuery]) {
+    console.log(`📦 Geocode cache hit para "${query}"`);
+    return window.geoCache[normalizedQuery];
+  }
 
+  // Buscar nos POIs locais
   const localResults = searchLocalPOIs(query).map(poi => normalizePlace({ ...poi, source: "local" }));
+  
+  // Buscar no Nominatim (mundo todo)
   const globalResults = await fetchNominatim(query);
+  
+  // Mesclar resultados
   const merged = [...localResults, ...globalResults];
 
+  // Remover duplicatas
   const unique = [];
   merged.forEach(place => {
     const exists = unique.some(p => {
@@ -113,13 +192,19 @@ async function geocode(query) {
     if (!exists) unique.push(place);
   });
 
+  // Ordenar por relevância
   unique.forEach(place => { place.score = scorePlace(place, query); });
   unique.sort((a, b) => b.score - a.score);
 
+  // Salvar no cache
   window.geoCache[normalizedQuery] = unique;
-  console.log(`✅ Geocode: ${unique.length} resultados para "${query}"`);
+  console.log(`✅ Geocode: ${unique.length} resultados para "${query}" (${detectCountryCode(query) ? 'restringido' : 'mundial'})`);
   return unique;
 }
+
+// ======================================
+// REVERSE GEOCODE
+// ======================================
 
 async function reverseGeocode(lat, lng) {
   try {
@@ -136,3 +221,5 @@ async function reverseGeocode(lat, lng) {
 
 window.geocode = geocode;
 window.reverseGeocode = reverseGeocode;
+
+console.log("✅ geocoding.js carregado - Busca MUNDIAL ativada!");
