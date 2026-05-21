@@ -73,6 +73,52 @@ body {
 }
 
 /* ====================================== */
+/* BOTÕES MAPA/SATÉLITE */
+/* ====================================== */
+
+.map-layer-controls {
+    position: absolute;
+    top: 20px;
+    left: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 9999;
+}
+
+.layer-buttons {
+    display: flex;
+    gap: 8px;
+    background: var(--card-bg);
+    border-radius: 30px;
+    padding: 6px;
+    box-shadow: 0 2px 10px var(--shadow);
+}
+
+.layer-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-secondary);
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-primary);
+}
+
+.layer-btn.active {
+    background: var(--accent-color);
+    color: white;
+}
+
+.layer-btn:hover {
+    transform: scale(1.05);
+    background: var(--bg-tertiary);
+}
+
+/* ====================================== */
 /* BASE */
 /* ====================================== */
 
@@ -1443,6 +1489,17 @@ html, body {
 </style>
 </head>
 <body>
+
+<!-- ====================================== -->
+<!-- BOTÕES MAPA/SATÉLITE -->
+<!-- ====================================== -->
+
+<div class="map-layer-controls">
+  <div class="layer-buttons">
+    <button id="satellite-btn" class="layer-btn" title="Modo Satélite">🛰</button>
+    <button id="map-btn" class="layer-btn active" title="Modo Mapa">🗺️</button>
+  </div>
+</div>
 
 <!-- ====================================== -->
 <!-- SEARCH PANEL -->
