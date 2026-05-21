@@ -1103,6 +1103,21 @@ html, body {
   background: #dc2626;
 }
 
+/* Carro animado */
+.car-marker {
+  transition: all 0.1s linear;
+  z-index: 10000;
+}
+
+@keyframes carShake {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-2px); }
+}
+
+.car-marker-moving {
+  animation: carShake 0.5s ease infinite;
+}
+
 @media (max-width: 600px) {
   .navigation-info {
     grid-template-columns: repeat(2, 1fr);
@@ -1121,9 +1136,6 @@ html, body {
     flex: none;
     min-width: calc(50% - 5px);
   }
-}
-
-@media (max-width: 600px) {
   .asura-chat {
     width: calc(100% - 40px);
     right: 20px;
@@ -1567,18 +1579,14 @@ function toggleStepsList() {
 function atualizarModalNavegacao(dados) {
   if (!dados) return;
   
-  // Atualizar próximo turno
   document.getElementById('nav-next-icon').innerHTML = dados.step?.instrucao?.charAt(0) || '🚗';
   document.getElementById('nav-next-text').innerHTML = dados.step?.instrucao || 'Preparando...';
   document.getElementById('nav-next-distance').innerHTML = dados.step?.distanciaTexto || '';
-  
-  // Atualizar informações
   document.getElementById('nav-distance').innerHTML = dados.distanciaRestanteTexto;
   document.getElementById('nav-time').innerHTML = dados.tempoRestante;
   document.getElementById('nav-step-count').innerHTML = `${dados.stepAtual}/${dados.totalSteps}`;
   document.getElementById('nav-progresso').innerHTML = `${dados.progresso}% completo`;
   
-  // Atualizar lista de passos
   const stepsContainer = document.getElementById('nav-steps-list');
   if (stepsContainer && dados.steps) {
     stepsContainer.innerHTML = dados.steps.map((s, idx) => `
@@ -1591,20 +1599,15 @@ function atualizarModalNavegacao(dados) {
       </div>
     `).join('');
     
-    // Scroll para o passo ativo
     const activeStep = stepsContainer.querySelector('.navigation-step.active');
-    if (activeStep) {
-      activeStep.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    if (activeStep) activeStep.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
 
-// Event listener para atualização da navegação
 window.addEventListener('navigation-update', (event) => {
   atualizarModalNavegacao(event.detail);
 });
 
-// Exportar funções do modal
 window.abrirModalNavegacao = abrirModalNavegacao;
 window.fecharModalNavegacao = fecharModalNavegacao;
 window.finalizarModalNavegacao = finalizarModalNavegacao;
@@ -1623,7 +1626,7 @@ console.log('✅ Aplicação inicializada com sistema de 4 camadas!');
 console.log('📍 POIs: Manual + Google + Mapbox + OpenStreetMap');
 console.log('🌤️ Clima: OpenWeatherMap');
 console.log('🕐 Horário: TimeZoneDB');
-console.log('🧭 Navegação turn-by-turn carregada!');
+console.log('🧭 Navegação nível Google Maps carregada!');
 </script>
 
 </body>
