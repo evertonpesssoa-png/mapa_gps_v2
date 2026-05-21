@@ -169,7 +169,7 @@ function formatTime(distance, mode) {
 }
 
 // ======================================
-// ESTILO DA ROTA (PRINCIPAL vs ALTERNATIVA)
+// ESTILO DA ROTA (PRINCIPAL vs ALTERNATIVA) - WEIGHT 9
 // ======================================
 
 function getRouteStyle(mode, isAlternative = false) {
@@ -190,20 +190,20 @@ function getRouteStyle(mode, isAlternative = false) {
   }
   
   if (isAlternative) {
-    // Estilo alternativo: mais visível, mais fácil de clicar
+    // Estilo alternativo: weight 9 para fácil clique
     return {
       color: lighterColor,
-      weight: 5.5,        // Aumentado de 4 para 5.5
-      opacity: 0.85,      // Aumentado de 0.6 para 0.85
+      weight: 9,           // Aumentado para 9 (clique muito mais fácil)
+      opacity: 0.85,
       interactive: true,
       bubblingMouseEvents: true
     };
   }
   
-  // Estilo principal
+  // Estilo principal: weight 9 também
   return {
     color: baseColor,
-    weight: 6,
+    weight: 9,             // Aumentado para 9
     opacity: 0.9,
     interactive: true,
     bubblingMouseEvents: true
@@ -325,11 +325,11 @@ function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
           }
         });
         
-        // Efeito de hover nas alternativas
+        // Efeito de hover nas alternativas (fica ainda mais grossa)
         if (isAlternative) {
           layer.on('mouseover', () => {
             layer.setStyle({
-              weight: 7,
+              weight: 11,
               opacity: 1
             });
           });
