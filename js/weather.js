@@ -113,10 +113,16 @@ async function fetchSunTimes(lat, lng) {
   }
 }
 
-// Aplicar tema
+// Aplicar tema (UI e estilo do mapa)
 function aplicarTema(theme) {
+  // Aplicar tema na UI
   document.documentElement.setAttribute('data-theme', theme);
   document.body.setAttribute('data-theme', theme);
+  
+  // TROCAR O ESTILO DO MAPA BASEADO NO TEMA (Mapbox Dark/Light)
+  if (typeof window.atualizarEstiloMapaPorTema === 'function') {
+    window.atualizarEstiloMapaPorTema(theme);
+  }
   
   // Atualizar ícone do botão de tema
   const themeIcon = document.getElementById('theme-icon');
@@ -256,3 +262,4 @@ window.inicializarTema = inicializarTema;
 
 console.log('✅ Sistema de clima carregado com nova chave API!');
 console.log('🌙 Modo noturno automático baseado no nascer/pôr do sol ativado!');
+console.log('🗺️ Troca automática do estilo do mapa (Dark/Light) integrada!');
