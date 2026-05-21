@@ -182,6 +182,67 @@ function showActionPanel(poi) {
 window.showActionPanel = showActionPanel;
 
 // ======================================
+// BUSCAR POIs DO SISTEMA DE 4 CAMADAS
+// ======================================
+
+async function buscarPOIsParaBusca(texto, lat, lng) {
+  const resultados = [];
+  const termoNormalizado = normalizeText(texto);
+  
+  // 1. Buscar nos POIs manuais (window.manualPOIs)
+  if (window.manualPOIs && Array.isArray(window.manualPOIs)) {
+    window.manualPOIs.forEach(poi => {
+      const nomePOI = normalizeText(poi.name);
+      if (nomePOI.includes(termoNormalizado) || termoNormalizado.includes(nomePOI)) {
+        resultados.push({
+          name: poi.name,
+          fullName: `${poi.category || ''} em ${poi.name}`,
+          lat: poi.lat,
+          lng: poi.lon,
+          type: poi.category,
+          category: poi.category,
+          source: 'manual',
+          auto: false
+        });
+      }
+    });
+  }
+  
+  // 2. Buscar nos POIs carregados no mapa (cache)
+  if (window.poiLayer && window.poiLayer._layers) {
+    const layers = window.poiLayer._layers;
+    for (let id in layers) {
+      const layer = layers[id];
+      if (layer._poiData) {
+        const poi = layer._poiData;
+        const nomePOI = normalizeText(poi.name);
+        if (nomePOI.includes(termoNormalizado) || termoNormalizado.includes(nomePOI)) {
+          // Evitar duplicatas
+          const existe = resultados.some(r => 
+            r.name === poi.name && 
+            Math.abs(r.lat - (poi.lat || 0)) < 0.0001
+          );
+          if (!existe) {
+            resultados.push({
+              name: poi.name,
+              fullName: poi.address || `${poi.category || 'POI'} em ${poi.name}`,
+              lat: poi.lat,
+              lng: poi.lng || poi.lon,
+              type: poi.category,
+              category: poi.category,
+              source: poi.source || 'poi',
+              auto: true
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  return resultados;
+}
+
+// ======================================
 // SEARCH
 // ======================================
 
@@ -197,6 +258,7 @@ async function searchPlace(query) {
   const normalizedQuery = normalizeText(query);
   let results = [];
   
+  // 1. Buscar no índice global (poiIndex)
   if (Array.isArray(window.poiIndex)) {
     const local = window.poiIndex.filter(poi => {
       const name = normalizeText(poi.name);
@@ -206,11 +268,22 @@ async function searchPlace(query) {
     results.push(...local);
   }
   
+  // 2. Buscar nos POIs do sistema de 4 camadas
+  if (window.map && window.map.getCenter) {
+    const center = window.map.getCenter();
+    const centerLat = center.lat;
+    const centerLng = center.lng;
+    const quatroCamadasPOIs = await buscarPOIsParaBusca(query, centerLat, centerLng);
+    results.push(...quatroCamadasPOIs);
+  }
+  
+  // 3. Buscar no cache
   const cached = window.searchCache[normalizedQuery];
   if (Array.isArray(cached)) results.push(...cached);
   
   renderResults(results);
   
+  // 4. Busca externa (geocoding)
   if (typeof window.geocode === "function") {
     try {
       const geoResults = await window.geocode(query);
@@ -282,7 +355,14 @@ function renderResults(results) {
     div.style.transition = "0.2s";
     div.style.lineHeight = "1.4";
     
-    const sourceLabel = poi.auto ? "📍 Próximo" : poi.source === "nominatim" ? "🌎 Global" : "🗂 Local";
+    // Definir rótulo da fonte
+    let sourceLabel = "🗂 Local";
+    if (poi.auto) sourceLabel = "📍 Próximo";
+    if (poi.source === "nominatim") sourceLabel = "🌎 Global";
+    if (poi.source === "manual") sourceLabel = "📌 Manual (fixo)";
+    if (poi.source === "google") sourceLabel = "🌎 Google Places";
+    if (poi.source === "mapbox") sourceLabel = "🗺️ Mapbox";
+    if (poi.source === "openstreetmap") sourceLabel = "🌿 OpenStreetMap";
     
     div.innerHTML = `
       <div style="font-weight:bold; margin-bottom:4px;">${escapeHTML(poi.name)}</div>
@@ -336,4 +416,4 @@ window.searchNearby = function(lat, lng, radius = 1000, category = null) {
   }).sort((a,b) => (a.distance||0) - (b.distance||0));
 };
 
-console.log("✅ search.js carregado");
+console.log("✅ search.js carregado com integração de POIs de 4 camadas!");
