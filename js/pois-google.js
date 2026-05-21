@@ -7,7 +7,7 @@
 const GOOGLE_PLACES_API_KEY = 'SUA_CHAVE_GOOGLE_AQUI';
 
 async function buscarGooglePlaces(lat, lng, type, radius) {
-    if (!GOOGLE_PLACES_API_KEY || GOOGLE_PLACES_API_KEY === 'SUA_CHAVE_GOOGLE_AQUI') {
+    if (!GOOGLE_PLACES_API_KEY || GOOGLE_PLACES_API_KEY === 'AIzaSyA6GDAM87dX4pxDBpN742a47Ho-lJwqGnU') {
         console.warn('⚠️ Google Places API key não configurada');
         return { success: false, data: [] };
     }
