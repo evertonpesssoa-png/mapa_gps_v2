@@ -29,7 +29,8 @@
 /* ====================================== */
 
 /* Tema claro (padrão) */
-:root {
+:root,
+[data-theme="light"] {
     --bg-primary: #ffffff;
     --bg-secondary: #f8f9fa;
     --bg-tertiary: #f0f0f0;
@@ -68,6 +69,7 @@
 body {
     background: var(--bg-primary);
     color: var(--text-primary);
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 /* ====================================== */
@@ -99,6 +101,21 @@ html, body {
   top: 0;
   left: 0;
   z-index: 1;
+}
+
+/* Leaflet popup no tema escuro */
+[data-theme="dark"] .leaflet-popup-content-wrapper {
+    background: var(--card-bg);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .leaflet-popup-tip {
+    background: var(--card-bg);
+}
+
+[data-theme="dark"] .leaflet-control-attribution {
+    background: rgba(0,0,0,0.7);
+    color: #aaa;
 }
 
 /* ====================================== */
@@ -1780,7 +1797,7 @@ console.log('🕐 Horário: TimeZoneDB');
 console.log('⛰️ Relevo: Open-Elevation API');
 console.log('🧭 Navegação nível Google Maps carregada!');
 console.log('🚦 Botão de trânsito disponível!');
-console.log('🌙 Modo noturno automático ativado!');
+console.log('🌙 Modo noturno automático ativado (Mapbox Dark/Light)!');
 </script>
 
 </body>
