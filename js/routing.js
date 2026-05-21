@@ -193,7 +193,7 @@ function getRouteStyle(mode, isAlternative = false) {
     // Estilo alternativo: weight 9 para fácil clique
     return {
       color: lighterColor,
-      weight: 9,           // Aumentado para 9 (clique muito mais fácil)
+      weight: 9,
       opacity: 0.85,
       interactive: true,
       bubblingMouseEvents: true
@@ -203,7 +203,7 @@ function getRouteStyle(mode, isAlternative = false) {
   // Estilo principal: weight 9 também
   return {
     color: baseColor,
-    weight: 9,             // Aumentado para 9
+    weight: 9,
     opacity: 0.9,
     interactive: true,
     bubblingMouseEvents: true
@@ -295,7 +295,7 @@ function switchToRoute(index, mode, fromLat, fromLng, toLat, toLng) {
 function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
   if (!window.routeLayer) return;
   
-  // Limpar rotas existentes (mas manter marcadores depois)
+  // Limpar rotas existentes
   window.routeLayer.clearLayers();
   currentRouteLayers = [];
   
@@ -312,12 +312,10 @@ function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
     geo.addTo(window.routeLayer);
     currentRouteLayers.push(geo);
     
-    // Adicionar evento de clique em TODAS as rotas (inclusive na principal)
+    // Adicionar evento de clique em TODAS as rotas
     geo.eachLayer(layer => {
       if (layer.feature) {
-        // Evento de clique
         layer.on('click', (e) => {
-          // Impedir propagação para não ativar o mapa
           L.DomEvent.stopPropagation(e);
           console.log(`🔘 Clicou na rota ${idx + 1} (${isAlternative ? 'alternativa' : 'principal'})`);
           if (idx !== activeRouteIndex) {
@@ -325,31 +323,24 @@ function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
           }
         });
         
-        // Efeito de hover nas alternativas (fica ainda mais grossa)
+        // Efeito de hover nas alternativas
         if (isAlternative) {
           layer.on('mouseover', () => {
-            layer.setStyle({
-              weight: 11,
-              opacity: 1
-            });
+            layer.setStyle({ weight: 11, opacity: 1 });
           });
-          
           layer.on('mouseout', () => {
-            layer.setStyle({
-              weight: style.weight,
-              opacity: style.opacity
-            });
+            layer.setStyle({ weight: style.weight, opacity: style.opacity });
           });
         }
       }
     });
   });
   
-  // Re-adicionar os marcadores (sobre as rotas)
+  // Re-adicionar os marcadores
   L.marker([fromLat, fromLng]).addTo(window.routeLayer);
   L.marker([toLat, toLng]).addTo(window.routeLayer);
   
-  // Aplicar zoom para enquadrar TODAS as rotas (origem + destino + todas as linhas)
+  // Aplicar zoom para enquadrar TODAS as rotas
   fitAllRoutesBounds(fromLat, fromLng, toLat, toLng);
 }
 
@@ -380,7 +371,53 @@ function isValidCoordinate(lat, lng) {
 }
 
 // ======================================
-// RESOLVER LOCALIZAÇÃO
+// INTEGRAÇÃO COM POIs MANUAIS E SISTEMA DE 4 CAMADAS
+// ======================================
+
+// Função para encontrar POI manual por nome
+window.encontrarPOIManualPorNome = function(texto) {
+  // Buscar nos POIs manuais
+  if (window.manualPOIs && Array.isArray(window.manualPOIs)) {
+    const termo = normalizeText(texto);
+    for (const poi of window.manualPOIs) {
+      const nomePOI = normalizeText(poi.name);
+      if (nomePOI === termo || nomePOI.includes(termo) || termo.includes(nomePOI)) {
+        console.log(`📍 Destino encontrado nos POIs manuais: ${poi.name}`);
+        return {
+          lat: poi.lat,
+          lng: poi.lon,
+          name: poi.name
+        };
+      }
+    }
+  }
+  
+  // Buscar nos POIs do sistema de 4 camadas (cache do mapa)
+  if (window.poiLayer && window.poiLayer._layers) {
+    const termo = normalizeText(texto);
+    const layers = window.poiLayer._layers;
+    for (let id in layers) {
+      const layer = layers[id];
+      if (layer._poiData) {
+        const poi = layer._poiData;
+        const nomePOI = normalizeText(poi.name);
+        if (nomePOI === termo || nomePOI.includes(termo) || termo.includes(nomePOI)) {
+          console.log(`📍 Destino encontrado nos POIs do mapa: ${poi.name} (${poi.source || 'poi'})`);
+          return {
+            lat: poi.lat,
+            lng: poi.lng || poi.lon,
+            name: poi.name
+          };
+        }
+      }
+    }
+  }
+  
+  return null;
+};
+
+// ======================================
+// RESOLVER LOCALIZAÇÃO (VERSÃO ATUALIZADA)
 // ======================================
 
 async function resolveText(text) {
@@ -393,6 +430,7 @@ async function resolveText(text) {
   }
   const normalized = normalizeText(text);
   
+  // 1. Verificar destino selecionado globalmente
   if (window.selectedDestination &&
     normalizeText(window.selectedDestination.name) === normalized) {
     return {
@@ -402,6 +440,13 @@ async function resolveText(text) {
     };
   }
   
+  // 2. Buscar nos POIs MANUAIS (prioridade máxima)
+  const poiManual = window.encontrarPOIManualPorNome(text);
+  if (poiManual) {
+    return poiManual;
+  }
+  
+  // 3. Buscar no índice global (poiIndex - compatibilidade)
   if (Array.isArray(window.poiIndex)) {
     let local = window.poiIndex.find(poi => normalizeText(poi.name) === normalized);
     if (!local) {
@@ -411,11 +456,33 @@ async function resolveText(text) {
       const lat = Number(local.lat);
       const lng = Number(local.lng ?? local.lon);
       if (isValidCoordinate(lat, lng)) {
+        console.log(`📍 Destino encontrado no poiIndex: ${local.name}`);
         return { lat, lng, name: local.name };
       }
     }
   }
   
+  // 4. Buscar nos POIs do mapa (4 camadas) via cache
+  if (window.poiLayer && window.poiLayer._layers) {
+    const layers = window.poiLayer._layers;
+    for (let id in layers) {
+      const layer = layers[id];
+      if (layer._poiData) {
+        const poi = layer._poiData;
+        const nomePOI = normalizeText(poi.name);
+        if (nomePOI === normalized || nomePOI.includes(normalized)) {
+          const lat = Number(poi.lat);
+          const lng = Number(poi.lng || poi.lon);
+          if (isValidCoordinate(lat, lng)) {
+            console.log(`📍 Destino encontrado no mapa (${poi.source}): ${poi.name}`);
+            return { lat, lng, name: poi.name };
+          }
+        }
+      }
+    }
+  }
+  
+  // 5. Geocoding externo (fallback)
   if (typeof window.geocode === "function") {
     try {
       const results = await window.geocode(text);
@@ -428,11 +495,13 @@ async function resolveText(text) {
       if (!isValidCoordinate(lat, lng)) {
         return null;
       }
+      console.log(`📍 Destino encontrado via geocoding: ${best.name || text}`);
       return { lat, lng, name: best.name || text };
     } catch (err) {
       console.error("Erro geocode:", err);
     }
   }
+  
   return null;
 }
 
@@ -505,7 +574,7 @@ async function traceRoute(from, to, mode = "car") {
     
     // Armazenar todas as rotas
     currentRoutes = data.routes;
-    activeRouteIndex = 0;  // A primeira é a recomendada
+    activeRouteIndex = 0;
     
     console.log(`✅ Encontradas ${currentRoutes.length} rotas alternativas`);
     currentRoutes.forEach((route, idx) => {
@@ -569,6 +638,7 @@ async function createRoute(originText, destinationText, mode = "car") {
     return false;
   }
   
+  console.log(`🚗 Criando rota de "${from.name}" para "${to.name}" (${mode})`);
   return await traceRoute(from, to, mode);
 }
 
@@ -664,4 +734,5 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   
   console.log("✅ Sistema de rotas OSRM com múltiplas alternativas carregado!");
+  console.log("✅ Integração com POIs manuais e sistema de 4 camadas ativa!");
 });
