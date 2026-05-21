@@ -8,12 +8,20 @@
 window.poiIndex = window.poiIndex || [];
 window.loadedPOIAreas = window.loadedPOIAreas || {};
 
+// ======================================
+// FUNÇÕES AUXILIARES
+// ======================================
+
 function normalizeText(text) {
   return (text || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
 function isValidCoordinate(lat, lng) {
   return !isNaN(lat) && !isNaN(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+}
+
+function isDarkTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark';
 }
 
 function getIconByCategory(category) {
@@ -57,7 +65,64 @@ function registerPOI(poi) {
   return poi;
 }
 
-// Carregar POIs manuais (usa o novo sistema se disponível)
+// ======================================
+// ÍCONE COM SUPORTE A TEMA ESCURO
+// ======================================
+
+function safeIcon(category) {
+  const iconEmoji = getIconByCategory(category);
+  const isDark = isDarkTheme();
+  const bgColor = isDark ? '#1a1a2a' : 'white';
+  const borderColor = isDark ? '#ff66c0' : '#4a90e2';
+  const textColor = isDark ? 'white' : '#1a1a2e';
+  
+  return L.divIcon({
+    html: `<div style="background: ${bgColor}; color: ${textColor}; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: 2px solid ${borderColor}; cursor: pointer; transition: all 0.2s ease;">${iconEmoji}</div>`,
+    iconSize: [32, 32],
+    popupAnchor: [0, -16],
+    className: "custom-poi-marker"
+  });
+}
+
+// ======================================
+// POPUP COM SUPORTE A TEMA ESCURO
+// ======================================
+
+function createPopupContent(poi) {
+  const safeName = escapeHTML(poi.name);
+  const lat = Number(poi.lat);
+  const lng = Number(poi.lng ?? poi.lon);
+  const iconEmoji = getIconByCategory(poi.category);
+  const isDark = isDarkTheme();
+  const textColor = isDark ? 'white' : '#333';
+  const secondaryColor = isDark ? '#aaa' : '#666';
+  
+  return `
+    <div style="min-width: 200px; font-family: Arial, sans-serif; background: ${isDark ? '#1a1a2a' : 'white'}; color: ${textColor}; border-radius: 12px;">
+      <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px;">${iconEmoji}</span>
+        <span>${safeName}</span>
+      </div>
+      <div style="font-size: 11px; color: ${secondaryColor}; margin-bottom: 12px;">📍 ${poi.category || "local"}</div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button onclick="window.routeToPlace(${lat}, ${lng}, 'foot')" style="background: #10b981; border: none; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer;">
+          🚶 Ir a pé
+        </button>
+        <button onclick="window.routeToPlace(${lat}, ${lng}, 'car')" style="background: #ef4444; border: none; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer;">
+          🚗 Ir de carro
+        </button>
+        <button onclick="window.viewOnMap(${lat}, ${lng})" style="background: #3b82f6; border: none; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer;">
+          📍 Ver no mapa
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// ======================================
+// CARREGAR POIs MANUAIS
+// ======================================
+
 async function loadManualPOIs(layer) {
   // Se o novo sistema estiver disponível, usar ele
   if (typeof window.carregarPOIsManuaisNoMapa === 'function') {
@@ -82,7 +147,10 @@ async function loadManualPOIs(layer) {
   });
 }
 
-// Carregar POIs automáticos (AGORA USA O SISTEMA DE 4 CAMADAS)
+// ======================================
+// CARREGAR POIs AUTOMÁTICOS (USA O SISTEMA DE 4 CAMADAS)
+// ======================================
+
 async function loadAutoPOIs(lat, lng, radius = 3000, layer) {
   // Se o novo sistema estiver disponível, usar ele
   if (typeof window.loadPOIsToMap === 'function') {
@@ -96,7 +164,10 @@ async function loadAutoPOIs(lat, lng, radius = 3000, layer) {
   return await loadAutoPOIsLegado(lat, lng, radius, layer);
 }
 
-// Versão legada do Overpass (apenas se necessário)
+// ======================================
+// VERSÃO LEGADA DO OVERPASS (FALLBACK)
+// ======================================
+
 async function loadAutoPOIsLegado(lat, lng, radius = 3000, layer) {
   lat = Number(lat); lng = Number(lng);
   if (!isValidCoordinate(lat, lng)) return [];
@@ -151,43 +222,9 @@ function detectCategoryLegado(tags) {
   return "generic";
 }
 
-function safeIcon(category) {
-  const iconEmoji = getIconByCategory(category);
-  return L.divIcon({
-    html: `<div style="background: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: 2px solid #4a90e2; cursor: pointer;">${iconEmoji}</div>`,
-    iconSize: [32, 32],
-    popupAnchor: [0, -16],
-    className: "custom-poi-marker"
-  });
-}
-
-function createPopupContent(poi) {
-  const safeName = escapeHTML(poi.name);
-  const lat = Number(poi.lat);
-  const lng = Number(poi.lng ?? poi.lon);
-  const iconEmoji = getIconByCategory(poi.category);
-  
-  return `
-    <div style="min-width: 200px; font-family: Arial, sans-serif;">
-      <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
-        <span style="font-size: 18px;">${iconEmoji}</span>
-        <span>${safeName}</span>
-      </div>
-      <div style="font-size: 11px; color: #666; margin-bottom: 12px;">📍 ${poi.category || "local"}</div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button onclick="window.routeToPlace(${lat}, ${lng}, 'foot')" style="background: #10b981; border: none; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer;">
-          🚶 Ir a pé
-        </button>
-        <button onclick="window.routeToPlace(${lat}, ${lng}, 'car')" style="background: #ef4444; border: none; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer;">
-          🚗 Ir de carro
-        </button>
-        <button onclick="window.viewOnMap(${lat}, ${lng})" style="background: #3b82f6; border: none; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer;">
-          📍 Ver no mapa
-        </button>
-      </div>
-    </div>
-  `;
-}
+// ======================================
+// LIMPAR POIs AUTOMÁTICOS
+// ======================================
 
 function clearAutoPOIs() {
   window.loadedPOIAreas = {};
@@ -202,10 +239,16 @@ function clearAutoPOIs() {
   }
 }
 
+// ======================================
+// EXPORTAR FUNÇÕES
+// ======================================
+
 window.clearAutoPOIs = clearAutoPOIs;
 window.registerPOI = registerPOI;
 window.loadManualPOIs = loadManualPOIs;
 window.loadAutoPOIs = loadAutoPOIs;
 window.getIconByCategory = getIconByCategory;
+window.poiIndex = window.poiIndex;
 
 console.log('✅ POIs.js adaptado - Agora usando sistema de 4 camadas como優先');
+console.log('🎨 Suporte a tema claro/escuro ativado nos marcadores legados');
