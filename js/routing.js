@@ -22,6 +22,14 @@ let currentTo = null;           // Destino da rota
 let currentRouteLayers = [];    // Layers das rotas (para controle)
 
 // ======================================
+// ESTADO DA NAVEGAÇÃO
+// ======================================
+
+let currentNavigation = null;
+let navigationInterval = null;
+let soundEnabled = true;
+
+// ======================================
 // TOGGLE ROUTE PANEL
 // ======================================
 
@@ -95,6 +103,13 @@ function exitRouteMode() {
   activeRouteIndex = 0;
   currentFrom = null;
   currentTo = null;
+  
+  // Para navegação se estiver ativa
+  if (navigationInterval) {
+    clearInterval(navigationInterval);
+    navigationInterval = null;
+  }
+  currentNavigation = null;
   
   // Volta o zoom para a posição atual do usuário
   if (window.locationEngine && window.locationEngine.getPosition) {
@@ -190,7 +205,6 @@ function getRouteStyle(mode, isAlternative = false) {
   }
   
   if (isAlternative) {
-    // Estilo alternativo: weight 9 para fácil clique
     return {
       color: lighterColor,
       weight: 9,
@@ -200,7 +214,6 @@ function getRouteStyle(mode, isAlternative = false) {
     };
   }
   
-  // Estilo principal: weight 9 também
   return {
     color: baseColor,
     weight: 9,
@@ -211,7 +224,237 @@ function getRouteStyle(mode, isAlternative = false) {
 }
 
 // ======================================
-// ATUALIZAR INFORMAÇÕES DA ROTA ATIVA
+// EXTRAIR STEPS DA ROTA (NAVEGAÇÃO)
+// ======================================
+
+function extractStepsFromRoute(route, mode) {
+  if (!route || !route.legs || !route.legs[0]) return [];
+  
+  const steps = [];
+  let accumulatedDistance = 0;
+  
+  route.legs[0].steps.forEach((step, idx) => {
+    const distance = step.distance;
+    accumulatedDistance += distance;
+    
+    const instrucaoTraduzida = traduzirInstrucao(step);
+    
+    steps.push({
+      id: idx,
+      instrucao: instrucaoTraduzida,
+      instrucaoOriginal: step.maneuver.instruction,
+      distancia: distance,
+      distanciaAcumulada: accumulatedDistance,
+      distanciaTexto: formatDistance(distance),
+      rua: step.name || '',
+      action: step.maneuver.type,
+      modifier: step.maneuver.modifier,
+      location: step.maneuver.location,
+      duration: step.duration,
+      startLat: step.maneuver.location[1],
+      startLng: step.maneuver.location[0]
+    });
+  });
+  
+  return steps;
+}
+
+function traduzirInstrucao(step) {
+  const action = step.maneuver.type;
+  const modifier = step.maneuver.modifier;
+  const rua = step.name;
+  const distance = formatDistance(step.distance);
+  
+  const traducoes = {
+    'depart': '🚗 Sair',
+    'turn': '🔀 Virar',
+    'continue': '⬆️ Continuar',
+    'arrive': '🏁 Chegar',
+    'merge': '🔄 Entrar',
+    'fork': '🔀 Na bifurcação',
+    'roundabout': '🔄 Rotatória',
+    'straight': '⬆️ Em frente',
+    'end of road': '⬆️ Final da rua'
+  };
+  
+  const modificadores = {
+    'left': 'à esquerda',
+    'right': 'à direita',
+    'slight left': 'levemente à esquerda',
+    'slight right': 'levemente à direita',
+    'sharp left': 'fechado à esquerda',
+    'sharp right': 'fechado à direita',
+    'straight': 'em frente'
+  };
+  
+  let acao = traducoes[action] || action;
+  let direcao = modificadores[modifier] || '';
+  
+  if (action === 'arrive') {
+    return '🏁 Você chegou ao destino!';
+  }
+  
+  if (action === 'depart') {
+    return `🚗 Sair de ${rua || 'sua localização'}`;
+  }
+  
+  if (rua && direcao) {
+    return `${acao} ${direcao} na ${rua} (${distance})`;
+  }
+  
+  if (rua) {
+    return `${acao} na ${rua} (${distance})`;
+  }
+  
+  return `${acao} ${direcao} (${distance})`;
+}
+
+// ======================================
+// FUNÇÕES DE NAVEGAÇÃO
+// ======================================
+
+function iniciarNavegacao(route, mode, fromLat, fromLng, toLat, toLng) {
+  if (currentNavigation) {
+    pararNavegacao();
+  }
+  
+  const steps = extractStepsFromRoute(route, mode);
+  
+  currentNavigation = {
+    active: true,
+    steps: steps,
+    currentStepIndex: 0,
+    totalDistance: route.distance,
+    totalDuration: route.duration,
+    mode: mode,
+    origem: { lat: fromLat, lng: fromLng },
+    destino: { lat: toLat, lng: toLng },
+    inicioTimestamp: Date.now()
+  };
+  
+  // Abrir modal de navegação
+  if (typeof window.abrirModalNavegacao === 'function') {
+    window.abrirModalNavegacao();
+  }
+  atualizarModalNavegacao();
+  
+  // Falar primeira instrução
+  if (soundEnabled) {
+    falarInstrucao(steps[0]?.instrucao || 'Navegação iniciada');
+  }
+  
+  // Simular progresso (em produção usaria GPS real)
+  if (navigationInterval) clearInterval(navigationInterval);
+  navigationInterval = setInterval(() => {
+    if (!currentNavigation || !currentNavigation.active) return;
+    simularProgressoNavegacao();
+  }, 5000);
+  
+  console.log('🧭 Navegação iniciada');
+  return currentNavigation;
+}
+
+function simularProgressoNavegacao() {
+  if (!currentNavigation) return;
+  
+  if (currentNavigation.currentStepIndex >= currentNavigation.steps.length - 1) {
+    finalizarNavegacao();
+  } else {
+    currentNavigation.currentStepIndex++;
+    atualizarModalNavegacao();
+    
+    const step = currentNavigation.steps[currentNavigation.currentStepIndex];
+    if (soundEnabled && step) {
+      falarInstrucao(step.instrucao);
+    }
+  }
+}
+
+function pararNavegacao() {
+  if (navigationInterval) {
+    clearInterval(navigationInterval);
+    navigationInterval = null;
+  }
+  currentNavigation = null;
+  if (typeof window.fecharModalNavegacao === 'function') {
+    window.fecharModalNavegacao();
+  }
+  console.log('🧭 Navegação encerrada');
+}
+
+function finalizarNavegacao() {
+  if (navigationInterval) {
+    clearInterval(navigationInterval);
+    navigationInterval = null;
+  }
+  
+  if (soundEnabled) {
+    falarInstrucao('Você chegou ao seu destino!');
+  }
+  
+  if (typeof window.finalizarModalNavegacao === 'function') {
+    window.finalizarModalNavegacao();
+  }
+  
+  currentNavigation = null;
+  console.log('🧭 Navegação finalizada - destino alcançado!');
+}
+
+function falarInstrucao(texto) {
+  if (!soundEnabled) return;
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(texto);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }
+}
+
+function atualizarModalNavegacao() {
+  if (!currentNavigation) return;
+  
+  const nav = currentNavigation;
+  const step = nav.steps[nav.currentStepIndex];
+  const distanciaRestante = nav.totalDistance - (step?.distanciaAcumulada || 0);
+  const progresso = ((nav.currentStepIndex + 1) / nav.steps.length) * 100;
+  
+  // Atualizar via evento customizado para o modal
+  const event = new CustomEvent('navigation-update', {
+    detail: {
+      step: step,
+      distanciaRestante: distanciaRestante,
+      distanciaRestanteTexto: formatDistance(distanciaRestante),
+      tempoRestante: formatTime(distanciaRestante, nav.mode),
+      progresso: Math.round(progresso),
+      stepAtual: nav.currentStepIndex + 1,
+      totalSteps: nav.steps.length,
+      steps: nav.steps
+    }
+  });
+  window.dispatchEvent(event);
+}
+
+function reiniciarNavegacao() {
+  if (currentNavigation) {
+    currentNavigation.currentStepIndex = 0;
+    atualizarModalNavegacao();
+    if (soundEnabled) {
+      falarInstrucao('Navegação reiniciada');
+    }
+    console.log('🧭 Navegação reiniciada');
+  }
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const status = soundEnabled ? 'ativado' : 'desativado';
+  console.log(`🔊 Som ${status}`);
+  return soundEnabled;
+}
+
+// ======================================
+// ATUALIZAR INFORMAÇÕES DA ROTA ATIVA COM BOTÃO DE NAVEGAÇÃO
 // ======================================
 
 function updateRouteInfo(route, mode) {
@@ -223,8 +466,29 @@ function updateRouteInfo(route, mode) {
     <div style="display:flex; flex-direction:column; gap:6px;">
       <div>📏 ${formatDistance(route.distance)}</div>
       <div>⏱ ${formatTime(route.distance, mode)}</div>
+      <button id="btn-iniciar-navegacao" style="margin-top: 8px; padding: 8px 16px; background: linear-gradient(135deg, #667eea, #764ba2); border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; transition: transform 0.2s;">
+        🧭 Iniciar Navegação
+      </button>
     </div>
   `;
+  
+  const btnNav = document.getElementById('btn-iniciar-navegacao');
+  if (btnNav) {
+    btnNav.onclick = () => {
+      if (currentRoutes && currentRoutes[activeRouteIndex] && currentFrom && currentTo) {
+        iniciarNavegacao(
+          currentRoutes[activeRouteIndex], 
+          mode, 
+          currentFrom.lat, 
+          currentFrom.lng, 
+          currentTo.lat, 
+          currentTo.lng
+        );
+      }
+    };
+    btnNav.onmouseenter = () => btnNav.style.transform = 'scale(1.02)';
+    btnNav.onmouseleave = () => btnNav.style.transform = 'scale(1)';
+  }
 }
 
 // ======================================
@@ -234,14 +498,10 @@ function updateRouteInfo(route, mode) {
 function fitAllRoutesBounds(fromLat, fromLng, toLat, toLng) {
   if (!window.map) return;
   
-  // Criar bounds combinados
   const allBounds = L.latLngBounds();
-  
-  // Adicionar origem e destino
   allBounds.extend([fromLat, fromLng]);
   allBounds.extend([toLat, toLng]);
   
-  // Adicionar bounds de cada rota
   currentRoutes.forEach(route => {
     if (route.geometry) {
       try {
@@ -256,12 +516,10 @@ function fitAllRoutesBounds(fromLat, fromLng, toLat, toLng) {
     }
   });
   
-  // Verificar se os bounds são válidos
   if (allBounds.isValid()) {
     window.map.fitBounds(allBounds, { padding: [60, 60] });
     console.log("🗺️ Zoom ajustado para enquadrar todas as rotas");
   } else {
-    // Fallback: usar apenas origem e destino
     const fallbackBounds = L.latLngBounds([[fromLat, fromLng], [toLat, toLng]]);
     window.map.fitBounds(fallbackBounds, { padding: [60, 60] });
     console.log("🗺️ Zoom ajustado para origem/destino (fallback)");
@@ -281,10 +539,7 @@ function switchToRoute(index, mode, fromLat, fromLng, toLat, toLng) {
   activeRouteIndex = index;
   const selectedRoute = currentRoutes[index];
   
-  // Redesenhar todas as rotas com os novos estilos
   redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng);
-  
-  // Atualizar informações
   updateRouteInfo(selectedRoute, mode);
 }
 
@@ -295,11 +550,9 @@ function switchToRoute(index, mode, fromLat, fromLng, toLat, toLng) {
 function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
   if (!window.routeLayer) return;
   
-  // Limpar rotas existentes
   window.routeLayer.clearLayers();
   currentRouteLayers = [];
   
-  // Desenhar cada rota
   currentRoutes.forEach((route, idx) => {
     const isAlternative = (idx !== activeRouteIndex);
     const style = getRouteStyle(mode, isAlternative);
@@ -312,7 +565,6 @@ function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
     geo.addTo(window.routeLayer);
     currentRouteLayers.push(geo);
     
-    // Adicionar evento de clique em TODAS as rotas
     geo.eachLayer(layer => {
       if (layer.feature) {
         layer.on('click', (e) => {
@@ -323,7 +575,6 @@ function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
           }
         });
         
-        // Efeito de hover nas alternativas
         if (isAlternative) {
           layer.on('mouseover', () => {
             layer.setStyle({ weight: 11, opacity: 1 });
@@ -336,11 +587,9 @@ function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
     });
   });
   
-  // Re-adicionar os marcadores
   L.marker([fromLat, fromLng]).addTo(window.routeLayer);
   L.marker([toLat, toLng]).addTo(window.routeLayer);
   
-  // Aplicar zoom para enquadrar TODAS as rotas
   fitAllRoutesBounds(fromLat, fromLng, toLat, toLng);
 }
 
@@ -371,12 +620,10 @@ function isValidCoordinate(lat, lng) {
 }
 
 // ======================================
-// INTEGRAÇÃO COM POIs MANUAIS E SISTEMA DE 4 CAMADAS
+// INTEGRAÇÃO COM POIs MANUAIS
 // ======================================
 
-// Função para encontrar POI manual por nome
 window.encontrarPOIManualPorNome = function(texto) {
-  // Buscar nos POIs manuais
   if (window.manualPOIs && Array.isArray(window.manualPOIs)) {
     const termo = normalizeText(texto);
     for (const poi of window.manualPOIs) {
@@ -392,7 +639,6 @@ window.encontrarPOIManualPorNome = function(texto) {
     }
   }
   
-  // Buscar nos POIs do sistema de 4 camadas (cache do mapa)
   if (window.poiLayer && window.poiLayer._layers) {
     const termo = normalizeText(texto);
     const layers = window.poiLayer._layers;
@@ -417,7 +663,7 @@ window.encontrarPOIManualPorNome = function(texto) {
 };
 
 // ======================================
-// RESOLVER LOCALIZAÇÃO (VERSÃO ATUALIZADA)
+// RESOLVER LOCALIZAÇÃO
 // ======================================
 
 async function resolveText(text) {
@@ -430,7 +676,6 @@ async function resolveText(text) {
   }
   const normalized = normalizeText(text);
   
-  // 1. Verificar destino selecionado globalmente
   if (window.selectedDestination &&
     normalizeText(window.selectedDestination.name) === normalized) {
     return {
@@ -440,13 +685,11 @@ async function resolveText(text) {
     };
   }
   
-  // 2. Buscar nos POIs MANUAIS (prioridade máxima)
   const poiManual = window.encontrarPOIManualPorNome(text);
   if (poiManual) {
     return poiManual;
   }
   
-  // 3. Buscar no índice global (poiIndex - compatibilidade)
   if (Array.isArray(window.poiIndex)) {
     let local = window.poiIndex.find(poi => normalizeText(poi.name) === normalized);
     if (!local) {
@@ -462,7 +705,6 @@ async function resolveText(text) {
     }
   }
   
-  // 4. Buscar nos POIs do mapa (4 camadas) via cache
   if (window.poiLayer && window.poiLayer._layers) {
     const layers = window.poiLayer._layers;
     for (let id in layers) {
@@ -482,7 +724,6 @@ async function resolveText(text) {
     }
   }
   
-  // 5. Geocoding externo (fallback)
   if (typeof window.geocode === "function") {
     try {
       const results = await window.geocode(text);
@@ -508,7 +749,7 @@ async function resolveText(text) {
 window.resolveText = resolveText;
 
 // ======================================
-// TRAÇAR ROTA (COM MÚLTIPLAS ALTERNATIVAS)
+// TRAÇAR ROTA
 // ======================================
 
 async function traceRoute(from, to, mode = "car") {
@@ -527,12 +768,10 @@ async function traceRoute(from, to, mode = "car") {
     return false;
   }
   
-  // Salvar origem/destino para redesenho
   currentFrom = { lat: fromLat, lng: fromLng };
   currentTo = { lat: toLat, lng: toLng };
   currentMode = mode;
   
-  // Cancelar request anterior
   if (currentRouteController) {
     currentRouteController.abort();
   }
@@ -540,7 +779,6 @@ async function traceRoute(from, to, mode = "car") {
   
   const profile = mode === "foot" ? "walking" : mode === "bike" ? "cycling" : "driving";
   
-  // URL com alternatives=true para múltiplas rotas
   const url = `https://router.project-osrm.org/route/v1/${profile}/` +
     `${fromLng},${fromLat};${toLng},${toLat}` +
     `?alternatives=true&overview=full&geometries=geojson&steps=true`;
@@ -569,10 +807,8 @@ async function traceRoute(from, to, mode = "car") {
       return false;
     }
     
-    // Limpar rotas anteriores
     clearAllRoutes();
     
-    // Armazenar todas as rotas
     currentRoutes = data.routes;
     activeRouteIndex = 0;
     
@@ -581,10 +817,7 @@ async function traceRoute(from, to, mode = "car") {
       console.log(`  Rota ${idx + 1}: ${formatDistance(route.distance)} • ${formatTime(route.distance, mode)}`);
     });
     
-    // Redesenhar todas as rotas
     redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng);
-    
-    // Mostrar informações da rota principal
     updateRouteInfo(currentRoutes[0], mode);
     
     return true;
@@ -610,7 +843,6 @@ async function createRoute(originText, destinationText, mode = "car") {
   let from = null;
   let to = null;
   
-  // ORIGEM
   if (!originText || originText.trim() === "") {
     const pos = window.locationEngine?.getPosition?.();
     if (!pos) {
@@ -626,7 +858,6 @@ async function createRoute(originText, destinationText, mode = "car") {
     from = await resolveText(originText);
   }
   
-  // DESTINO
   to = await resolveText(destinationText);
   
   if (!from) {
@@ -677,16 +908,17 @@ async function routeToPlace(lat, lng, mode = "car") {
 }
 
 window.routeToPlace = routeToPlace;
+window.clearRoute = clearAllRoutes;
 
 // ======================================
-// LIMPAR ROTA (MANTIDO PARA COMPATIBILIDADE)
+// EXPORTAR FUNÇÕES DE NAVEGAÇÃO
 // ======================================
 
-function clearRoute() {
-  clearAllRoutes();
-}
-
-window.clearRoute = clearRoute;
+window.iniciarNavegacao = iniciarNavegacao;
+window.pararNavegacao = pararNavegacao;
+window.reiniciarNavegacao = reiniciarNavegacao;
+window.toggleSound = toggleSound;
+window.extractStepsFromRoute = extractStepsFromRoute;
 
 // ======================================
 // EVENTS
@@ -735,4 +967,5 @@ document.addEventListener("DOMContentLoaded", () => {
   
   console.log("✅ Sistema de rotas OSRM com múltiplas alternativas carregado!");
   console.log("✅ Integração com POIs manuais e sistema de 4 camadas ativa!");
+  console.log("🧭 Sistema de navegação turn-by-turn carregado!");
 });
