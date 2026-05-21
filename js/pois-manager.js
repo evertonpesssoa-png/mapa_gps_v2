@@ -53,6 +53,82 @@ const LIMITS = {
 // Cache para evitar buscas repetidas
 const cache = new Map();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutos
+const MAX_CACHE_SIZE = 50; // Limite máximo de itens no cache
+
+// ======================================
+// FUNÇÃO PARA VERIFICAR TEMA ESCURO
+// ======================================
+
+function isDarkTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+
+// ======================================
+// FUNÇÃO PARA OBTER CORES DOS MARCADORES POR FONTE
+// ======================================
+
+function getMarkerColors(source, category = null) {
+    const isDark = isDarkTheme();
+    const darkMode = isDark ? 1 : 0;
+    
+    const colors = {
+        manual: {
+            border: isDark ? '#ff66c0' : '#ff4db8',
+            bg: isDark ? '#1a1a2a' : 'white',
+            text: isDark ? 'white' : '#1a1a2e',
+            iconChar: getIconForCategory(category)
+        },
+        google: {
+            border: '#4285f4',
+            bg: isDark ? '#1a1a2a' : 'white',
+            text: isDark ? 'white' : '#1a1a2e',
+            iconChar: '🌎'
+        },
+        mapbox: {
+            border: '#3b82f6',
+            bg: isDark ? '#1a1a2a' : 'white',
+            text: isDark ? 'white' : '#1a1a2e',
+            iconChar: '🗺️'
+        },
+        openstreetmap: {
+            border: '#22c55e',
+            bg: isDark ? '#1a1a2a' : 'white',
+            text: isDark ? 'white' : '#1a1a2e',
+            iconChar: '🌿'
+        }
+    };
+    
+    return colors[source] || colors.manual;
+}
+
+function getIconForCategory(category) {
+    const iconMap = {
+        hospital: '🏥',
+        police: '👮',
+        policeman: '🚓',
+        pharmacy: '💊',
+        gas: '⛽',
+        supermarket: '🛒',
+        home: '🏠',
+        mechanic: '🔧',
+        medical: '🏥'
+    };
+    return iconMap[category] || '📍';
+}
+
+// ======================================
+// FUNÇÃO PARA ADICIONAR AO CACHE COM LIMITE
+// ======================================
+
+function addToCache(key, data) {
+    // Limitar tamanho do cache
+    if (cache.size >= MAX_CACHE_SIZE) {
+        const firstKey = cache.keys().next().value;
+        cache.delete(firstKey);
+        console.log(`🗑️ Cache limpo: removido ${firstKey}`);
+    }
+    cache.set(key, data);
+}
 
 // ======================================
 // FUNÇÃO PARA OBTER ZOOM ATUAL
@@ -72,7 +148,7 @@ async function searchPOIs(lat, lng, type = 'all', radius = 1000) {
     const zoomAtual = getZoomAtual();
     
     // Verificar cache primeiro
-    const cacheKey = `${lat},${lng},${type},${radius},${zoomAtual}`;
+    const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)},${type},${radius},${zoomAtual}`;
     if (cache.has(cacheKey)) {
         const cached = cache.get(cacheKey);
         if (Date.now() - cached.timestamp < CACHE_TTL) {
@@ -85,7 +161,8 @@ async function searchPOIs(lat, lng, type = 'all', radius = 1000) {
     console.log(`🔍 Buscando POIs para ${lat},${lng} - Tipo: ${type} - Zoom: ${zoomAtual}`);
     
     // 1. POIs MANUAIS (SEMPRE - com controle de zoom)
-    const manualPOIs = await buscarPOIsManuais(lat, lng, type, radius, zoomAtual);
+    // Removido o await pois a função não é assíncrona
+    const manualPOIs = buscarPOIsManuais(lat, lng, type, radius, zoomAtual);
     results.push(...manualPOIs);
     console.log(`📌 Manuais: ${manualPOIs.length} POIs (zoom ${zoomAtual})`);
     
@@ -130,8 +207,8 @@ async function searchPOIs(lat, lng, type = 'all', radius = 1000) {
     const duration = performance.now() - startTime;
     console.log(`✅ Total: ${uniqueResults.length} POIs únicos (${duration.toFixed(0)}ms)`);
     
-    // Salvar no cache
-    cache.set(cacheKey, {
+    // Salvar no cache com limite
+    addToCache(cacheKey, {
         timestamp: Date.now(),
         results: uniqueResults
     });
@@ -362,7 +439,52 @@ function verificarResetMensal() {
 }
 
 // ======================================
-// FUNÇÃO PARA ATUALIZAR POIs NO MAPA
+// FUNÇÃO PARA CRIAR MARCADOR COM TEMA ESCURO
+// ======================================
+
+function criarMarcadorPOI(poi) {
+    const colors = getMarkerColors(poi.source, poi.category);
+    const iconChar = poi.icon || colors.iconChar;
+    
+    const customIcon = L.divIcon({
+        className: 'poi-marker',
+        html: `<div style="background: ${colors.bg}; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid ${colors.border}; font-size: 16px; transition: all 0.2s ease;">${iconChar}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16]
+    });
+    
+    const marker = L.marker([poi.lat, poi.lng], { icon: customIcon });
+    
+    const distancia = poi.distance ? `${(poi.distance / 1000).toFixed(1)}km` : '';
+    const fonteText = {
+        'manual': '📌 Manual',
+        'google': '🌎 Google',
+        'mapbox': '🗺️ Mapbox',
+        'openstreetmap': '🌿 OSM'
+    };
+    
+    // Popup com cores adaptativas
+    const isDark = isDarkTheme();
+    const popupTextColor = isDark ? 'white' : '#1a1a2e';
+    const popupSecondaryColor = isDark ? '#aaa' : '#666';
+    
+    marker.bindPopup(`
+        <div style="min-width: 180px; background: ${colors.bg}; color: ${popupTextColor}; border-radius: 8px; padding: 8px;">
+            <strong>${poi.name}</strong><br>
+            <span style="color: ${popupSecondaryColor};">📌 ${poi.category || 'Ponto de interesse'}</span><br>
+            <span style="color: ${popupSecondaryColor}; font-size: 11px;">📡 ${fonteText[poi.source] || poi.source}</span>
+            ${distancia ? `<br><span style="color: ${popupSecondaryColor}; font-size: 11px;">📏 ${distancia}</span>` : ''}
+            ${poi.address ? `<br><span style="color: ${popupSecondaryColor}; font-size: 11px;">📍 ${poi.address}</span>` : ''}
+            ${poi.rating ? `<br><span style="color: #f59e0b; font-size: 11px;">⭐ ${poi.rating}</span>` : ''}
+        </div>
+    `);
+    
+    return marker;
+}
+
+// ======================================
+// FUNÇÃO PARA ATUALIZAR POIs NO MAPA (COM TEMA ESCURO)
 // ======================================
 
 async function loadPOIsToMap(lat, lng) {
@@ -380,57 +502,7 @@ async function loadPOIsToMap(lat, lng) {
         }
         
         pois.forEach(poi => {
-            let iconChar = '📍';
-            let borderColor = '#ff4db8';
-            
-            if (poi.source === 'manual') {
-                const iconMap = {
-                    'hospital': '🏥', 'police': '👮', 'policeman': '🚓',
-                    'pharmacy': '💊', 'gas': '⛽', 'supermarket': '🛒',
-                    'home': '🏠', 'mechanic': '🔧', 'medical': '🏥'
-                };
-                iconChar = poi.icon || iconMap[poi.category] || '📌';
-                borderColor = '#ff4db8';
-            } else if (poi.source === 'google') {
-                borderColor = '#4285f4';
-                iconChar = '🌎';
-            } else if (poi.source === 'mapbox') {
-                borderColor = '#3b82f6';
-                iconChar = '🗺️';
-            } else if (poi.source === 'openstreetmap') {
-                borderColor = '#22c55e';
-                iconChar = '🌿';
-            }
-            
-            const customIcon = L.divIcon({
-                className: 'poi-marker',
-                html: `<div style="background: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid ${borderColor}; font-size: 16px;">${iconChar}</div>`,
-                iconSize: [32, 32],
-                iconAnchor: [16, 16],
-                popupAnchor: [0, -16]
-            });
-            
-            const marker = L.marker([poi.lat, poi.lng], { icon: customIcon });
-            
-            const distancia = poi.distance ? `${(poi.distance / 1000).toFixed(1)}km` : '';
-            const fonteText = {
-                'manual': '📌 Manual',
-                'google': '🌎 Google',
-                'mapbox': '🗺️ Mapbox',
-                'openstreetmap': '🌿 OSM'
-            };
-            
-            marker.bindPopup(`
-                <div style="min-width: 180px;">
-                    <strong>${poi.name}</strong><br>
-                    <span style="color: #666;">📌 ${poi.category || 'Ponto de interesse'}</span><br>
-                    <span style="color: #888; font-size: 11px;">📡 ${fonteText[poi.source] || poi.source}</span>
-                    ${distancia ? `<br><span style="color: #888; font-size: 11px;">📏 ${distancia}</span>` : ''}
-                    ${poi.address ? `<br><span style="color: #888; font-size: 11px;">📍 ${poi.address}</span>` : ''}
-                    ${poi.rating ? `<br><span style="color: #f59e0b; font-size: 11px;">⭐ ${poi.rating}</span>` : ''}
-                </div>
-            `);
-            
+            const marker = criarMarcadorPOI(poi);
             marker.addTo(window.poiLayer);
         });
         
@@ -444,17 +516,39 @@ async function loadPOIsToMap(lat, lng) {
 }
 
 // ======================================
+// OBSERVAR MUDANÇAS DE TEMA PARA RECARREGAR POIs
+// ======================================
+
+function iniciarObservadorTemaPOIs() {
+    const observer = new MutationObserver(() => {
+        if (window.map && window.poiLayer) {
+            const center = window.map.getCenter();
+            loadPOIsToMap(center.lat, center.lng);
+        }
+    });
+    
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    console.log('👁️ Observador de tema iniciado para POIs');
+}
+
+// ======================================
 // INICIALIZAÇÃO
 // ======================================
 
 // Verificar reset mensal ao carregar
 verificarResetMensal();
 
+// Iniciar observador de tema para POIs
+setTimeout(iniciarObservadorTemaPOIs, 1000);
+
 // Exportar funções
 window.searchPOIs = searchPOIs;
 window.loadPOIsToMap = loadPOIsToMap;
 window.apiState = apiState;
 window.getZoomAtual = getZoomAtual;
+window.criarMarcadorPOI = criarMarcadorPOI;
 
 console.log('✅ POIs Manager - Sistema de 4 camadas carregado');
 console.log('📍 POIs manuais integrados com controle de zoom');
+console.log('🎨 Suporte a tema claro/escuro ativado para marcadores');
+console.log('💾 Cache com limite de 50 itens ativado');
