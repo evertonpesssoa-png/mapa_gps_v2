@@ -412,7 +412,10 @@ html, body {
   display: block;
 }
 
-/* Clima */
+/* ====================================== */
+/* CLIMA - VERSÃO MELHORADA (NÚMEROS VISÍVEIS) */
+/* ====================================== */
+
 .weather-loading,
 .weather-error,
 .time-loading,
@@ -423,18 +426,27 @@ html, body {
 }
 
 .weather-card {
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
   border-radius: 16px;
-  padding: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.05);
 }
 
 .weather-header {
   margin-bottom: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
 }
 
 .weather-city {
-  font-size: 14px;
-  color: #666;
+  font-size: 16px;
+  font-weight: bold;
+  color: #1a1a2e;
+  background: #e8f0fe;
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: inline-block;
 }
 
 .weather-main {
@@ -445,40 +457,65 @@ html, body {
 .weather-icon {
   width: 64px;
   height: 64px;
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.1));
 }
 
 .weather-temp {
-  font-size: 32px;
+  font-size: 42px;
   font-weight: bold;
+  color: #1a1a2e;
   margin: 8px 0;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.05);
 }
 
 .weather-condition {
-  color: #666;
+  color: #555;
   font-size: 14px;
+  font-weight: 500;
+  background: rgba(0,0,0,0.05);
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
 }
 
 .weather-details-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  margin-top: 16px;
 }
 
 .weather-detail {
   text-align: center;
+  background: white;
+  padding: 10px 8px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #eee;
 }
 
 .detail-label {
   display: block;
   font-size: 12px;
-  color: #888;
+  color: #666;
   margin-bottom: 4px;
+  font-weight: 500;
 }
 
 .detail-value {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: bold;
-  color: #333;
+  color: #1a1a2e;
+}
+
+/* Sensação térmica */
+.weather-sensacao {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 /* Horário */
@@ -1072,7 +1109,7 @@ html, body {
     }
     
     .weather-temp {
-        font-size: 28px;
+        font-size: 32px;
     }
     
     .time-current-value {
@@ -1240,7 +1277,7 @@ html, body {
     }
     
     .weather-temp {
-        font-size: 24px;
+        font-size: 28px;
     }
     
     .time-current-value {
@@ -1282,6 +1319,33 @@ html, body {
     .relevo-card {
         background: #1e1e2e;
         color: #eee;
+    }
+    
+    .weather-city {
+        background: #2a2a4a;
+        color: #fff;
+    }
+    
+    .weather-temp {
+        color: #fff;
+    }
+    
+    .weather-condition {
+        color: #ccc;
+        background: rgba(255,255,255,0.1);
+    }
+    
+    .weather-detail {
+        background: #2a2a3a;
+        border-color: #3a3a4a;
+    }
+    
+    .detail-label {
+        color: #aaa;
+    }
+    
+    .detail-value {
+        color: #fff;
     }
     
     .navigation-info-item {
@@ -1385,4 +1449,297 @@ html, body {
 <!-- ====================================== -->
 
 <div class="map-controls">
-  <button class="control-btn" onclick="window.toggleSearch?.()" title="Bus
+  <button class="control-btn" onclick="window.toggleSearch?.()" title="Buscar lugares">🔎</button>
+  <button class="control-btn" onclick="window.centerOnUser?.()" title="Minha localização">📍</button>
+  <button class="control-btn" onclick="window.toggleRoute?.()" title="Traçar rota">➜</button>
+  <button class="control-btn" onclick="window.reloadNearbyPOIs?.()" title="Recarregar POIs">🔄</button>
+</div>
+
+<!-- ====================================== -->
+<!-- BOTÃO MENU + TEMPERATURA + RELÓGIO -->
+<!-- ====================================== -->
+
+<div class="menu-area">
+  <button id="menu-toggle-btn" class="menu-toggle-btn" onclick="window.toggleMenu?.()" title="Menu">☰</button>
+  <div id="temp-indicator" onclick="window.openMenu?.()">🌡️ --°C</div>
+  <div id="clock-indicator" onclick="window.openMenu?.()">🕐 --:--</div>
+</div>
+
+<!-- ====================================== -->
+<!-- MENU LATERAL -->
+<!-- ====================================== -->
+
+<div id="side-menu" class="side-menu">
+  <div class="menu-header">
+    <h3>📋 Menu</h3>
+    <button class="close-menu-btn" onclick="window.closeMenu?.()">✕</button>
+  </div>
+  <div class="menu-tabs">
+    <button class="menu-tab active" data-tab="weather" onclick="window.switchMenuTab?.('weather')">🌤️ Clima</button>
+    <button class="menu-tab" data-tab="timezone" onclick="window.switchMenuTab?.('timezone')">🕐 Horário</button>
+    <button class="menu-tab" data-tab="relevo" onclick="window.switchMenuTab?.('relevo')">⛰️ Relevo</button>
+  </div>
+  <div id="menu-tab-weather" class="menu-tab-content active">
+    <div id="weather-details">
+      <div class="weather-loading">🌤️ Carregando clima...</div>
+    </div>
+  </div>
+  <div id="menu-tab-timezone" class="menu-tab-content">
+    <div id="time-details">
+      <div class="time-loading">🕐 Carregando horário...</div>
+    </div>
+  </div>
+  <div id="menu-tab-relevo" class="menu-tab-content">
+    <div id="relevo-details">
+      <div class="relevo-loading">⛰️ Carregando altitude...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================== -->
+<!-- BOTÃO FLUTUANTE CHAT -->
+<!-- ====================================== -->
+
+<div style="position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999;">
+  <button id="openChatBtn" class="open-chat-btn" title="Abrir Assistente">💬</button>
+</div>
+
+<!-- ====================================== -->
+<!-- CHAT DO ASURA -->
+<!-- ====================================== -->
+
+<div id="asura-chat" class="asura-chat collapsed">
+  <div class="chat-header" id="chatHeader">
+    <div class="chat-header-info">
+      <div class="chat-avatar" id="chatAvatar">🤖</div>
+      <div>
+        <h4 id="chatAsuraName">DIVA</h4>
+        <div class="chat-status" id="chatStatus">🟢 online</div>
+      </div>
+    </div>
+    <div class="chat-controls">
+      <button class="chat-minimize" id="chatMinimizeBtn">−</button>
+      <button class="chat-close" id="chatCloseBtn">✕</button>
+    </div>
+  </div>
+  
+  <div class="chat-body" id="chatBody">
+    <div class="chat-messages" id="chatMessages">
+      <div class="message asura">
+        <div class="message-avatar">🤖</div>
+        <div class="message-content">
+          ✨ Olá! Clique no microfone para ativar o MODO JARVIS ou digite sua mensagem.
+          <div class="message-time">Agora</div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <select id="asuraSelector" class="asura-selector">
+        <option value="diva">🤖 DIVA - Automação</option>
+        <option value="siria">🌳 SIRIA - Finanças</option>
+        <option value="merlim">🔧 MERLIM - Tecnologia</option>
+        <option value="astreia">👁️ ASTREIA - Segurança</option>
+        <option value="umbra">🕵️ UMBRA - Investigação</option>
+        <option value="atena">🦉 ATENA - Conhecimento</option>
+        <option value="victoria">🏅 VICTORIA - Emergência</option>
+        <option value="hestia">🔮 HESTIA - Justiça</option>
+        <option value="daedala">⚗️ DAEDALA - Inovação</option>
+      </select>
+      <button id="micBtn" class="mic-btn" title="Modo Jarvis (escuta contínua)">🎤</button>
+      <input type="text" id="chatInput" placeholder="Digite seu comando...">
+      <button id="sendChatBtn">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================== -->
+<!-- JARVIS INDICATOR -->
+<!-- ====================================== -->
+
+<div id="jarvisIndicator" class="jarvis-indicator">
+  <div class="jarvis-dot"></div>
+  <span style="color: white; font-size: 12px;">🎤 Modo Jarvis ativo</span>
+  <div class="jarvis-wave">
+    <span></span><span></span><span></span><span></span>
+  </div>
+</div>
+
+<!-- ====================================== -->
+<!-- TOAST NAVEGAÇÃO -->
+<!-- ====================================== -->
+
+<div id="nav-toast"></div>
+
+<!-- ====================================== -->
+<!-- LEAFLET JS -->
+<!-- ====================================== -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- ====================================== -->
+<!-- CONFIGURAÇÃO DO MAPBOX -->
+<!-- ====================================== -->
+
+<script>
+window.MAPBOX_TOKEN = 'pk.eyJ1IjoiZXZlcnRvbnBlc3NvYTg4IiwiYSI6ImNtcGRmMTk5czBiYWEycG9sd2NlZ3RxdWsifQ.W7ayNU1STdXgV-cqNJ1AKA';
+console.log('✅ MAPBOX_TOKEN configurado');
+</script>
+
+<!-- ====================================== -->
+<!-- SCRIPTS DO APP (ORDEM CORRETA) -->
+<!-- ====================================== -->
+
+<!-- Core -->
+<script src="js/locationEngine.js"></script>
+<script src="js/geocoding.js"></script>
+
+<!-- POIs - Sistema de 4 camadas -->
+<script src="js/pois-manager.js"></script>
+<script src="js/pois-manual.js"></script>
+<script src="js/pois-google.js"></script>
+<script src="js/pois-mapbox.js"></script>
+<script src="js/pois-osm.js"></script>
+<script src="js/pois.js"></script>
+
+<!-- Dados e funcionalidades principais -->
+<script src="data/manual_pois.js"></script>
+<script src="js/search.js"></script>
+<script src="js/routing.js"></script>
+
+<!-- Clima e Horário -->
+<script src="js/weather.js"></script>
+<script src="js/weather-ui.js"></script>
+<script src="js/timezone.js"></script>
+
+<!-- Relevo -->
+<script src="js/relevo.js"></script>
+
+<!-- UI e Menu -->
+<script src="js/menu.js"></script>
+
+<!-- Mapa e Chat -->
+<script src="js/mapa.js"></script>
+<script src="js/chat.js"></script>
+
+<!-- ====================================== -->
+<!-- FUNÇÕES ADICIONAIS -->
+<!-- ====================================== -->
+
+<script>
+// Toggle route panel
+window.toggleRoute = function() {
+  const panel = document.getElementById('route-panel');
+  if (panel) {
+    panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+  }
+};
+
+// Função para fechar o card de rota
+window.closeRouteCard = function() {
+  const panel = document.getElementById('route-panel');
+  if (panel) {
+    panel.style.display = 'none';
+  }
+  console.log('🚪 Card de rota fechado');
+};
+
+// Função para sair do modo rota
+window.exitRouteMode = function() {
+  if (window.routeLayer) {
+    window.routeLayer.clearLayers();
+  }
+  
+  const routeInfo = document.getElementById('route-info');
+  if (routeInfo) {
+    routeInfo.innerHTML = '';
+    routeInfo.style.display = 'none';
+  }
+  
+  const originInput = document.getElementById('route-origin');
+  const destInput = document.getElementById('route-destination');
+  
+  if (originInput) originInput.value = '';
+  if (destInput) destInput.value = '';
+  
+  if (window.locationEngine && window.locationEngine.getPosition) {
+    const pos = window.locationEngine.getPosition();
+    if (pos && window.map) {
+      window.map.setView([pos.lat, pos.lng], 15);
+    }
+  }
+  
+  if (window.clearAllRoutes) window.clearAllRoutes();
+  if (window.pararNavegacao) window.pararNavegacao();
+  
+  console.log('🚫 Modo rota encerrado');
+};
+
+// Limpar todas as rotas
+window.clearAllRoutes = function() {
+  if (window.routeLayer) {
+    window.routeLayer.clearLayers();
+  }
+  const routeInfo = document.getElementById('route-info');
+  if (routeInfo) {
+    routeInfo.style.display = 'none';
+  }
+};
+
+// Detectar redimensionamento e orientação
+function ajustarMapaRedimensionamento() {
+    if (window.map) {
+        setTimeout(() => {
+            window.map.invalidateSize();
+            console.log('🗺️ Mapa ajustado para nova orientação');
+        }, 100);
+    }
+}
+
+window.addEventListener('orientationchange', () => {
+    setTimeout(ajustarMapaRedimensionamento, 50);
+});
+
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        ajustarMapaRedimensionamento();
+        
+        const menu = document.getElementById('side-menu');
+        if (menu && menu.classList.contains('open')) {
+            menu.style.right = '0';
+        }
+    }, 200);
+});
+
+window.addEventListener('focus', ajustarMapaRedimensionamento);
+
+// Garantir resize do mapa no load
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (window.map) {
+      window.map.invalidateSize();
+      console.log('🗺️ Mapa redimensionado');
+    }
+    ajustarZoomControles();
+  }, 100);
+});
+
+function ajustarZoomControles() {
+    const mapControls = document.querySelector('.map-controls');
+    if (mapControls && window.innerWidth <= 768) {
+        console.log('📱 Modo mobile ativo');
+    }
+}
+
+console.log('✅ Aplicação inicializada com sistema de 4 camadas!');
+console.log('📍 POIs: Manual + Google + Mapbox + OpenStreetMap');
+console.log('🌤️ Clima: OpenWeatherMap');
+console.log('🕐 Horário: TimeZoneDB');
+console.log('⛰️ Relevo: Open-Elevation API');
+console.log('🧭 Navegação nível Google Maps carregada!');
+console.log('🚦 Botão de trânsito disponível!');
+</script>
+
+</body>
+</html>
