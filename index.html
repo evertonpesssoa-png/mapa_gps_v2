@@ -512,15 +512,79 @@ html, body {
   color: #ff4db8;
 }
 
-/* Relevo */
-.relevo-placeholder {
+/* ====================================== */
+/* RELEVO */
+/* ====================================== */
+
+.relevo-loading,
+.relevo-error {
   text-align: center;
   padding: 40px 20px;
-  color: #999;
+  color: #666;
 }
 
-.relevo-placeholder p {
-  margin: 10px 0;
+.relevo-card {
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+}
+
+.relevo-main {
+  margin-bottom: 20px;
+}
+
+.relevo-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.relevo-altitude {
+  font-size: 36px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.relevo-descricao {
+  font-size: 14px;
+  color: #666;
+}
+
+.relevo-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.relevo-info-item {
+  background: white;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.relevo-info-item .info-label {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.relevo-info-item .info-value {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+
+.relevo-dica {
+  font-size: 11px;
+  color: #888;
+  background: #e8f0fe;
+  padding: 8px 12px;
+  border-radius: 20px;
+  text-align: center;
 }
 
 /* ====================================== */
@@ -899,6 +963,25 @@ html, body {
   animation: carShake 0.5s ease infinite;
 }
 
+/* Toast da navegação */
+#nav-toast {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 40px;
+  font-size: 14px;
+  z-index: 20001;
+  text-align: center;
+  white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: none;
+}
+
 @media (max-width: 600px) {
   .asura-chat {
     width: calc(100% - 40px);
@@ -922,6 +1005,13 @@ html, body {
   }
   .menu-area {
     top: 70px;
+  }
+  #nav-toast {
+    bottom: 80px;
+    font-size: 12px;
+    padding: 8px 16px;
+    white-space: normal;
+    max-width: 80%;
   }
 }
 
@@ -1035,9 +1125,8 @@ html, body {
     </div>
   </div>
   <div id="menu-tab-relevo" class="menu-tab-content">
-    <div class="relevo-placeholder">
-      <p>⛰️ Informações de Relevo</p>
-      <p style="font-size: 12px;">Em breve: altitude, topografia, elevação</p>
+    <div id="relevo-details">
+      <div class="relevo-loading">⛰️ Carregando altitude...</div>
     </div>
   </div>
 </div>
@@ -1111,6 +1200,12 @@ html, body {
 </div>
 
 <!-- ====================================== -->
+<!-- TOAST NAVEGAÇÃO -->
+<!-- ====================================== -->
+
+<div id="nav-toast"></div>
+
+<!-- ====================================== -->
 <!-- LEAFLET JS -->
 <!-- ====================================== -->
 
@@ -1150,6 +1245,9 @@ console.log('✅ MAPBOX_TOKEN configurado');
 <script src="js/weather.js"></script>
 <script src="js/weather-ui.js"></script>
 <script src="js/timezone.js"></script>
+
+<!-- Relevo -->
+<script src="js/relevo.js"></script>
 
 <!-- UI e Menu -->
 <script src="js/menu.js"></script>
@@ -1206,6 +1304,7 @@ window.exitRouteMode = function() {
   }
   
   if (window.clearAllRoutes) window.clearAllRoutes();
+  if (window.pararNavegacao) window.pararNavegacao();
   
   console.log('🚫 Modo rota encerrado');
 };
@@ -1235,6 +1334,7 @@ console.log('✅ Aplicação inicializada com sistema de 4 camadas!');
 console.log('📍 POIs: Manual + Google + Mapbox + OpenStreetMap');
 console.log('🌤️ Clima: OpenWeatherMap');
 console.log('🕐 Horário: TimeZoneDB');
+console.log('⛰️ Relevo: Open-Elevation API');
 console.log('🧭 Navegação nível Google Maps carregada!');
 </script>
 
