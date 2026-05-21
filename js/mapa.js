@@ -73,6 +73,70 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) { console.error("Erro loadNearbyPOIs:", err); }
   }
 
+  // ======================================
+  // ATUALIZAÇÃO DO CLIMA
+  // ======================================
+  async function updateWeatherFromMap() {
+    const center = map.getCenter();
+    const lat = center.lat;
+    const lng = center.lng;
+    
+    // Atualizar indicador de temperatura
+    if (typeof window.updateTemperatureIndicator === 'function') {
+      await window.updateTemperatureIndicator(lat, lng);
+    }
+    
+    // Se o menu estiver aberto, atualizar clima detalhado
+    const menu = document.getElementById('side-menu');
+    if (menu && menu.classList.contains('open') && typeof window.updateWeatherInMenu === 'function') {
+      await window.updateWeatherInMenu(lat, lng);
+    }
+  }
+
+  // ======================================
+  // EVENTO DE MOVIMENTAÇÃO DO MAPA (CLIMA)
+  // ======================================
+  map.on('moveend', async function() {
+    await updateWeatherFromMap();
+  });
+
+  // ======================================
+  // TROCA DE CAMADA (MAPA/SATÉLITE)
+  // ======================================
+  function switchMapLayer(layerType) {
+    if (!map) return;
+    
+    const satelliteBtn = document.getElementById('satellite-btn');
+    const mapBtn = document.getElementById('map-btn');
+    
+    if (layerType === 'satellite') {
+      map.eachLayer(layer => {
+        if (layer instanceof L.TileLayer && layer._url.includes('openstreetmap')) {
+          map.removeLayer(layer);
+        }
+        if (layer instanceof L.TileLayer && layer._url.includes('World_Imagery')) {
+          map.addLayer(layer);
+        }
+      });
+      satelliteBtn?.classList.add('active');
+      mapBtn?.classList.remove('active');
+      console.log('🛰️ Modo Satélite ativado');
+    } else {
+      map.eachLayer(layer => {
+        if (layer instanceof L.TileLayer && layer._url.includes('World_Imagery')) {
+          map.removeLayer(layer);
+        }
+        if (layer instanceof L.TileLayer && layer._url.includes('openstreetmap')) {
+          map.addLayer(layer);
+        }
+      });
+      mapBtn?.classList.add('active');
+      satelliteBtn?.classList.remove('active');
+      console.log('🗺️ Modo Mapa ativado');
+    }
+  }
+  window.switchMapLayer = switchMapLayer;
+
   function handlePosition(position) {
     const lat = Number(position.lat), lng = Number(position.lng), accuracy = Number(position.accuracy || 0), heading = Number(position.heading || 0);
     if (isNaN(lat) || isNaN(lng)) return;
@@ -81,7 +145,14 @@ document.addEventListener("DOMContentLoaded", () => {
       userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 9999 }).addTo(window.userLayer);
       userCircle = L.circle([lat, lng], { radius: accuracy, color: "#2196f3", fillColor: "#2196f3", fillOpacity: 0.12, weight: 1 }).addTo(window.userLayer);
       window.userMarker = userMarker;
-      if (firstFix) { animatedSetView([lat, lng], 16); firstFix = false; }
+      if (firstFix) { 
+        animatedSetView([lat, lng], 16); 
+        firstFix = false;
+        // Atualizar clima na posição inicial
+        setTimeout(() => {
+          updateWeatherFromMap();
+        }, 500);
+      }
     } else {
       userMarker.setLatLng([lat, lng]);
       userCircle.setLatLng([lat, lng]);
@@ -160,5 +231,21 @@ document.addEventListener("DOMContentLoaded", () => {
     else { closePanels('search-panel'); panel.style.display = 'block'; document.getElementById('search-input')?.focus(); }
   };
 
+  // ======================================
+  // ADICIONAR EVENTOS AOS BOTÕES DE CAMADA
+  // ======================================
+  setTimeout(() => {
+    const satelliteBtn = document.getElementById('satellite-btn');
+    const mapBtn = document.getElementById('map-btn');
+    
+    if (satelliteBtn) {
+      satelliteBtn.onclick = () => switchMapLayer('satellite');
+    }
+    if (mapBtn) {
+      mapBtn.onclick = () => switchMapLayer('map');
+    }
+  }, 500);
+
   console.log("🗺️ Mapa inicializado com sucesso (tremedeira corrigida)!");
+  console.log("🌤️ Sistema de clima integrado ao movimento do mapa!");
 });
