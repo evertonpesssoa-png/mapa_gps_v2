@@ -228,6 +228,47 @@ function updateRouteInfo(route, mode) {
 }
 
 // ======================================
+// FUNÇÃO PARA ENQUADRAR TODAS AS ROTAS
+// ======================================
+
+function fitAllRoutesBounds(fromLat, fromLng, toLat, toLng) {
+  if (!window.map) return;
+  
+  // Criar bounds combinados
+  const allBounds = L.latLngBounds();
+  
+  // Adicionar origem e destino
+  allBounds.extend([fromLat, fromLng]);
+  allBounds.extend([toLat, toLng]);
+  
+  // Adicionar bounds de cada rota
+  currentRoutes.forEach(route => {
+    if (route.geometry) {
+      try {
+        const geo = L.geoJSON(route.geometry);
+        const bounds = geo.getBounds();
+        if (bounds && bounds.isValid()) {
+          allBounds.extend(bounds);
+        }
+      } catch(e) {
+        console.warn("Erro ao calcular bounds da rota:", e);
+      }
+    }
+  });
+  
+  // Verificar se os bounds são válidos
+  if (allBounds.isValid()) {
+    window.map.fitBounds(allBounds, { padding: [60, 60] });
+    console.log("🗺️ Zoom ajustado para enquadrar todas as rotas");
+  } else {
+    // Fallback: usar apenas origem e destino
+    const fallbackBounds = L.latLngBounds([[fromLat, fromLng], [toLat, toLng]]);
+    window.map.fitBounds(fallbackBounds, { padding: [60, 60] });
+    console.log("🗺️ Zoom ajustado para origem/destino (fallback)");
+  }
+}
+
+// ======================================
 // TROCAR ROTA ATIVA (AO CLICAR)
 // ======================================
 
@@ -308,11 +349,8 @@ function redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng) {
   L.marker([fromLat, fromLng]).addTo(window.routeLayer);
   L.marker([toLat, toLng]).addTo(window.routeLayer);
   
-  // Ajustar o zoom para a primeira rota (bounds)
-  if (currentRoutes[activeRouteIndex]) {
-    const firstGeo = L.geoJSON(currentRoutes[activeRouteIndex].geometry);
-    window.map.fitBounds(firstGeo.getBounds(), { padding: [50, 50] });
-  }
+  // Aplicar zoom para enquadrar TODAS as rotas (origem + destino + todas as linhas)
+  fitAllRoutesBounds(fromLat, fromLng, toLat, toLng);
 }
 
 // ======================================
