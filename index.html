@@ -101,7 +101,7 @@ html, body {
   gap: 8px;
 }
 
-/* CABEÇALHO DO PAINEL DE ROTA COM BOTÕES */
+/* CABEÇALHO DO PAINEL DE ROTA */
 .route-panel-header {
   display: flex;
   justify-content: space-between;
@@ -192,75 +192,12 @@ html, body {
 }
 
 /* ====================================== */
-/* BLOCO MAPA/SATÉLITE + TEMPERATURA */
-/* ====================================== */
-
-.map-layer-controls {
-  position: absolute;
-  top: 20px;
-  left: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  z-index: 9999;
-}
-
-.layer-buttons {
-  display: flex;
-  gap: 8px;
-  background: white;
-  border-radius: 30px;
-  padding: 6px;
-  box-shadow: 0 2px 10px rgba(0,0,0,.2);
-}
-
-.layer-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: white;
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.layer-btn.active {
-  background: #333;
-  color: white;
-}
-
-.layer-btn:hover {
-  transform: scale(1.05);
-}
-
-#temp-indicator {
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  color: white;
-  padding: 8px 14px;
-  border-radius: 30px;
-  font-size: 14px;
-  font-weight: bold;
-  text-align: center;
-  box-shadow: 0 2px 10px rgba(0,0,0,.2);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-#temp-indicator:hover {
-  background: rgba(0, 0, 0, 0.85);
-  transform: scale(1.02);
-}
-
-/* ====================================== */
-/* MAP CONTROLES (LADO ESQUERDO BAIXO) */
+/* CONTROLES DO MAPA (DIREITA) */
 /* ====================================== */
 
 .map-controls {
   position: absolute;
-  left: 12px;
+  right: 12px;
   bottom: 20px;
   display: flex;
   flex-direction: column;
@@ -285,13 +222,21 @@ html, body {
 }
 
 /* ====================================== */
-/* MENU LATERAL */
+/* BOTÃO MENU + TEMPERATURA */
 /* ====================================== */
 
-.menu-toggle-btn {
+.menu-area {
   position: absolute;
   top: 20px;
   right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 9999;
+}
+
+.menu-toggle-btn {
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -300,13 +245,35 @@ html, body {
   box-shadow: 0 2px 10px rgba(0,0,0,.2);
   font-size: 24px;
   cursor: pointer;
-  z-index: 9999;
   transition: all 0.2s ease;
 }
 
 .menu-toggle-btn:hover {
   transform: scale(1.05);
 }
+
+#temp-indicator {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#temp-indicator:hover {
+  background: rgba(0, 0, 0, 0.85);
+  transform: scale(1.02);
+}
+
+/* ====================================== */
+/* MENU LATERAL */
+/* ====================================== */
 
 .side-menu {
   position: fixed;
@@ -466,7 +433,7 @@ html, body {
   color: #333;
 }
 
-/* Relevo (placeholder) */
+/* Relevo */
 .relevo-placeholder {
   text-align: center;
   padding: 40px 20px;
@@ -883,7 +850,7 @@ html, body {
 </div>
 
 <!-- ====================================== -->
-<!-- ROUTE PANEL COM BOTÕES DE FECHAR E SAIR -->
+<!-- ROUTE PANEL -->
 <!-- ====================================== -->
 
 <div id="route-panel">
@@ -926,19 +893,7 @@ html, body {
 <div id="map"></div>
 
 <!-- ====================================== -->
-<!-- BLOCO MAPA/SATÉLITE + TEMPERATURA -->
-<!-- ====================================== -->
-
-<div class="map-layer-controls">
-  <div class="layer-buttons">
-    <button id="satellite-btn" class="layer-btn" title="Modo Satélite">🌙</button>
-    <button id="map-btn" class="layer-btn active" title="Modo Mapa">🗺️</button>
-  </div>
-  <div id="temp-indicator" onclick="window.openMenu?.()">🌡️ --°C</div>
-</div>
-
-<!-- ====================================== -->
-<!-- MAP CONTROLES (LADO ESQUERDO BAIXO) -->
+<!-- CONTROLES DO MAPA (DIREITA) -->
 <!-- ====================================== -->
 
 <div class="map-controls">
@@ -949,10 +904,13 @@ html, body {
 </div>
 
 <!-- ====================================== -->
-<!-- BOTÃO MENU ☰ (LADO DIREITO) -->
+<!-- BOTÃO MENU + TEMPERATURA -->
 <!-- ====================================== -->
 
-<button id="menu-toggle-btn" class="menu-toggle-btn" onclick="window.toggleMenu?.()" title="Menu">☰</button>
+<div class="menu-area">
+  <button id="menu-toggle-btn" class="menu-toggle-btn" onclick="window.toggleMenu?.()" title="Menu">☰</button>
+  <div id="temp-indicator" onclick="window.openMenu?.()">🌡️ --°C</div>
+</div>
 
 <!-- ====================================== -->
 <!-- MENU LATERAL -->
@@ -981,7 +939,7 @@ html, body {
 </div>
 
 <!-- ====================================== -->
-<!-- BOTÃO FLUTUANTE (APENAS CHAT) -->
+<!-- BOTÃO FLUTUANTE CHAT -->
 <!-- ====================================== -->
 
 <div style="position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999;">
@@ -1060,12 +1018,7 @@ html, body {
 
 <script>
 const MAPBOX_TOKEN = 'pk.eyJ1IjoiZXZlcnRvbnBlc3NvYTg4IiwiYSI6ImNtcGRmMTk5czBiYWEycG9sd2NlZ3RxdWsifQ.W7ayNU1STdXgV-cqNJ1AKA';
-
-if (!MAPBOX_TOKEN || MAPBOX_TOKEN === '') {
-  console.warn('⚠️ MAPBOX_TOKEN não configurado!');
-} else {
-  console.log('✅ MAPBOX_TOKEN configurado');
-}
+console.log('✅ MAPBOX_TOKEN configurado');
 </script>
 
 <!-- ====================================== -->
@@ -1106,7 +1059,7 @@ window.closeRouteCard = function() {
   console.log('🚪 Card de rota fechado');
 };
 
-// Função para sair do modo rota (limpa sem fechar o card)
+// Função para sair do modo rota
 window.exitRouteMode = function() {
   if (window.routeLayer) {
     window.routeLayer.clearLayers();
@@ -1131,26 +1084,23 @@ window.exitRouteMode = function() {
     }
   }
   
-  // Resetar rotas alternativas
   if (window.clearAllRoutes) window.clearAllRoutes();
   
-  console.log('🚫 Modo rota encerrado - rota limpa');
+  console.log('🚫 Modo rota encerrado');
 };
 
-// Função para limpar todas as rotas (fallback)
+// Limpar todas as rotas
 window.clearAllRoutes = function() {
   if (window.routeLayer) {
     window.routeLayer.clearLayers();
   }
-  if (window.currentRoutes) window.currentRoutes = [];
-  if (window.activeRouteIndex) window.activeRouteIndex = 0;
   const routeInfo = document.getElementById('route-info');
   if (routeInfo) {
     routeInfo.style.display = 'none';
   }
 };
 
-// Garantir que o mapa seja redimensionado corretamente
+// Garantir resize do mapa
 window.addEventListener('load', () => {
   setTimeout(() => {
     if (window.map) {
@@ -1160,7 +1110,7 @@ window.addEventListener('load', () => {
   }, 100);
 });
 
-console.log('✅ Aplicação inicializada com sucesso!');
+console.log('✅ Aplicação inicializada!');
 </script>
 
 </body>
