@@ -47,7 +47,7 @@ html, body {
   background: white;
   border-radius: 14px;
   box-shadow: 0 4px 18px rgba(0,0,0,.22);
-  z-index: 9999;
+  z-index: 10001; /* Aumentado para ficar na frente de tudo */
 }
 
 #search-panel {
@@ -222,12 +222,12 @@ html, body {
 }
 
 /* ====================================== */
-/* BOTÃO MENU + TEMPERATURA */
+/* BOTÃO MENU + TEMPERATURA (MAIS EMBAIXO) */
 /* ====================================== */
 
 .menu-area {
   position: absolute;
-  top: 20px;
+  top: 80px; /* Alterado de 20px para 80px - mais embaixo */
   right: 20px;
   display: flex;
   flex-direction: column;
@@ -826,6 +826,9 @@ html, body {
   .side-menu {
     width: 85vw;
   }
+  .menu-area {
+    top: 70px; /* Ajustado para mobile */
+  }
 }
 
 ::-webkit-scrollbar {
@@ -904,7 +907,7 @@ html, body {
 </div>
 
 <!-- ====================================== -->
-<!-- BOTÃO MENU + TEMPERATURA -->
+<!-- BOTÃO MENU + TEMPERATURA (MAIS EMBAIXO) -->
 <!-- ====================================== -->
 
 <div class="menu-area">
