@@ -1,11 +1,12 @@
 // ======================================
-// POIs.js - SISTEMA DE PONTOS DE INTERESSE
+// POIs.js - SISTEMA DE PONTOS DE INTERESSE (ADAPTADO)
+// ======================================
+// ATENÇÃO: Este arquivo agora é apenas um wrapper/compatibilidade
+// O sistema principal de POIs está em: pois-manager.js
 // ======================================
 
 window.poiIndex = window.poiIndex || [];
-window.autoPOILayer = window.autoPOILayer || L.layerGroup();
 window.loadedPOIAreas = window.loadedPOIAreas || {};
-window.currentPOIController = null;
 
 function normalizeText(text) {
   return (text || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -25,16 +26,15 @@ function getIconByCategory(category) {
   return icons[category] || icons.generic;
 }
 
-function safeIcon(category) {
-  const iconEmoji = getIconByCategory(category);
-  return L.divIcon({
-    html: `<div style="background: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: 2px solid #4a90e2; cursor: pointer;">${iconEmoji}</div>`,
-    iconSize: [32, 32],
-    popupAnchor: [0, -16],
-    className: "custom-poi-marker"
-  });
+function escapeHTML(text) {
+  return String(text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
+// ======================================
+// FUNÇÕES DE COMPATIBILIDADE (usam o novo sistema)
+// ======================================
+
+// Registrar POI no índice global (compatibilidade)
 function registerPOI(poi) {
   if (!poi) return null;
   poi.lng = poi.lng ?? poi.lon;
@@ -55,6 +55,110 @@ function registerPOI(poi) {
   
   window.poiIndex.push({ ...poi, lat: poi.lat, lng: poi.lng });
   return poi;
+}
+
+// Carregar POIs manuais (usa o novo sistema se disponível)
+async function loadManualPOIs(layer) {
+  // Se o novo sistema estiver disponível, usar ele
+  if (typeof window.carregarPOIsManuaisNoMapa === 'function') {
+    console.log('🟢 Usando novo sistema para POIs manuais');
+    const center = window.map?.getCenter();
+    if (center && layer) {
+      await window.carregarPOIsManuaisNoMapa(center.lat, center.lng, 5000, layer);
+    }
+    return;
+  }
+  
+  // Fallback: usar POIs manuais antigos
+  if (!Array.isArray(window.manualPOIs)) return;
+  console.log(`🟢 Carregando ${window.manualPOIs.length} POIs manuais (modo legado)...`);
+  window.manualPOIs.forEach(poi => {
+    const registered = registerPOI(poi);
+    if (registered) {
+      const marker = L.marker([registered.lat, registered.lng], { icon: safeIcon(registered.category) });
+      marker.bindPopup(createPopupContent(registered), { maxWidth: 260, minWidth: 200 });
+      marker.addTo(layer);
+    }
+  });
+}
+
+// Carregar POIs automáticos (AGORA USA O SISTEMA DE 4 CAMADAS)
+async function loadAutoPOIs(lat, lng, radius = 3000, layer) {
+  // Se o novo sistema estiver disponível, usar ele
+  if (typeof window.loadPOIsToMap === 'function') {
+    console.log(`🔄 Buscando POIs com sistema de 4 camadas em ${lat}, ${lng}`);
+    await window.loadPOIsToMap(lat, lng);
+    return [];
+  }
+  
+  // Fallback: usar Overpass API (modo legado)
+  console.warn('⚠️ Sistema de 4 camadas não disponível, usando Overpass API legado');
+  return await loadAutoPOIsLegado(lat, lng, radius, layer);
+}
+
+// Versão legada do Overpass (apenas se necessário)
+async function loadAutoPOIsLegado(lat, lng, radius = 3000, layer) {
+  lat = Number(lat); lng = Number(lng);
+  if (!isValidCoordinate(lat, lng)) return [];
+  
+  const areaKey = `${Math.floor(lat * 100)}:${Math.floor(lng * 100)}`;
+  if (window.loadedPOIAreas[areaKey]) return [];
+  window.loadedPOIAreas[areaKey] = true;
+  
+  radius = Math.min(Math.max(Number(radius) || 3000, 500), 5000);
+  
+  const query = `[out:json][timeout:15];(node["amenity"="hospital"](around:${radius},${lat},${lng});node["amenity"="pharmacy"](around:${radius},${lat},${lng});node["amenity"="police"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="restaurant"](around:${radius},${lat},${lng});node["amenity"="fuel"](around:${radius},${lat},${lng});node["amenity"="bank"](around:${radius},${lat},${lng});node["amenity"="school"](around:${radius},${lat},${lng});node["amenity"="cafe"](around:${radius},${lat},${lng}););out body;`;
+  
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query, signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || !Array.isArray(data.elements)) return [];
+    
+    data.elements.forEach(el => {
+      const poi = {
+        name: el.tags?.name ? String(el.tags.name) : `POI ${el.id}`,
+        lat: Number(el.lat),
+        lng: Number(el.lon),
+        category: detectCategoryLegado(el.tags),
+        auto: true,
+        osmId: el.id,
+        source: "openstreetmap"
+      };
+      const registered = registerPOI(poi);
+      if (registered) {
+        const marker = L.marker([registered.lat, registered.lng], { icon: safeIcon(registered.category) });
+        marker.bindPopup(createPopupContent(registered), { maxWidth: 260, minWidth: 200 });
+        marker.addTo(layer);
+      }
+    });
+    return [];
+  } catch (err) {
+    if (err.name === "AbortError") return [];
+    console.error("Erro Overpass legado:", err);
+    return [];
+  }
+}
+
+function detectCategoryLegado(tags) {
+  if (!tags) return "generic";
+  const amenityMap = { hospital: "hospital", pharmacy: "pharmacy", police: "police", restaurant: "restaurant", fuel: "gas_station", school: "school", bank: "bank", cafe: "cafe" };
+  if (amenityMap[tags.amenity]) return amenityMap[tags.amenity];
+  if (tags.shop === "supermarket") return "supermarket";
+  return "generic";
+}
+
+function safeIcon(category) {
+  const iconEmoji = getIconByCategory(category);
+  return L.divIcon({
+    html: `<div style="background: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: 2px solid #4a90e2; cursor: pointer;">${iconEmoji}</div>`,
+    iconSize: [32, 32],
+    popupAnchor: [0, -16],
+    className: "custom-poi-marker"
+  });
 }
 
 function createPopupContent(poi) {
@@ -85,97 +189,23 @@ function createPopupContent(poi) {
   `;
 }
 
-function escapeHTML(text) {
-  return String(text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-
-function createMarker(poi, layer) {
-  if (!layer || !poi) return null;
-  const lat = Number(poi.lat);
-  const lng = Number(poi.lng ?? poi.lon);
-  if (!isValidCoordinate(lat, lng)) return null;
-  
-  const marker = L.marker([lat, lng], { icon: safeIcon(poi.category), riseOnHover: true });
-  marker.bindPopup(createPopupContent(poi), { maxWidth: 260, minWidth: 200 });
-  marker._poiData = poi;
-  marker.addTo(layer);
-  return marker;
-}
-
 function clearAutoPOIs() {
-  window.autoPOILayer.clearLayers();
-  window.poiIndex = window.poiIndex.filter(poi => !poi.auto);
   window.loadedPOIAreas = {};
-}
-
-window.clearAutoPOIs = clearAutoPOIs;
-
-function loadManualPOIs(layer) {
-  if (!Array.isArray(window.manualPOIs)) return;
-  console.log(`🟢 Carregando ${window.manualPOIs.length} POIs manuais...`);
-  window.manualPOIs.forEach(poi => {
-    const registered = registerPOI(poi);
-    if (registered) createMarker(registered, layer);
-  });
-}
-
-window.loadManualPOIs = loadManualPOIs;
-
-function detectCategory(tags) {
-  if (!tags) return "generic";
-  const amenityMap = { hospital: "hospital", pharmacy: "pharmacy", police: "police", restaurant: "restaurant", fuel: "gas_station", school: "school", bank: "bank", cafe: "cafe" };
-  if (amenityMap[tags.amenity]) return amenityMap[tags.amenity];
-  if (tags.shop === "supermarket") return "supermarket";
-  return "generic";
-}
-
-function buildOverpassQuery(lat, lng, radius) {
-  return `[out:json][timeout:15];(node["amenity"="hospital"](around:${radius},${lat},${lng});node["amenity"="pharmacy"](around:${radius},${lat},${lng});node["amenity"="police"](around:${radius},${lat},${lng});node["shop"="supermarket"](around:${radius},${lat},${lng});node["amenity"="restaurant"](around:${radius},${lat},${lng});node["amenity"="fuel"](around:${radius},${lat},${lng});node["amenity"="bank"](around:${radius},${lat},${lng});node["amenity"="school"](around:${radius},${lat},${lng});node["amenity"="cafe"](around:${radius},${lat},${lng}););out body;`;
-}
-
-async function loadAutoPOIs(lat, lng, radius = 3000, layer) {
-  lat = Number(lat); lng = Number(lng);
-  if (!isValidCoordinate(lat, lng)) return [];
+  window.poiIndex = window.poiIndex.filter(poi => !poi.auto);
+  if (window.poiLayer) window.poiLayer.clearLayers();
   
-  const areaKey = `${Math.floor(lat * 100)}:${Math.floor(lng * 100)}`;
-  if (window.loadedPOIAreas[areaKey]) return [];
-  window.loadedPOIAreas[areaKey] = true;
-  if (layer && !layer.hasLayer(window.autoPOILayer)) layer.addLayer(window.autoPOILayer);
-  radius = Math.min(Math.max(Number(radius) || 3000, 500), 5000);
-  
-  if (window.currentPOIController) window.currentPOIController.abort();
-  const controller = new AbortController();
-  window.currentPOIController = controller;
-  
-  const query = buildOverpassQuery(lat, lng, radius);
-  try {
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query, signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data || !Array.isArray(data.elements)) return [];
-    
-    data.elements.forEach(el => {
-      const poi = {
-        name: el.tags?.name ? String(el.tags.name) : `POI ${el.id}`,
-        fullName: el.tags?.name || "",
-        lat: Number(el.lat),
-        lng: Number(el.lon),
-        category: detectCategory(el.tags),
-        auto: true,
-        osmId: el.id,
-        source: "overpass"
-      };
-      const registered = registerPOI(poi);
-      if (registered) createMarker(registered, window.autoPOILayer);
-    });
-    return [];
-  } catch (err) {
-    if (err.name === "AbortError") return [];
-    console.error("Erro Overpass:", err);
-    return [];
+  // Recarregar POIs manuais se necessário
+  if (typeof window.loadManualPOIs === 'function' && window.map) {
+    setTimeout(() => {
+      loadManualPOIs(window.poiLayer);
+    }, 100);
   }
 }
 
+window.clearAutoPOIs = clearAutoPOIs;
+window.registerPOI = registerPOI;
+window.loadManualPOIs = loadManualPOIs;
 window.loadAutoPOIs = loadAutoPOIs;
+window.getIconByCategory = getIconByCategory;
+
+console.log('✅ POIs.js adaptado - Agora usando sistema de 4 camadas como優先');
