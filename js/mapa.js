@@ -6,18 +6,150 @@ document.addEventListener("DOMContentLoaded", () => {
   const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([-8.0400, -34.8761], 13);
   window.map = map;
 
-  const lightLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap contributors", maxZoom: 19 });
-  const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { attribution: "Tiles © Esri", maxZoom: 19 });
-  lightLayer.addTo(map);
-  L.control.layers({ "🌎 Mapa": lightLayer, "🛰 Satélite": satelliteLayer }, {}, { position: "topright" }).addTo(map);
-  L.control.zoom({ position: "bottomright" }).addTo(map);
+  // ======================================
+  // ESTILOS DE MAPA DO MAPBOX (CLARO/ESCURO)
+  // ======================================
+  
+  let currentMapLayer = null;
+  let darkMapLayer = null;
+  let lightMapLayer = null;
+  let satelliteLayer = null;
+  
+  // Estilo claro do Mapbox (Streets)
+  function criarMapaLight() {
+    if (!window.MAPBOX_TOKEN) return null;
+    return L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${window.MAPBOX_TOKEN}`, {
+      attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+      maxZoom: 19,
+      tileSize: 512,
+      zoomOffset: -1
+    });
+  }
+  
+  // Estilo escuro do Mapbox (Dark)
+  function criarMapaDark() {
+    if (!window.MAPBOX_TOKEN) return null;
+    return L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${window.MAPBOX_TOKEN}`, {
+      attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+      maxZoom: 19,
+      tileSize: 512,
+      zoomOffset: -1
+    });
+  }
+  
+  // Camada de satélite (Esri)
+  function criarSatellite() {
+    return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { 
+      attribution: "Tiles © Esri",
+      maxZoom: 19 
+    });
+  }
+  
+  // Função para trocar o estilo do mapa base
+  function trocarEstiloMapa(theme) {
+    const isDark = theme === 'dark';
+    const novoLayer = isDark ? darkMapLayer : lightMapLayer;
+    const oldLayer = isDark ? lightMapLayer : darkMapLayer;
+    
+    if (!novoLayer) return;
+    
+    // Remover a camada antiga
+    if (oldLayer && window.map.hasLayer(oldLayer)) {
+      window.map.removeLayer(oldLayer);
+    }
+    
+    // Adicionar a nova camada
+    if (!window.map.hasLayer(novoLayer)) {
+      novoLayer.addTo(window.map);
+    }
+    
+    currentMapLayer = novoLayer;
+    console.log(`🗺️ Estilo do mapa alterado para: ${isDark ? '🌙 Noturno (Dark)' : '☀️ Claro (Light)'}`);
+  }
+  
+  // Inicializar os estilos de mapa
+  function inicializarEstilosMapa() {
+    lightMapLayer = criarMapaLight();
+    darkMapLayer = criarMapaDark();
+    satelliteLayer = criarSatellite();
+    
+    // Começar com o estilo claro
+    if (lightMapLayer) {
+      lightMapLayer.addTo(map);
+      currentMapLayer = lightMapLayer;
+    }
+    
+    console.log('✅ Estilos de mapa (Claro/Escuro/Satélite) inicializados');
+  }
+  
+  // Trocar para modo satélite
+  function trocarParaSatelite() {
+    if (!satelliteLayer) return;
+    
+    if (currentMapLayer && map.hasLayer(currentMapLayer)) {
+      map.removeLayer(currentMapLayer);
+    }
+    if (!map.hasLayer(satelliteLayer)) {
+      satelliteLayer.addTo(map);
+    }
+    currentMapLayer = satelliteLayer;
+    console.log('🛰️ Modo Satélite ativado');
+  }
+  
+  // Trocar para modo mapa (claro/escuro baseado no tema)
+  function trocarParaMapa() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    const isDark = currentTheme === 'dark';
+    const mapaLayer = isDark ? darkMapLayer : lightMapLayer;
+    
+    if (!mapaLayer) return;
+    
+    if (currentMapLayer && map.hasLayer(currentMapLayer)) {
+      map.removeLayer(currentMapLayer);
+    }
+    if (!map.hasLayer(mapaLayer)) {
+      mapaLayer.addTo(map);
+    }
+    currentMapLayer = mapaLayer;
+    console.log(`🗺️ Modo Mapa ativado (${isDark ? 'Dark' : 'Light'})`);
+  }
+  
+  // Atualizar estilo do mapa baseado no tema (chamado pelo weather.js)
+  function atualizarEstiloMapaPorTema(theme) {
+    // Só troca se o modo atual for mapa (não satélite)
+    const isSatelliteMode = currentMapLayer === satelliteLayer;
+    if (!isSatelliteMode) {
+      trocarEstiloMapa(theme);
+    }
+  }
+  
+  // Configurar controles de camada personalizados
+  function configurarControlesCamada() {
+    const satelliteBtn = document.getElementById('satellite-btn');
+    const mapBtn = document.getElementById('map-btn');
+    
+    if (satelliteBtn) {
+      satelliteBtn.onclick = () => {
+        trocarParaSatelite();
+        satelliteBtn.classList.add('active');
+        if (mapBtn) mapBtn.classList.remove('active');
+      };
+    }
+    if (mapBtn) {
+      mapBtn.onclick = () => {
+        trocarParaMapa();
+        mapBtn.classList.add('active');
+        if (satelliteBtn) satelliteBtn.classList.remove('active');
+      };
+    }
+  }
 
   window.poiLayer = L.layerGroup().addTo(map);
   window.routeLayer = L.layerGroup().addTo(map);
   window.userLayer = L.layerGroup().addTo(map);
 
   let userMarker = null, userCircle = null, firstFix = true, autoFollowUser = true, isAnimatingMap = false, animationTimeout = null, lastPOILoad = null;
-  let poisLoadingTimeout = null; // Para debounce dos POIs
+  let poisLoadingTimeout = null;
 
   const userIcon = L.divIcon({ className: "user-marker", html: `<div style="width:18px;height:18px;background:#2196f3;border:3px solid white;border-radius:50%;box-shadow:0 0 10px rgba(0,0,0,0.35);"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] });
 
@@ -64,13 +196,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // FUNÇÃO PARA CRIAR MARCADOR DE POI GENÉRICO
   // ======================================
   function criarMarcadorPOI(poi) {
-    // Definir ícone baseado na fonte e categoria
     let iconChar = '📍';
     let bgColor = 'white';
     let borderColor = '#ff4db8';
     
     if (poi.source === 'manual') {
-      // POIs manuais têm destaque especial
       borderColor = '#ff4db8';
       bgColor = 'white';
       const iconMap = {
@@ -103,7 +233,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const marker = L.marker([poi.lat, poi.lng || poi.lon], { icon: customIcon });
     
-    // Criar popup com informações
     const distancia = poi.distance ? `${(poi.distance / 1000).toFixed(1)}km de distância` : '';
     const fonteText = {
       'manual': '📌 Manual (permanente)',
@@ -115,11 +244,11 @@ document.addEventListener("DOMContentLoaded", () => {
     marker.bindPopup(`
       <div style="min-width: 180px; max-width: 250px;">
         <strong>${poi.name}</strong><br>
-        <span style="color: #666;">📌 ${poi.friendlyCategory || poi.category || 'Ponto de interesse'}</span><br>
-        <span style="color: #888; font-size: 11px;">📡 ${fonteText[poi.source] || poi.source}</span>
-        ${distancia ? `<br><span style="color: #888; font-size: 11px;">📏 ${distancia}</span>` : ''}
-        ${poi.address ? `<br><span style="color: #888; font-size: 11px;">📍 ${poi.address}</span>` : ''}
-        ${poi.phone ? `<br><span style="color: #888; font-size: 11px;">📞 ${poi.phone}</span>` : ''}
+        <span style="color: var(--text-secondary, #666);">📌 ${poi.friendlyCategory || poi.category || 'Ponto de interesse'}</span><br>
+        <span style="color: var(--text-tertiary, #888); font-size: 11px;">📡 ${fonteText[poi.source] || poi.source}</span>
+        ${distancia ? `<br><span style="color: var(--text-tertiary, #888); font-size: 11px;">📏 ${distancia}</span>` : ''}
+        ${poi.address ? `<br><span style="color: var(--text-tertiary, #888); font-size: 11px;">📍 ${poi.address}</span>` : ''}
+        ${poi.phone ? `<br><span style="color: var(--text-tertiary, #888); font-size: 11px;">📞 ${poi.phone}</span>` : ''}
         ${poi.rating ? `<br><span style="color: #f59e0b; font-size: 11px;">⭐ ${poi.rating} (${poi.userRatingsTotal || 0} avaliações)</span>` : ''}
       </div>
     `);
@@ -131,23 +260,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // FUNÇÃO PARA CARREGAR POIs COM SISTEMA DE 4 CAMADAS
   // ======================================
   async function loadNearbyPOIs(lat, lng) {
-    // Debounce para não chamar muitas vezes
     if (poisLoadingTimeout) clearTimeout(poisLoadingTimeout);
     
     poisLoadingTimeout = setTimeout(async () => {
       try {
         console.log(`🔄 Carregando POIs próximos a ${lat}, ${lng}...`);
         
-        // Usar o sistema de 4 camadas se disponível
         if (typeof window.searchPOIs === 'function') {
           const pois = await window.searchPOIs(lat, lng, 'all', 2000);
           
-          // Limpar POIs existentes
           if (window.poiLayer) {
             window.poiLayer.clearLayers();
           }
           
-          // Adicionar POIs ao mapa
           pois.forEach(poi => {
             const marker = criarMarcadorPOI(poi);
             marker.addTo(window.poiLayer);
@@ -155,7 +280,6 @@ document.addEventListener("DOMContentLoaded", () => {
           
           console.log(`🗺️ ${pois.length} POIs carregados no mapa (sistema de 4 camadas)`);
         } 
-        // Fallback para sistema antigo
         else if (typeof loadAutoPOIs === 'function') {
           if (window.autoPOILayer) window.autoPOILayer.clearLayers();
           await loadAutoPOIs(lat, lng, 2000, window.poiLayer);
@@ -179,17 +303,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const lat = center.lat;
     const lng = center.lng;
     
-    // Atualizar indicador de temperatura
     if (typeof window.updateTemperatureIndicator === 'function') {
       await window.updateTemperatureIndicator(lat, lng);
     }
     
-    // Atualizar indicador de relógio
     if (typeof window.updateClockIndicator === 'function') {
       await window.updateClockIndicator(lat, lng);
     }
     
-    // Se o menu estiver aberto, atualizar clima e horário
     const menu = document.getElementById('side-menu');
     if (menu && menu.classList.contains('open')) {
       if (typeof window.updateWeatherInMenu === 'function') {
@@ -212,45 +333,21 @@ document.addEventListener("DOMContentLoaded", () => {
     await updateWeatherFromMap();
     await loadNearbyPOIs(lat, lng);
     
-    // ATUALIZAR TEMA AUTOMATICAMENTE BASEADO NO HORÁRIO DO SOL
     if (typeof window.aplicarTemaPorHorario === 'function') {
       await window.aplicarTemaPorHorario(lat, lng);
     }
   });
 
   // ======================================
-  // TROCA DE CAMADA (MAPA/SATÉLITE)
+  // TROCA DE CAMADA (MAPA/SATÉLITE) - VERSÃO ATUALIZADA
   // ======================================
   function switchMapLayer(layerType) {
     if (!map) return;
     
-    const satelliteBtn = document.getElementById('satellite-btn');
-    const mapBtn = document.getElementById('map-btn');
-    
     if (layerType === 'satellite') {
-      map.eachLayer(layer => {
-        if (layer instanceof L.TileLayer && layer._url && layer._url.includes('openstreetmap')) {
-          map.removeLayer(layer);
-        }
-        if (layer instanceof L.TileLayer && layer._url && layer._url.includes('World_Imagery')) {
-          map.addLayer(layer);
-        }
-      });
-      satelliteBtn?.classList.add('active');
-      mapBtn?.classList.remove('active');
-      console.log('🛰️ Modo Satélite ativado');
+      trocarParaSatelite();
     } else {
-      map.eachLayer(layer => {
-        if (layer instanceof L.TileLayer && layer._url && layer._url.includes('World_Imagery')) {
-          map.removeLayer(layer);
-        }
-        if (layer instanceof L.TileLayer && layer._url && layer._url.includes('openstreetmap')) {
-          map.addLayer(layer);
-        }
-      });
-      mapBtn?.classList.add('active');
-      satelliteBtn?.classList.remove('active');
-      console.log('🗺️ Modo Mapa ativado');
+      trocarParaMapa();
     }
   }
   window.switchMapLayer = switchMapLayer;
@@ -332,7 +429,6 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
           updateWeatherFromMap();
           loadNearbyPOIs(lat, lng);
-          // INICIALIZAR TEMA COM POSIÇÃO DO GPS
           if (typeof window.aplicarTemaPorHorario === 'function') {
             window.aplicarTemaPorHorario(lat, lng);
           }
@@ -450,25 +546,24 @@ document.addEventListener("DOMContentLoaded", () => {
   // ADICIONAR EVENTOS AOS BOTÕES DE CAMADA
   // ======================================
   setTimeout(() => {
-    const satelliteBtn = document.getElementById('satellite-btn');
-    const mapBtn = document.getElementById('map-btn');
-    
-    if (satelliteBtn) {
-      satelliteBtn.onclick = () => switchMapLayer('satellite');
-    }
-    if (mapBtn) {
-      mapBtn.onclick = () => switchMapLayer('map');
-    }
-    
+    configurarControlesCamada();
     adicionarBotaoTransito();
   }, 500);
 
   // ======================================
-  // INICIALIZAR TEMA AUTOMÁTICO
+  // INICIALIZAR ESTILOS DE MAPA E TEMA
   // ======================================
+  
+  // Inicializar estilos de mapa (Mapbox Light/Dark e Satélite)
+  inicializarEstilosMapa();
+  
+  // Inicializar tema automático (chamado pelo weather.js)
   if (typeof window.inicializarTema === 'function') {
     window.inicializarTema();
   }
+  
+  // Exportar função para troca de estilo do mapa
+  window.atualizarEstiloMapaPorTema = atualizarEstiloMapaPorTema;
 
   // Inicializar camada de trânsito (sem ativar)
   adicionarCamadaTransito();
@@ -477,5 +572,5 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("🌤️ Sistema de clima integrado ao movimento do mapa!");
   console.log("📍 Sistema de POIs com 4 camadas integrado!");
   console.log("🚦 Botão de trânsito disponível!");
-  console.log("🌙 Modo noturno automático ativado!");
+  console.log("🌙 Modo noturno automático ativado (Mapbox Dark/Light)!");
 });
