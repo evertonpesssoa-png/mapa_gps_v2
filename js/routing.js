@@ -589,6 +589,10 @@ async function resolveText(text) {
 }
 window.resolveText = resolveText;
 
+// ======================================
+// TRAÇAR ROTA (COM SALVAMENTO PARA PERFIL)
+// ======================================
+
 async function traceRoute(from, to, mode = "car") {
   if (!window.map || !window.routeLayer) {
     console.error("Mapa ou routeLayer não encontrado");
@@ -631,6 +635,26 @@ async function traceRoute(from, to, mode = "car") {
     console.log(`✅ ${currentRoutes.length} rotas encontradas`);
     redrawAllRoutes(mode, fromLat, fromLng, toLat, toLng);
     updateRouteInfo(currentRoutes[0], mode);
+    
+    // ======================================
+    // SALVAR ROTA PARA PERFIL DE ELEVAÇÃO
+    // ======================================
+    if (currentRoutes[0]) {
+      // Salvar para o perfil de elevação
+      if (window.salvarUltimaRota) {
+        window.salvarUltimaRota(currentRoutes[0], mode);
+        console.log('💾 Rota salva para perfil de elevação via salvarUltimaRota');
+      }
+      
+      // Compatibilidade - variáveis globais
+      window.rotaAtual = currentRoutes[0];
+      window.rotaModoAtual = mode;
+      window.ultimaRota = currentRoutes[0];
+      window.ultimoModoRota = mode;
+      
+      console.log('💾 Rota salva para perfil de elevação. Disponível em window.rotaAtual');
+    }
+    
     return true;
   } catch (err) {
     console.error("Erro rota:", err);
@@ -639,6 +663,10 @@ async function traceRoute(from, to, mode = "car") {
   }
 }
 window.traceRoute = traceRoute;
+
+// ======================================
+// CREATE ROUTE (COM SALVAMENTO PARA HISTÓRICO)
+// ======================================
 
 async function createRoute(originText, destinationText, mode = "car") {
   let from = null, to = null;
@@ -667,6 +695,10 @@ async function createRoute(originText, destinationText, mode = "car") {
 }
 window.createRoute = createRoute;
 
+// ======================================
+// ROTA DIRETA
+// ======================================
+
 async function routeToPlace(lat, lng, mode = "car") {
   const pos = window.locationEngine?.getPosition?.();
   if (!pos) { alert("GPS indisponível"); return; }
@@ -678,10 +710,22 @@ async function routeToPlace(lat, lng, mode = "car") {
   await traceRoute({ lat: pos.lat, lng: pos.lng }, { lat, lng }, mode);
 }
 window.routeToPlace = routeToPlace;
-window.clearRoute = clearAllRoutes;
 
+window.clearRoute = clearAllRoutes;
 window.pararNavegacao = pararNavegacao;
 window.toggleSound = function() { soundEnabled = !soundEnabled; console.log(`🔊 Som ${soundEnabled ? 'ativado' : 'desativado'}`); };
+
+// ======================================
+// FUNÇÃO PARA DEBUG DO PERFIL
+// ======================================
+
+window.getRotaAtiva = function() {
+  return {
+    route: window.rotaAtual || (window.currentRoutes ? window.currentRoutes[window.activeRouteIndex] : null),
+    mode: window.rotaModoAtual || window.currentMode,
+    hasRoute: !!(window.rotaAtual || (window.currentRoutes && window.currentRoutes.length > 0))
+  };
+};
 
 // ======================================
 // EVENTS
@@ -721,4 +765,5 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ Sistema de rotas OSRM com navegação nível Google Maps carregado!");
   console.log("📍 Use GPS real para seguir sua localização!");
   console.log("📜 Rotas são salvas automaticamente no histórico!");
+  console.log("📈 Rotas são salvas para o perfil de elevação! Use window.getRotaAtiva() para debug.");
 });
