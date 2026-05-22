@@ -119,6 +119,108 @@ body {
 }
 
 /* ====================================== */
+/* HISTÓRICO */
+/* ====================================== */
+
+.historico-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.historico-vazio {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.historico-secao {
+    margin-bottom: 20px;
+}
+
+.historico-secao-titulo {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--accent-color);
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.historico-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.historico-item:hover {
+    background: var(--bg-tertiary);
+    transform: scale(1.01);
+}
+
+.historico-item-icon {
+    font-size: 24px;
+}
+
+.historico-item-info {
+    flex: 1;
+}
+
+.historico-item-nome {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.historico-item-categoria,
+.historico-item-data {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.historico-item-remover {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    padding: 4px 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.historico-item-remover:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.historico-actions {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.historico-btn-limpar {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.historico-btn-limpar:hover {
+    background: #dc2626;
+    transform: scale(1.02);
+}
+
+/* ====================================== */
 /* BASE */
 /* ====================================== */
 
@@ -1613,6 +1715,7 @@ html, body {
     <button class="menu-tab active" data-tab="weather" onclick="window.switchMenuTab?.('weather')">🌤️ Clima</button>
     <button class="menu-tab" data-tab="timezone" onclick="window.switchMenuTab?.('timezone')">🕐 Horário</button>
     <button class="menu-tab" data-tab="relevo" onclick="window.switchMenuTab?.('relevo')">⛰️ Relevo</button>
+    <button class="menu-tab" data-tab="historico" onclick="window.switchMenuTab?.('historico')">📜 Histórico</button>
   </div>
   <div id="menu-tab-weather" class="menu-tab-content active">
     <div id="weather-details">
@@ -1627,6 +1730,11 @@ html, body {
   <div id="menu-tab-relevo" class="menu-tab-content">
     <div id="relevo-details">
       <div class="relevo-loading">⛰️ Carregando altitude...</div>
+    </div>
+  </div>
+  <div id="menu-tab-historico" class="menu-tab-content">
+    <div id="historico-details" class="historico-container">
+      <div class="historico-vazio">📚 Carregando histórico...</div>
     </div>
   </div>
   
@@ -1764,12 +1872,15 @@ console.log('✅ MAPBOX_TOKEN configurado');
 <!-- UI e Menu -->
 <script src="js/menu.js"></script>
 
-<!-- Mapa e Chat -->
-<script src="js/mapa.js"></script>
-<script src="js/chat.js"></script>
+<!-- Histórico -->
+<script src="js/historico.js"></script>
 
 <!-- Compartilhar -->
 <script src="js/compartilhar.js"></script>
+
+<!-- Mapa e Chat -->
+<script src="js/mapa.js"></script>
+<script src="js/chat.js"></script>
 
 <!-- ====================================== -->
 <!-- FUNÇÕES ADICIONAIS -->
@@ -1882,6 +1993,13 @@ function ajustarZoomControles() {
     }
 }
 
+// Inicializar histórico
+setTimeout(() => {
+    if (typeof window.iniciarHistorico === 'function') {
+        window.iniciarHistorico();
+    }
+}, 1500);
+
 console.log('✅ Aplicação inicializada com sistema de 4 camadas!');
 console.log('📍 POIs: Manual + Google + Mapbox + OpenStreetMap');
 console.log('🌤️ Clima: OpenWeatherMap');
@@ -1890,6 +2008,7 @@ console.log('⛰️ Relevo: Open-Elevation API');
 console.log('🧭 Navegação nível Google Maps carregada!');
 console.log('🚦 Botão de trânsito disponível!');
 console.log('🔗 Botão de compartilhamento disponível!');
+console.log('📜 Sistema de histórico ativado!');
 console.log('🌙 Modo noturno automático ativado (Mapbox Dark/Light)!');
 </script>
 
