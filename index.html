@@ -551,7 +551,7 @@ html, body {
 }
 
 /* ====================================== */
-/* CLIMA - VERSÃO MELHORADA (NÚMEROS VISÍVEIS) */
+/* CLIMA - VERSÃO MELHORADA */
 /* ====================================== */
 
 .weather-loading,
@@ -643,17 +643,6 @@ html, body {
   font-size: 20px;
   font-weight: bold;
   color: var(--text-primary);
-}
-
-/* Sensação térmica */
-.weather-sensacao {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color);
-  text-align: center;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
 }
 
 /* Horário */
@@ -1589,7 +1578,7 @@ html, body {
 <div id="map"></div>
 
 <!-- ====================================== -->
-<!-- CONTROLES DO MAPA (DIREITA) - BOTÃO TRÂNSITO INCLUÍDO -->
+<!-- CONTROLES DO MAPA (DIREITA) -->
 <!-- ====================================== -->
 
 <div class="map-controls">
@@ -1598,6 +1587,7 @@ html, body {
   <button class="control-btn" onclick="window.toggleRoute?.()" title="Traçar rota">➜</button>
   <button class="control-btn" onclick="window.reloadNearbyPOIs?.()" title="Recarregar POIs">🔄</button>
   <button id="btn-transito" class="control-btn" title="Trânsito (Mapbox)" onclick="window.toggleTransito?.()">🚦</button>
+  <button id="btn-compartilhar" class="control-btn" title="Compartilhar localização/rota" onclick="window.compartilharLocalizacao?.()">🔗</button>
 </div>
 
 <!-- ====================================== -->
@@ -1722,6 +1712,12 @@ html, body {
 <div id="nav-toast"></div>
 
 <!-- ====================================== -->
+<!-- QR CODE LIBRARY -->
+<!-- ====================================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+<!-- ====================================== -->
 <!-- LEAFLET JS -->
 <!-- ====================================== -->
 
@@ -1771,6 +1767,9 @@ console.log('✅ MAPBOX_TOKEN configurado');
 <!-- Mapa e Chat -->
 <script src="js/mapa.js"></script>
 <script src="js/chat.js"></script>
+
+<!-- Compartilhar -->
+<script src="js/compartilhar.js"></script>
 
 <!-- ====================================== -->
 <!-- FUNÇÕES ADICIONAIS -->
@@ -1890,6 +1889,7 @@ console.log('🕐 Horário: TimeZoneDB');
 console.log('⛰️ Relevo: Open-Elevation API');
 console.log('🧭 Navegação nível Google Maps carregada!');
 console.log('🚦 Botão de trânsito disponível!');
+console.log('🔗 Botão de compartilhamento disponível!');
 console.log('🌙 Modo noturno automático ativado (Mapbox Dark/Light)!');
 </script>
 
