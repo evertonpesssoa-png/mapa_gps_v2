@@ -69,7 +69,6 @@ function isDarkTheme() {
 
 function getMarkerColors(source, category = null) {
     const isDark = isDarkTheme();
-    const darkMode = isDark ? 1 : 0;
     
     const colors = {
         manual: {
@@ -161,7 +160,6 @@ async function searchPOIs(lat, lng, type = 'all', radius = 1000) {
     console.log(`🔍 Buscando POIs para ${lat},${lng} - Tipo: ${type} - Zoom: ${zoomAtual}`);
     
     // 1. POIs MANUAIS (SEMPRE - com controle de zoom)
-    // Removido o await pois a função não é assíncrona
     const manualPOIs = buscarPOIsManuais(lat, lng, type, radius, zoomAtual);
     results.push(...manualPOIs);
     console.log(`📌 Manuais: ${manualPOIs.length} POIs (zoom ${zoomAtual})`);
@@ -201,7 +199,7 @@ async function searchPOIs(lat, lng, type = 'all', radius = 1000) {
         }
     }
     
-    // Remover duplicatas (baseado em nome + coordenadas aproximadas)
+    // Remover duplicatas
     const uniqueResults = removeDuplicates(results);
     
     const duration = performance.now() - startTime;
@@ -221,12 +219,10 @@ async function searchPOIs(lat, lng, type = 'all', radius = 1000) {
 // ======================================
 
 async function buscarComGoogle(lat, lng, type, radius) {
-    // Verificar rate limit diário/mensal
     if (apiState.google.dailyCount >= LIMITS.google.maxDaily) {
         return { success: false, quotaExceeded: true, data: [] };
     }
     
-    // Verificar cooldown de erro
     if (apiState.google.lastError && 
         (Date.now() - apiState.google.lastError) < LIMITS.google.cooldownMinutes * 60 * 1000) {
         return { success: false, data: [], error: 'cooldown' };
@@ -236,13 +232,9 @@ async function buscarComGoogle(lat, lng, type, radius) {
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     
     try {
-        // URL real da Google Places API
         const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${type}&key=${window.GOOGLE_PLACES_API_KEY}`;
         
-        const response = await fetch(url, {
-            signal: controller.signal
-        });
-        
+        const response = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
         
         if (!response.ok) {
@@ -283,11 +275,9 @@ async function buscarComGoogle(lat, lng, type, radius) {
     } catch (error) {
         clearTimeout(timeoutId);
         apiState.google.lastError = Date.now();
-        
         if (error.name === 'AbortError') {
             console.warn('⏱️ Google timeout');
         }
-        
         return { success: false, data: [], error: error.message };
     }
 }
@@ -304,10 +294,7 @@ async function buscarComMapbox(lat, lng, type, radius) {
         const token = window.MAPBOX_TOKEN || 'pk.eyJ1IjoiZXZlcnRvbnBlc3NvYTg4IiwiYSI6ImNtcGRmMTk5czBiYWEycG9sd2NlZ3RxdWsifQ.W7ayNU1STdXgV-cqNJ1AKA';
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?proximity=${lng},${lat}&types=poi&limit=20&access_token=${token}`;
         
-        const response = await fetch(url, {
-            signal: controller.signal
-        });
-        
+        const response = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
         
         if (!response.ok) {
@@ -341,7 +328,6 @@ async function buscarComMapbox(lat, lng, type, radius) {
 // ======================================
 
 async function buscarComOSM(lat, lng, type, radius) {
-    // Rate limiting - 1 requisição por segundo
     await new Promise(resolve => setTimeout(resolve, LIMITS.osm.rateLimitMs));
     
     const controller = new AbortController();
@@ -349,7 +335,6 @@ async function buscarComOSM(lat, lng, type, radius) {
     
     try {
         const radiusDeg = radius / 111000;
-        
         const bbox = [
             lng - radiusDeg,
             lat - radiusDeg,
@@ -408,7 +393,6 @@ async function buscarComOSM(lat, lng, type, radius) {
 
 function removeDuplicates(pois) {
     const seen = new Map();
-    
     return pois.filter(poi => {
         const key = `${poi.name}|${Math.round(poi.lat * 1000)}|${Math.round(poi.lng * 1000)}`;
         if (seen.has(key)) return false;
@@ -445,10 +429,27 @@ function verificarResetMensal() {
 function criarMarcadorPOI(poi) {
     const colors = getMarkerColors(poi.source, poi.category);
     const iconChar = poi.icon || colors.iconChar;
+    const isDark = isDarkTheme();
+    
+    // Garantir fundo escuro e texto claro no modo dark
+    let bgColor = colors.bg;
+    let borderColor = colors.border;
+    let textColor = colors.text;
+    
+    if (isDark) {
+        bgColor = '#1a1a2a';
+        textColor = 'white';
+        // Bordas mais vibrantes no dark mode
+        if (poi.source === 'manual') borderColor = '#ff66c0';
+        else if (poi.source === 'google') borderColor = '#4285f4';
+        else if (poi.source === 'mapbox') borderColor = '#3b82f6';
+        else if (poi.source === 'openstreetmap') borderColor = '#22c55e';
+        else borderColor = '#ff66c0';
+    }
     
     const customIcon = L.divIcon({
         className: 'poi-marker',
-        html: `<div style="background: ${colors.bg}; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid ${colors.border}; font-size: 16px; transition: all 0.2s ease;">${iconChar}</div>`,
+        html: `<div style="background: ${bgColor}; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid ${borderColor}; font-size: 16px; transition: all 0.2s ease; color: ${textColor};">${iconChar}</div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
         popupAnchor: [0, -16]
@@ -464,13 +465,11 @@ function criarMarcadorPOI(poi) {
         'openstreetmap': '🌿 OSM'
     };
     
-    // Popup com cores adaptativas
-    const isDark = isDarkTheme();
     const popupTextColor = isDark ? 'white' : '#1a1a2e';
     const popupSecondaryColor = isDark ? '#aaa' : '#666';
     
     marker.bindPopup(`
-        <div style="min-width: 180px; background: ${colors.bg}; color: ${popupTextColor}; border-radius: 8px; padding: 8px;">
+        <div style="min-width: 180px; background: ${bgColor}; color: ${popupTextColor}; border-radius: 8px; padding: 8px;">
             <strong>${poi.name}</strong><br>
             <span style="color: ${popupSecondaryColor};">📌 ${poi.category || 'Ponto de interesse'}</span><br>
             <span style="color: ${popupSecondaryColor}; font-size: 11px;">📡 ${fonteText[poi.source] || poi.source}</span>
@@ -484,7 +483,30 @@ function criarMarcadorPOI(poi) {
 }
 
 // ======================================
-// FUNÇÃO PARA ATUALIZAR POIs NO MAPA (COM TEMA ESCURO)
+// RECARREGAR POIs QUANDO O TEMA MUDAR
+// ======================================
+
+let temaRecarregando = false;
+
+function recarregarPOIsPorTema() {
+    if (temaRecarregando) return;
+    if (!window.map || !window.poiLayer) return;
+    
+    temaRecarregando = true;
+    const center = window.map.getCenter();
+    console.log('🎨 Tema alterado, recarregando POIs para manter visibilidade...');
+    
+    if (typeof window.loadPOIsToMap === 'function') {
+        window.loadPOIsToMap(center.lat, center.lng).finally(() => {
+            setTimeout(() => { temaRecarregando = false; }, 500);
+        });
+    } else {
+        setTimeout(() => { temaRecarregando = false; }, 500);
+    }
+}
+
+// ======================================
+// FUNÇÃO PARA ATUALIZAR POIs NO MAPA
 // ======================================
 
 async function loadPOIsToMap(lat, lng) {
@@ -521,24 +543,22 @@ async function loadPOIsToMap(lat, lng) {
 
 function iniciarObservadorTemaPOIs() {
     const observer = new MutationObserver(() => {
-        if (window.map && window.poiLayer) {
-            const center = window.map.getCenter();
-            loadPOIsToMap(center.lat, center.lng);
-        }
+        recarregarPOIsPorTema();
     });
     
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    console.log('👁️ Observador de tema iniciado para POIs');
+    observer.observe(document.documentElement, { 
+        attributes: true, 
+        attributeFilter: ['data-theme'] 
+    });
+    
+    console.log('👁️ Observador de tema para POIs iniciado');
 }
 
 // ======================================
 // INICIALIZAÇÃO
 // ======================================
 
-// Verificar reset mensal ao carregar
 verificarResetMensal();
-
-// Iniciar observador de tema para POIs
 setTimeout(iniciarObservadorTemaPOIs, 1000);
 
 // Exportar funções
@@ -547,8 +567,10 @@ window.loadPOIsToMap = loadPOIsToMap;
 window.apiState = apiState;
 window.getZoomAtual = getZoomAtual;
 window.criarMarcadorPOI = criarMarcadorPOI;
+window.recarregarPOIsPorTema = recarregarPOIsPorTema;
 
 console.log('✅ POIs Manager - Sistema de 4 camadas carregado');
 console.log('📍 POIs manuais integrados com controle de zoom');
 console.log('🎨 Suporte a tema claro/escuro ativado para marcadores');
+console.log('🔄 POIs recarregam automaticamente quando o tema muda');
 console.log('💾 Cache com limite de 50 itens ativado');
