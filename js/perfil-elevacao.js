@@ -9,18 +9,16 @@ let perfilModal = null;
 // EXTRAIR PONTOS DA ROTA (AMOSTRAGEM INTELIGENTE)
 // ======================================
 
-function extrairPontosParaPerfil(geometry, maxPontos = 100) {
+function extrairPontosParaPerfil(geometry, maxPontos = 80) {
     if (!geometry || geometry.type !== 'LineString') return [];
     
     const coordenadas = geometry.coordinates;
     const total = coordenadas.length;
     
-    // Se tem poucos pontos, retorna todos
     if (total <= maxPontos) {
         return coordenadas.map(coord => ({ lat: coord[1], lng: coord[0] }));
     }
     
-    // Amostragem inteligente: pega pontos estratégicos
     const step = Math.floor(total / maxPontos);
     const pontos = [];
     
@@ -29,7 +27,6 @@ function extrairPontosParaPerfil(geometry, maxPontos = 100) {
         pontos.push({ lat: coord[1], lng: coord[0] });
     }
     
-    // Garantir que o último ponto seja incluído
     const ultimo = coordenadas[total - 1];
     if (pontos[pontos.length - 1].lat !== ultimo[1]) {
         pontos.push({ lat: ultimo[1], lng: ultimo[0] });
@@ -71,8 +68,6 @@ async function buscarAltitudesIndividualmente(pontos) {
     for (const ponto of pontos) {
         const altitude = await window.buscarAltitude(ponto.lat, ponto.lng);
         altitudes.push(altitude !== null ? altitude : 0);
-        
-        // Pequeno delay para não sobrecarregar a API
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     
@@ -83,7 +78,7 @@ async function buscarAltitudesIndividualmente(pontos) {
 // CALCULAR ESTATÍSTICAS DO PERFIL
 // ======================================
 
-function calcularEstatisticas(altitudes, distancias) {
+function calcularEstatisticas(altitudes, distancias, distanciaTotalKm) {
     const maxAltura = Math.max(...altitudes);
     const minAltura = Math.min(...altitudes);
     const mediaAltura = Math.round(altitudes.reduce((a, b) => a + b, 0) / altitudes.length);
@@ -97,15 +92,13 @@ function calcularEstatisticas(altitudes, distancias) {
         else descidaTotal += Math.abs(diferenca);
     }
     
-    const distanciaTotal = distancias[distancias.length - 1] || 0;
-    
     return {
         maxAltura,
         minAltura,
         mediaAltura,
         subidaTotal,
         descidaTotal,
-        distanciaTotal,
+        distanciaTotal: distanciaTotalKm,
         pontos: altitudes.length
     };
 }
@@ -120,17 +113,29 @@ function formatarDistancia(km) {
 }
 
 // ======================================
+// CALCULAR DISTÂNCIA ENTRE DOIS PONTOS
+// ======================================
+
+function calcularDistanciaEntrePontos(p1, p2) {
+    const R = 6371000;
+    const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+    const dLng = (p2.lng - p1.lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(p1.lat * Math.PI/180) * Math.cos(p2.lat * Math.PI/180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ======================================
 // CRIAR MODAL DO PERFIL
 // ======================================
 
 function criarModalPerfil() {
-    // Remover modal existente
     if (perfilModal) {
         perfilModal.remove();
         perfilModal = null;
     }
     
-    // Criar overlay
     const overlay = document.createElement('div');
     overlay.id = 'perfil-overlay';
     overlay.style.cssText = `
@@ -146,7 +151,6 @@ function criarModalPerfil() {
         justify-content: center;
     `;
     
-    // Criar modal
     const modal = document.createElement('div');
     modal.id = 'perfil-modal';
     modal.style.cssText = `
@@ -181,7 +185,6 @@ function criarModalPerfil() {
     document.body.appendChild(overlay);
     perfilModal = overlay;
     
-    // Fechar ao clicar fora ou no botão
     overlay.onclick = (e) => {
         if (e.target === overlay) fecharPerfilElevacao();
     };
@@ -189,34 +192,12 @@ function criarModalPerfil() {
 }
 
 // ======================================
-// CARREGAR CHART.JS (SE NÃO ESTIVER CARREGADO)
-// ======================================
-
-function carregarChartJS() {
-    return new Promise((resolve, reject) => {
-        if (typeof Chart !== 'undefined') {
-            resolve();
-            return;
-        }
-        
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Erro ao carregar Chart.js'));
-        document.head.appendChild(script);
-    });
-}
-
-// ======================================
 // DESENHAR GRÁFICO
 // ======================================
 
 async function desenharGraficoPerfil(altitudes, distancias, estatisticas) {
-    await carregarChartJS();
-    
     const ctx = document.getElementById('perfil-canvas').getContext('2d');
     
-    // Destruir gráfico anterior se existir
     if (perfilChart) {
         perfilChart.destroy();
     }
@@ -331,31 +312,64 @@ function atualizarEstatisticas(estatisticas) {
 }
 
 // ======================================
-// FUNÇÃO PRINCIPAL: MOSTRAR PERFIL
+// FUNÇÃO PRINCIPAL: MOSTRAR PERFIL (CORRIGIDA)
 // ======================================
 
 async function mostrarPerfilElevacao() {
-    if (!window.currentRoutes || !window.currentRoutes[window.activeRouteIndex]) {
-        alert('❌ Nenhuma rota ativa para mostrar perfil');
+    // TENTAR OBTER A ROTA ATIVA DE VÁRIAS FORMAS
+    let route = null;
+    let mode = 'car';
+    let distanciaTotal = 0;
+    
+    // 1. Tentar pegar pelo sistema de rotas do routing.js
+    if (window.currentRoutes && window.currentRoutes.length > 0) {
+        const activeIndex = window.activeRouteIndex || 0;
+        route = window.currentRoutes[activeIndex];
+        mode = window.currentMode || 'car';
+        distanciaTotal = route ? route.distance / 1000 : 0;
+        console.log('📊 Rota encontrada via currentRoutes');
+    }
+    
+    // 2. Se não encontrou, tentar pegar a última rota criada
+    if (!route && window.lastCreatedRoute) {
+        route = window.lastCreatedRoute;
+        mode = window.lastRouteMode || 'car';
+        distanciaTotal = route.distance / 1000;
+        console.log('📊 Rota encontrada via lastCreatedRoute');
+    }
+    
+    // 3. Se ainda não tem rota, tentar pegar do layer
+    if (!route && window.routeLayer && window.routeLayer.getLayers().length > 0) {
+        // Tentar extrair geometria das layers
+        const layers = window.routeLayer.getLayers();
+        for (const layer of layers) {
+            if (layer.feature && layer.feature.geometry) {
+                route = { geometry: layer.feature.geometry };
+                console.log('📊 Rota encontrada via routeLayer');
+                break;
+            }
+        }
+    }
+    
+    if (!route || !route.geometry) {
+        alert('❌ Nenhuma rota ativa para mostrar perfil.\nTrace uma rota primeiro!');
         return;
     }
     
-    const route = window.currentRoutes[window.activeRouteIndex];
-    const mode = window.currentMode || 'car';
-    const distanciaTotal = route.distance / 1000; // km
-    const geometry = route.geometry;
+    console.log('📊 Gerando perfil de elevação para rota:', route);
     
     // Mostrar loading
     criarModalPerfil();
     const graficoContainer = document.getElementById('perfil-grafico-container');
-    graficoContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%;">⛰️ Carregando perfil de elevação...</div>';
+    if (graficoContainer) {
+        graficoContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%;">⛰️ Carregando perfil de elevação...</div>';
+    }
     
     try {
-        // Extrair pontos da rota
+        const geometry = route.geometry;
         const pontos = extrairPontosParaPerfil(geometry, 80);
         console.log(`📊 Extraídos ${pontos.length} pontos para análise de elevação`);
         
-        // Buscar altitudes
         let altitudes = await buscarAltitudesEmLote(pontos);
         if (!altitudes) {
             console.log('⚠️ Falha na busca em lote, tentando individualmente...');
@@ -366,47 +380,29 @@ async function mostrarPerfilElevacao() {
             throw new Error('Não foi possível obter as altitudes');
         }
         
-        // Calcular distâncias acumuladas
         const distancias = [];
         let acumulado = 0;
         
         for (let i = 1; i < pontos.length; i++) {
             const dist = calcularDistanciaEntrePontos(pontos[i-1], pontos[i]);
             acumulado += dist;
-            distancias.push(acumulado / 1000); // converter para km
+            distancias.push(acumulado / 1000);
         }
         distancias.unshift(0);
         
-        // Calcular estatísticas
-        const estatisticas = calcularEstatisticas(altitudes, distancias);
-        estatisticas.distanciaTotal = distanciaTotal;
+        const estatisticas = calcularEstatisticas(altitudes, distancias, distanciaTotal);
         
-        // Desenhar gráfico
         await desenharGraficoPerfil(altitudes, distancias, estatisticas);
-        
-        // Atualizar estatísticas
         atualizarEstatisticas(estatisticas);
         
         console.log('📊 Perfil de elevação gerado com sucesso!');
         
     } catch (error) {
         console.error('Erro ao gerar perfil:', error);
-        graficoContainer.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ef4444;">❌ Erro ao carregar perfil: ${error.message}</div>`;
+        if (graficoContainer) {
+            graficoContainer.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ef4444;">❌ Erro ao carregar perfil: ${error.message}</div>`;
+        }
     }
-}
-
-// ======================================
-// CALCULAR DISTÂNCIA ENTRE DOIS PONTOS
-// ======================================
-
-function calcularDistanciaEntrePontos(p1, p2) {
-    const R = 6371000;
-    const dLat = (p2.lat - p1.lat) * Math.PI / 180;
-    const dLng = (p2.lng - p1.lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(p1.lat * Math.PI/180) * Math.cos(p2.lat * Math.PI/180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
 // ======================================
@@ -432,7 +428,6 @@ function adicionarBotaoPerfilElevacao() {
     const routeInfo = document.getElementById('route-info');
     if (!routeInfo) return;
     
-    // Verificar se botão já existe
     if (document.getElementById('btn-perfil-elevacao')) return;
     
     const btnPerfil = document.createElement('button');
@@ -455,6 +450,17 @@ function adicionarBotaoPerfilElevacao() {
     btnPerfil.onclick = () => mostrarPerfilElevacao();
     
     routeInfo.appendChild(btnPerfil);
+    console.log('✅ Botão de perfil de elevação adicionado');
+}
+
+// ======================================
+// SALVAR ÚLTIMA ROTA CRIADA
+// ======================================
+
+function salvarUltimaRota(route, mode) {
+    window.lastCreatedRoute = route;
+    window.lastRouteMode = mode;
+    console.log('💾 Última rota salva para perfil de elevação');
 }
 
 // ======================================
@@ -466,6 +472,11 @@ function iniciarObservadorPerfil() {
         const routeInfo = document.getElementById('route-info');
         if (routeInfo && routeInfo.style.display === 'block') {
             adicionarBotaoPerfilElevacao();
+            
+            // Salvar a rota atual quando aparece
+            if (window.currentRoutes && window.currentRoutes[window.activeRouteIndex]) {
+                salvarUltimaRota(window.currentRoutes[window.activeRouteIndex], window.currentMode);
+            }
         }
     });
     
@@ -486,3 +497,4 @@ setTimeout(() => {
 window.mostrarPerfilElevacao = mostrarPerfilElevacao;
 window.fecharPerfilElevacao = fecharPerfilElevacao;
 window.adicionarBotaoPerfilElevacao = adicionarBotaoPerfilElevacao;
+window.salvarUltimaRota = salvarUltimaRota;
