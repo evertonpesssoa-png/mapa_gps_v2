@@ -270,13 +270,11 @@ function iniciarNavegacaoGPS() {
     return;
   }
   
-  // Posição inicial da rota
   const startPoint = currentFrom;
   carMarker = L.marker([startPoint.lat, startPoint.lng], { 
     icon: criarCarroIcon(0)
   }).addTo(window.map);
   
-  // Zoom inicial na rota
   const bounds = L.latLngBounds([currentFrom.lat, currentFrom.lng], [currentTo.lat, currentTo.lng]);
   window.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
   
@@ -288,18 +286,14 @@ function iniciarNavegacaoGPS() {
       const novaPosicao = { lat: latitude, lng: longitude };
       
       if (lastPosition) {
-        // Calcular rotação
         let rotacao = heading;
         if (!rotacao || rotacao === 0) {
           rotacao = calcularRotacao(lastPosition.lat, lastPosition.lng, latitude, longitude);
         }
         
         moverCarro(novaPosicao, rotacao);
-        
-        // Verificar instruções próximas
         verificarProximaInstrucao(novaPosicao);
         
-        // Acompanhar com zoom dinâmico
         if (window.map) {
           window.map.setView([latitude, longitude], Math.max(15, window.map.getZoom()));
         }
@@ -350,7 +344,6 @@ function simularMovimentoRota() {
       
       carMarker.setLatLng(ponto);
       carMarker.setIcon(criarCarroIcon(rotacao));
-      
       verificarProximaInstrucao({ lat: ponto[0], lng: ponto[1] });
       
       if (window.map) {
@@ -453,13 +446,9 @@ function iniciarNavegacao(route, mode, fromLat, fromLng, toLat, toLng) {
   currentStepIndex = 0;
   isNavigating = true;
   
-  // Salvar a linha da rota para simulação se GPS falhar
   currentRouteLine = window.routeLayer;
-  
-  // Adicionar card de navegação
   adicionarCardNavegacao();
   
-  // Falar primeira instrução
   if (navigationSteps.length > 0) {
     setTimeout(() => {
       mostrarToast(navigationSteps[0].instrucao);
@@ -467,9 +456,7 @@ function iniciarNavegacao(route, mode, fromLat, fromLng, toLat, toLng) {
     }, 1000);
   }
   
-  // Iniciar GPS
   iniciarNavegacaoGPS();
-  
   console.log('🧭 Navegação iniciada');
 }
 
@@ -667,7 +654,16 @@ async function createRoute(originText, destinationText, mode = "car") {
   to = await resolveText(destinationText);
   if (!from || !to) { alert("Local não encontrado"); return false; }
   
-  return await traceRoute(from, to, mode);
+  const result = await traceRoute(from, to, mode);
+  
+  // SALVAR ROTA NO HISTÓRICO
+  if (result && currentRoutes && currentRoutes[0] && window.adicionarRotaHistorico) {
+    const distancia = formatDistance(currentRoutes[0].distance);
+    const tempo = formatTime(currentRoutes[0].distance, mode);
+    window.adicionarRotaHistorico(from, to, distancia, tempo, mode);
+  }
+  
+  return result;
 }
 window.createRoute = createRoute;
 
@@ -724,4 +720,5 @@ document.addEventListener("DOMContentLoaded", () => {
   
   console.log("✅ Sistema de rotas OSRM com navegação nível Google Maps carregado!");
   console.log("📍 Use GPS real para seguir sua localização!");
+  console.log("📜 Rotas são salvas automaticamente no histórico!");
 });
