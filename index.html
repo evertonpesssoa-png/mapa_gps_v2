@@ -221,6 +221,34 @@ body {
 }
 
 /* ====================================== */
+/* PERFIL DE ELEVAÇÃO */
+/* ====================================== */
+
+#perfil-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 20030;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#perfil-modal {
+    background: var(--card-bg, white);
+    color: var(--text-primary, #1a1a2e);
+    border-radius: 20px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+}
+
+/* ====================================== */
 /* BASE */
 /* ====================================== */
 
@@ -1460,6 +1488,11 @@ html, body {
     .nav-btn {
         min-height: 44px;
     }
+    
+    #perfil-modal {
+        width: 95%;
+        max-height: 85vh;
+    }
 }
 
 /* Tablets (769px - 1024px) */
@@ -1826,6 +1859,12 @@ html, body {
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
 <!-- ====================================== -->
+<!-- CHART.JS (PARA O PERFIL DE ELEVAÇÃO) -->
+<!-- ====================================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- ====================================== -->
 <!-- LEAFLET JS -->
 <!-- ====================================== -->
 
@@ -1877,6 +1916,9 @@ console.log('✅ MAPBOX_TOKEN configurado');
 
 <!-- Compartilhar -->
 <script src="js/compartilhar.js"></script>
+
+<!-- PERFIL DE ELEVAÇÃO (depois de routing.js e relevo.js, antes do mapa.js) -->
+<script src="js/perfil-elevacao.js"></script>
 
 <!-- Mapa e Chat -->
 <script src="js/mapa.js"></script>
@@ -2009,6 +2051,7 @@ console.log('🧭 Navegação nível Google Maps carregada!');
 console.log('🚦 Botão de trânsito disponível!');
 console.log('🔗 Botão de compartilhamento disponível!');
 console.log('📜 Sistema de histórico ativado!');
+console.log('📈 Perfil de elevação disponível nas rotas!');
 console.log('🌙 Modo noturno automático ativado (Mapbox Dark/Light)!');
 </script>
 
