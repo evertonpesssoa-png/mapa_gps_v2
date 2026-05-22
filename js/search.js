@@ -168,18 +168,79 @@ function showActionPanel(poi) {
   closePanels("action-panel");
   const safeName = escapeHTML(poi.name || "Local");
   const safeFullName = escapeHTML(poi.fullName || "");
+  
+  // Verificar se o local já é favorito
+  let isFavorito = false;
+  if (window.historicoData && window.historicoData.favoritos) {
+    isFavorito = window.historicoData.favoritos.some(f => 
+      f.nome === poi.name && Math.abs(f.lat - lat) < 0.0001
+    );
+  }
+  
+  const favoritoBtn = isFavorito 
+    ? `<button id="fav-action-btn" style="width:100%; padding:10px; margin-bottom:8px; border:none; border-radius:10px; cursor:pointer; background:#f59e0b; color:white;">⭐ Remover dos favoritos</button>`
+    : `<button id="fav-action-btn" style="width:100%; padding:10px; margin-bottom:8px; border:none; border-radius:10px; cursor:pointer; background:#f59e0b; color:white;">⭐ Adicionar aos favoritos</button>`;
+  
   panel.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
       <b>${safeName}</b>
       <button onclick="document.getElementById('action-panel').style.display='none'" style="border:none; background:none; font-size:18px; cursor:pointer;">✕</button>
     </div>
     ${safeFullName ? `<div style="font-size:12px; color:#666; margin-bottom:10px; line-height:1.4;">${safeFullName}</div>` : ""}
-    <button onclick="viewOnMap(${lat}, ${lng})" style="width:100%; padding:10px; margin-bottom:8px; border:none; border-radius:10px; cursor:pointer;">📍 Ver no mapa</button>
-    <button onclick='openRoutePanel(${JSON.stringify({ name: poi.name, fullName: poi.fullName, lat, lng, type: poi.type })})' style="width:100%; padding:10px; border:none; border-radius:10px; cursor:pointer;">🧭 Criar rota</button>
+    <button onclick="viewOnMap(${lat}, ${lng})" style="width:100%; padding:10px; margin-bottom:8px; border:none; border-radius:10px; cursor:pointer; background:#3b82f6; color:white;">📍 Ver no mapa</button>
+    <button onclick='openRoutePanel(${JSON.stringify({ name: poi.name, fullName: poi.fullName, lat, lng, type: poi.type })})' style="width:100%; padding:10px; margin-bottom:8px; border:none; border-radius:10px; cursor:pointer; background:#10b981; color:white;">🧭 Criar rota</button>
+    ${favoritoBtn}
   `;
   panel.style.display = "block";
+  
+  // Adicionar evento do botão favoritar
+  setTimeout(() => {
+    const favBtn = document.getElementById('fav-action-btn');
+    if (favBtn) {
+      favBtn.onclick = () => {
+        if (isFavorito) {
+          const fav = window.historicoData?.favoritos?.find(f => f.nome === poi.name);
+          if (fav && window.removerFavorito) window.removerFavorito(fav.id);
+          mostrarToastLocal(`⭐ Removido dos favoritos: ${poi.name}`);
+        } else {
+          if (window.adicionarFavorito) window.adicionarFavorito(poi.name, lat, lng, poi.category);
+          mostrarToastLocal(`⭐ Adicionado aos favoritos: ${poi.name}`);
+        }
+        showActionPanel(poi); // Recarregar o panel
+      };
+    }
+  }, 50);
 }
 window.showActionPanel = showActionPanel;
+
+// ======================================
+// TOAST LOCAL (SEM INTERFERIR NO OUTRO)
+// ======================================
+
+function mostrarToastLocal(mensagem) {
+  let toast = document.getElementById('search-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'search-toast';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 180px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 25px;
+      font-size: 12px;
+      z-index: 20020;
+      text-align: center;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = mensagem;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 2000);
+}
 
 // ======================================
 // BUSCAR POIs DO SISTEMA DE 4 CAMADAS
@@ -217,7 +278,6 @@ async function buscarPOIsParaBusca(texto, lat, lng) {
         const poi = layer._poiData;
         const nomePOI = normalizeText(poi.name);
         if (nomePOI.includes(termoNormalizado) || termoNormalizado.includes(nomePOI)) {
-          // Evitar duplicatas
           const existe = resultados.some(r => 
             r.name === poi.name && 
             Math.abs(r.lat - (poi.lat || 0)) < 0.0001
@@ -375,6 +435,11 @@ function renderResults(results) {
     div.onclick = () => {
       smartZoomToPlace(poi);
       showActionPanel(poi);
+      
+      // ADICIONAR LOCAL AOS RECENTES
+      if (typeof window.adicionarLocalRecente === 'function') {
+        window.adicionarLocalRecente(poi.name, poi.lat, poi.lng, poi.category);
+      }
     };
     
     container.appendChild(div);
@@ -416,4 +481,4 @@ window.searchNearby = function(lat, lng, radius = 1000, category = null) {
   }).sort((a,b) => (a.distance||0) - (b.distance||0));
 };
 
-console.log("✅ search.js carregado com integração de POIs de 4 camadas!");
+console.log("✅ search.js carregado com integração de POIs de 4 camadas e histórico!");
